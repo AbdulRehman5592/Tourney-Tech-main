@@ -32,8 +32,9 @@ export default function LoginPage() {
       });
 
       const { user } = res.data.data;
-      const accessToken = res.data.data.accessToken; // ❌ you don't actually return accessToken in API
-      localStorage.setItem("accessToken", accessToken);
+
+      // Tokens are automatically set as HTTP-only cookies by the server
+      // No need to store them in localStorage
 
       // store user in localStorage if needed
       localStorage.setItem("user", JSON.stringify(user));

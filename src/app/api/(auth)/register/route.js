@@ -93,6 +93,7 @@ export const POST = asyncHandler(async (req) => {
     avatar: clean.avatar || undefined,
     club: clean.club,
     subCity: clean.subCity,
+    isVerified: true, // Auto-verify since email verification is disabled
     // otp, // Email verification temporarily disabled
     // otpExpiry, // Email verification temporarily disabled
   });

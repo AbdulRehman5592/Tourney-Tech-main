@@ -25,10 +25,12 @@ const processQueue = (error, token = null) => {
 
 // Attach accessToken from memory or localStorage
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    config.headers["Authorization"] = `Bearer ${token}`;
-  }
+  // Since we're using HTTP-only cookies, tokens are sent automatically
+  // No need to manually set Authorization header from localStorage
+  // const token = localStorage.getItem("accessToken");
+  // if (token) {
+  //   config.headers["Authorization"] = `Bearer ${token}`;
+  // }
   return config;
 });
 
@@ -45,8 +47,8 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            originalRequest.headers["Authorization"] = `Bearer ${token}`;
+          .then(() => {
+            // Tokens are handled via cookies, no need to set headers manually
             return api(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -64,24 +66,20 @@ api.interceptors.response.use(
 
         const newAccessToken = res.data.data.accessToken;
 
-        // Save to localStorage
-        localStorage.setItem("accessToken", newAccessToken);
-
-        // Update Axios default header
-        api.defaults.headers.common["Authorization"] =
-          `Bearer ${newAccessToken}`;
+        // Since we're using HTTP-only cookies, tokens are handled automatically
+        // No need to save to localStorage
+        // localStorage.setItem("accessToken", newAccessToken);
 
         processQueue(null, newAccessToken);
 
-        // Retry the original request
-        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+        // Retry the original request - cookies are sent automatically
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         console.error("Token refresh failed. Logging out...");
 
-        // ✅ Clear token and redirect to login
-        localStorage.removeItem("accessToken");
+        // ✅ Clear user data and redirect to login
+        localStorage.removeItem("user");
         window.location.href = "/auth/login";
 
         return Promise.reject(refreshError);

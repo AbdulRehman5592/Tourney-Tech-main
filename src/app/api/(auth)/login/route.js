@@ -74,9 +74,10 @@ export const POST = asyncHandler(async (req) => {
   // ✅ Save refreshToken in DB
   user.refreshToken = refreshToken;
 
-  if (!user?.isVerified) {
-    throw new ApiError(401, "User is not verified");
-  }
+  // Email verification check disabled (since email verification is disabled)
+  // if (!user?.isVerified) {
+  //   throw new ApiError(401, "User is not verified");
+  // }
 
   await user.save({ validateBeforeSave: false });
 
