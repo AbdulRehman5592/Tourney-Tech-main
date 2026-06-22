@@ -100,8 +100,8 @@ export default function SignUpPage() {
         headers: { "Content-Type": "application/json" },
       });
 
-      toast.success(res?.data?.message || "Verification email sent!");
-      window.location.href = "/auth/verify-otp";
+      toast.success(res?.data?.message || "Registration successful!");
+      window.location.href = "/auth/login";
     } catch (error) {
       const errorMessage =
         error?.response?.data?.message || "Something went wrong";
