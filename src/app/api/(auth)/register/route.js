@@ -14,8 +14,9 @@ function sanitize(input) {
 export const POST = asyncHandler(async (req) => {
   const { fields } = await parseForm(req);
 
-  const otp = Math.floor(100000 + Math.random() * 900000);
-  const otpExpiry = Date.now() + 10 * 60 * 1000;
+  // Email verification temporarily disabled
+  // const otp = Math.floor(100000 + Math.random() * 900000);
+  // const otpExpiry = Date.now() + 10 * 60 * 1000;
 
   const {
     firstname,
@@ -92,28 +93,29 @@ export const POST = asyncHandler(async (req) => {
     avatar: clean.avatar || undefined,
     club: clean.club,
     subCity: clean.subCity,
-    otp,
-    otpExpiry,
+    // otp, // Email verification temporarily disabled
+    // otpExpiry, // Email verification temporarily disabled
   });
 
   await user.save();
 
-  const emailContent = {
-    from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "Your Email Verification OTP",
-    html: `
-      <h2>Hello ${firstname}!</h2>
-      <p>Your OTP for verification is:</p>
-      <h1 style="letter-spacing:4px;">${otp}</h1>
-      <p>This code will expire in 10 minutes.</p>
-    `,
-  };
+  // Email verification temporarily disabled
+  // const emailContent = {
+  //   from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
+  //   to: email,
+  //   subject: "Your Email Verification OTP",
+  //   html: `
+  //     <h2>Hello ${firstname}!</h2>
+  //     <p>Your OTP for verification is:</p>
+  //     <h1 style="letter-spacing:4px;">${otp}</h1>
+  //     <p>This code will expire in 10 minutes.</p>
+  //   `,
+  // };
 
-  await sendEmail(emailContent);
+  // await sendEmail(emailContent);
 
   return Response.json(
-    new ApiResponse(201, null, "Verification Email Sent Successfully!")
+    new ApiResponse(201, null, "Registration Successful! (Email verification disabled)")
   );
 
   // return setAuthCookies(res, accessToken, refreshToken);
