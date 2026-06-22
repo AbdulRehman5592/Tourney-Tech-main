@@ -1,0 +1,194 @@
+
+
+@import "tailwindcss";
+
+/* ========= THEME ROOT ========= */
+:root {
+  /* 🌑 Background & Text */
+  --background: #030712;           /* Very dark gray (almost black) */
+  --foreground: #ededed;           /* Light neutral text color */
+
+  /* 🎨 Primary Branding Color (Blue) */
+  --primary-color: #12257B;        /* Dark navy blue */
+  --primary-hover: #0B2C6B;
+
+  /* 🌗 Secondary UI Surfaces (e.g., cards, inputs) */
+  --secondary-color: #1f2937;      /* Tailwind gray-800 */
+  --secondary-hover: #374151;      /* Tailwind gray-700 */
+
+  /* 🌟 Accent/Highlight Color (Yellow) */
+  --accent-color: #FBBF24;         /* Tailwind yellow-400 */
+  --accent-hover: #F59E0B;         /* Tailwind yellow-500 */
+
+  /* ✅ Feedback Colors */
+  --error-color: #EF4444;          /* Red-500 */
+  --success-color: #10B981;        /* Green-500 */
+  --info-color: #3B82F6;           /* Blue-500 */
+
+  /* 🧱 Borders & Cards */
+  --border-color: #364153;
+  --card-background: #101828;
+  --card-hover: #0a111d;
+
+  /* ✍️ Typography */
+  --font-sans: var(--font-geist-sans, "Inter", sans-serif);
+  --font-mono: var(--font-geist-mono, monospace);
+
+}
+
+/* ========= THEME OVERRIDE (DARK MODE) ========= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #030712;
+    --foreground: #ededed;
+
+    --primary-color: #12257B;
+    --primary-hover: #0B2C6B;
+
+    --secondary-color: #1f2937;
+    --secondary-hover: #374151;
+
+    --accent-color: #FBBF24;
+    --accent-hover: #F59E0B;
+
+    --error-color: #EF4444;
+    --success-color: #10B981;
+    --info-color: #3B82F6;
+
+    --border-color: #364153;
+    --card-background: #101828;
+
+  }
+}
+
+/* ========= BASE RESET ========= */
+* {
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+
+.scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Track */
+.scrollbar::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: var(--card-background);
+}
+.scrollbar::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: var(--card-background);
+}
+/* Handle */
+.scrollbar::-webkit-scrollbar-thumb {
+  background: var(--card-background);
+   border-radius: 10px;
+}
+
+.scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+
+
+/* Handle on hover */
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--card-hover);
+}
+
+/* x */
+.scrollbar-x::-webkit-scrollbar {
+  height: 6px !important;
+}
+
+/* Track */
+.scrollbar-x::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+/* Handle */
+.scrollbar-x::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+   border-radius: 10px;
+}
+
+/* Handle on hover */
+.scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: var(--card-hover);
+}
+
+
+/* date picker */
+
+.react-datepicker-wrapper{
+  width: 100% !important;
+}
+.react-datepicker-wrapper .react-datepicker__input-container input{
+  background-color: var(--secondary-color) !important; 
+  border: 1px solid var(--border-color) !important;
+  color: var(--foreground) !important;
+}
+
+.react-datepicker {
+  background-color: var(--secondary-color) !important; 
+  border: 1px solid var(--border-color) !important;
+  color: var(--foreground) !important;
+  border-radius: 0.5rem !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--secondary-color) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+.react-datepicker__header .react-datepicker__month-dropdown{
+  background-color: var(--secondary-color) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--foreground) !important;
+}
+
+.react-datepicker__header .react-datepicker__current-month{
+  display: none !important;
+}
+
+.react-datepicker__header .react-datepicker__month-dropdown .react-datepicker__month-option:hover{
+  background-color: var(--accent-color) !important;
+  color: var(--background) !important;
+}
+
+.react-datepicker__day,
+.react-datepicker__month-text {
+  color: var(--foreground) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__month-text--selected {
+  background-color: var(--accent-color) !important;
+  color: var(--background) !important;
+}
+
+.react-datepicker__day:hover,
+.react-datepicker__month-text:hover {
+  background-color: var(--accent-color) !important;
+  color: var(--background) !important;
+}
+
+
+
