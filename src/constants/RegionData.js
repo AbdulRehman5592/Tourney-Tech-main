@@ -46,49 +46,128 @@ export const regionCitiesMap = {
   Other: ["Other Region"],
 };
 
-// 🏙️ UK STATES (Constituent Countries + Major Counties)
+// 🏙️ US STATES (All 50 States + DC)
 export const stateList = [
-  { isoCode: "ENG", name: "England" },
-  { isoCode: "SCT", name: "Scotland" },
-  { isoCode: "WLS", name: "Wales" },
-  { isoCode: "NIR", name: "Northern Ireland" },
+  // 🌆 Northeast
+  { isoCode: "NY", name: "New York" },
+  { isoCode: "NJ", name: "New Jersey" },
+  { isoCode: "PA", name: "Pennsylvania" },
+  { isoCode: "CT", name: "Connecticut" },
+  { isoCode: "MA", name: "Massachusetts" },
+  { isoCode: "RI", name: "Rhode Island" },
+  { isoCode: "VT", name: "Vermont" },
+  { isoCode: "NH", name: "New Hampshire" },
+  { isoCode: "ME", name: "Maine" },
+  { isoCode: "DE", name: "Delaware" },
+  { isoCode: "MD", name: "Maryland" },
+  { isoCode: "DC", name: "Washington DC" },
 
-  // Major English counties (for detail)
-  { isoCode: "LND", name: "Greater London" },
-  { isoCode: "MAN", name: "Greater Manchester" },
-  { isoCode: "YKS", name: "Yorkshire" },
-  { isoCode: "WMID", name: "West Midlands" },
-  { isoCode: "MER", name: "Merseyside" },
-  { isoCode: "KNT", name: "Kent" },
-  { isoCode: "ESS", name: "Essex" },
-  { isoCode: "HRF", name: "Hertfordshire" },
-  { isoCode: "SRY", name: "Surrey" },
+  // 🏞️ Midwest
+  { isoCode: "IL", name: "Illinois" },
+  { isoCode: "IN", name: "Indiana" },
+  { isoCode: "OH", name: "Ohio" },
+  { isoCode: "MI", name: "Michigan" },
+  { isoCode: "WI", name: "Wisconsin" },
+  { isoCode: "MN", name: "Minnesota" },
+  { isoCode: "IA", name: "Iowa" },
+  { isoCode: "MO", name: "Missouri" },
+  { isoCode: "KS", name: "Kansas" },
+  { isoCode: "NE", name: "Nebraska" },
+  { isoCode: "SD", name: "South Dakota" },
+  { isoCode: "ND", name: "North Dakota" },
+
+  // 🌄 South
+  { isoCode: "VA", name: "Virginia" },
+  { isoCode: "NC", name: "North Carolina" },
+  { isoCode: "SC", name: "South Carolina" },
+  { isoCode: "GA", name: "Georgia" },
+  { isoCode: "FL", name: "Florida" },
+  { isoCode: "AL", name: "Alabama" },
+  { isoCode: "MS", name: "Mississippi" },
+  { isoCode: "TN", name: "Tennessee" },
+  { isoCode: "KY", name: "Kentucky" },
+  { isoCode: "WV", name: "West Virginia" },
+  { isoCode: "AR", name: "Arkansas" },
+  { isoCode: "LA", name: "Louisiana" },
+
+  // 🏜️ West
+  { isoCode: "TX", name: "Texas" },
+  { isoCode: "OK", name: "Oklahoma" },
+  { isoCode: "CA", name: "California" },
+  { isoCode: "AZ", name: "Arizona" },
+  { isoCode: "NV", name: "Nevada" },
+  { isoCode: "NM", name: "New Mexico" },
+  { isoCode: "CO", name: "Colorado" },
+  { isoCode: "UT", name: "Utah" },
+  { isoCode: "WY", name: "Wyoming" },
+  { isoCode: "MT", name: "Montana" },
+  { isoCode: "ID", name: "Idaho" },
+  { isoCode: "WA", name: "Washington" },
+  { isoCode: "OR", name: "Oregon" },
+  { isoCode: "AK", name: "Alaska" },
+  { isoCode: "HI", name: "Hawaii" },
 ];
 
-// 🏙️ STATE → CITY MAP (UK)
+// 🏙️ STATE → CITY MAP (US)
 export const stateCitiesMap = {
-  // 🌆 England
-  ENG: ["London", "Birmingham", "Manchester", "Liverpool", "Leeds", "Bristol", "Nottingham", "Sheffield", "Leicester", "Newcastle upon Tyne"],
-  
-  // 🏔️ Scotland
-  SCT: ["Edinburgh", "Glasgow", "Aberdeen", "Dundee", "Inverness", "Stirling"],
+  // 🌆 Northeast
+  NY: ["New York City", "Buffalo", "Rochester", "Yonkers", "Syracuse", "Albany"],
+  NJ: ["Newark", "Jersey City", "Paterson", "Elizabeth", "Trenton"],
+  PA: ["Philadelphia", "Pittsburgh", "Allentown", "Erie", "Reading", "Scranton"],
+  CT: ["Hartford", "New Haven", "Stamford", "Bridgeport", "Waterbury"],
+  MA: ["Boston", "Worcester", "Springfield", "Cambridge", "Lowell", "Quincy"],
+  RI: ["Providence", "Warwick", "Cranston", "Pawtucket"],
+  VT: ["Burlington", "Essex", "South Burlington", "Colchester"],
+  NH: ["Manchester", "Nashua", "Concord", "Derry", "Dover"],
+  ME: ["Portland", "Lewiston", "Bangor", "South Portland", "Auburn"],
+  DE: ["Wilmington", "Dover", "Newark", "Middletown"],
+  MD: ["Baltimore", "Columbia", "Germantown", "Silver Spring", "Waldorf"],
+  DC: ["Washington DC", "Georgetown", "Capitol Hill", "Adams Morgan"],
 
-  // 🏞️ Wales
-  WLS: ["Cardiff", "Swansea", "Newport", "Wrexham", "Bangor"],
+  // 🏞️ Midwest
+  IL: ["Chicago", "Aurora", "Naperville", "Joliet", "Rockford", "Springfield"],
+  IN: ["Indianapolis", "Fort Wayne", "Evansville", "South Bend", "Carmel"],
+  OH: ["Columbus", "Cleveland", "Cincinnati", "Toledo", "Akron", "Dayton"],
+  MI: ["Detroit", "Grand Rapids", "Warren", "Sterling Heights", "Lansing", "Ann Arbor"],
+  WI: ["Milwaukee", "Madison", "Green Bay", "Kenosha", "Racine"],
+  MN: ["Minneapolis", "Saint Paul", "Rochester", "Duluth", "Bloomington"],
+  IA: ["Des Moines", "Cedar Rapids", "Davenport", "Sioux City", "Waterloo"],
+  MO: ["Kansas City", "St. Louis", "Springfield", "Independence", "Columbia"],
+  KS: ["Wichita", "Overland Park", "Kansas City", "Topeka", "Olathe"],
+  NE: ["Omaha", "Lincoln", "Bellevue", "Grand Island", "Kearney"],
+  SD: ["Sioux Falls", "Rapid City", "Aberdeen", "Brookings", "Watertown"],
+  ND: ["Fargo", "Bismarck", "Grand Forks", "Minot", "West Fargo"],
 
-  // 🍀 Northern Ireland
-  NIR: ["Belfast", "Derry", "Lisburn", "Newry"],
+  // 🌄 South
+  VA: ["Virginia Beach", "Norfolk", "Chesapeake", "Richmond", "Newport News", "Arlington"],
+  NC: ["Charlotte", "Raleigh", "Greensboro", "Durham", "Winston-Salem", "Fayetteville"],
+  SC: ["Charleston", "Columbia", "North Charleston", "Mount Pleasant", "Rock Hill"],
+  GA: ["Atlanta", "Augusta", "Columbus", "Savannah", "Athens", "Macon"],
+  FL: ["Jacksonville", "Miami", "Tampa", "Orlando", "St. Petersburg", "Hialeah", "Tallahassee"],
+  AL: ["Birmingham", "Montgomery", "Mobile", "Huntsville", "Tuscaloosa"],
+  MS: ["Jackson", "Gulfport", "Southaven", "Hattiesburg", "Biloxi"],
+  TN: ["Nashville", "Memphis", "Knoxville", "Chattanooga", "Clarksville", "Murfreesboro"],
+  KY: ["Louisville", "Lexington", "Bowling Green", "Owensboro", "Covington"],
+  WV: ["Charleston", "Huntington", "Parkersburg", "Morgantown", "Wheeling"],
+  AR: ["Little Rock", "Fort Smith", "Fayetteville", "Springdale", "Jonesboro"],
+  LA: ["New Orleans", "Baton Rouge", "Shreveport", "Lafayette", "Lake Charles", "Metairie"],
 
-  // 🇬🇧 Major English counties
-  LND: ["City of London", "Westminster", "Camden", "Croydon", "Ealing"],
-  MAN: ["Manchester", "Salford", "Stockport", "Bolton", "Oldham"],
-  YKS: ["Leeds", "Sheffield", "Bradford", "York", "Huddersfield"],
-  WMID: ["Birmingham", "Wolverhampton", "Coventry", "Solihull", "Dudley"],
-  MER: ["Liverpool", "Birkenhead", "St Helens", "Southport", "Bootle"],
-  KNT: ["Maidstone", "Canterbury", "Dover", "Tunbridge Wells", "Ashford"],
-  ESS: ["Chelmsford", "Colchester", "Southend-on-Sea", "Basildon", "Harlow"],
-  HRF: ["Watford", "St Albans", "Stevenage", "Hemel Hempstead"],
-  SRY: ["Guildford", "Woking", "Epsom", "Redhill", "Farnham"],
+  // 🏜️ West
+  TX: ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth", "El Paso", "Arlington"],
+  OK: ["Oklahoma City", "Tulsa", "Norman", "Broken Arrow", "Edmond"],
+  CA: ["Los Angeles", "San Diego", "San Jose", "San Francisco", "Fresno", "Sacramento", "Oakland"],
+  AZ: ["Phoenix", "Tucson", "Mesa", "Chandler", "Glendale", "Scottsdale"],
+  NV: ["Las Vegas", "Henderson", "Reno", "North Las Vegas", "Sparks"],
+  NM: ["Albuquerque", "Las Cruces", "Rio Rancho", "Santa Fe", "Roswell"],
+  CO: ["Denver", "Colorado Springs", "Aurora", "Fort Collins", "Lakewood"],
+  UT: ["Salt Lake City", "West Valley City", "Provo", "West Jordan", "Orem"],
+  WY: ["Cheyenne", "Casper", "Laramie", "Gillette", "Rock Springs"],
+  MT: ["Billings", "Missoula", "Great Falls", "Bozeman", "Helena"],
+  ID: ["Boise", "Meridian", "Nampa", "Idaho Falls", "Pocatello"],
+  WA: ["Seattle", "Spokane", "Tacoma", "Vancouver", "Bellevue"],
+  OR: ["Portland", "Eugene", "Salem", "Gresham", "Hillsboro"],
+  AK: ["Anchorage", "Fairbanks", "Juneau", "Sitka", "Ketchikan"],
+  HI: ["Honolulu", "Pearl City", "Hilo", "Kailua", "Waipahu"],
 };
 
 // 🏆 CLUB LIST (UNCHANGED)
@@ -102,7 +181,7 @@ export const clubList = [
   "CLUB BID",
   "CWPS COLUMBUS WHIST PLAYERS SOCIETY",
   "DALLAS ROAD CREW",
-  "DMV CARTEL",
+  "DMV CARDTEL",
   "DMV REGULATORS",
   "H-TOWN 7NO BID WHIST CLUB",
   "HEAVY HITTERS",
