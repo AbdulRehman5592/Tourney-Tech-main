@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { regionList, statesByRegion, stateList, citiesByState } from "@/constants/USLocationsData.json";
+import { regionList, stateList, citiesByState } from "@/constants/USLocationsData.json";
 
 /**
- * US Location Selector with Region → State → City cascade
- * Ponytail: Simple JSON-based dropdowns, no complex state management
+ * US Location Selector
+ * Flow: State → City (cascade), Playing Region (independent), Club
+ * Ponytail: Simple JSON-based dropdowns
  */
 export default function USLocationSelector({
   region,
@@ -17,25 +18,7 @@ export default function USLocationSelector({
   club,
   setClub,
 }) {
-  const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-
-  // Load states when region changes
-  useEffect(() => {
-    if (region) {
-      const stateCodes = statesByRegion[region] || [];
-      const regionStates = stateList.filter(s => stateCodes.includes(s.isoCode));
-      setStates(regionStates);
-      setStateCode("");
-      setCity("");
-      setCities([]);
-    } else {
-      setStates([]);
-      setStateCode("");
-      setCity("");
-      setCities([]);
-    }
-  }, [region]);
 
   // Load cities when state changes
   useEffect(() => {
@@ -51,12 +34,12 @@ export default function USLocationSelector({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Region */}
+      {/* State */}
       <div>
-        <label className="block mb-2 text-sm font-medium">Region</label>
+        <label className="block mb-2 text-sm font-medium">State</label>
         <select
-          value={region}
-          onChange={(e) => setRegion(e.target.value)}
+          value={stateCode}
+          onChange={(e) => setStateCode(e.target.value)}
           required
           className="w-full px-4 py-2 rounded-md border"
           style={{
@@ -65,32 +48,8 @@ export default function USLocationSelector({
             color: "var(--foreground)",
           }}
         >
-          <option value="">Select Region</option>
-          {regionList.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* State */}
-      <div>
-        <label className="block mb-2 text-sm font-medium">State</label>
-        <select
-          value={stateCode}
-          onChange={(e) => setStateCode(e.target.value)}
-          required
-          disabled={!region}
-          className="w-full px-4 py-2 rounded-md border disabled:opacity-50"
-          style={{
-            backgroundColor: "var(--secondary-color)",
-            borderColor: "var(--border-color)",
-            color: "var(--foreground)",
-          }}
-        >
           <option value="">Select State</option>
-          {states.map((s) => (
+          {stateList.map((s) => (
             <option key={s.isoCode} value={s.isoCode}>
               {s.name}
             </option>
@@ -117,6 +76,29 @@ export default function USLocationSelector({
           {cities.map((c) => (
             <option key={c} value={c}>
               {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Playing Region */}
+      <div>
+        <label className="block mb-2 text-sm font-medium">Playing Region</label>
+        <select
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+          required
+          className="w-full px-4 py-2 rounded-md border"
+          style={{
+            backgroundColor: "var(--secondary-color)",
+            borderColor: "var(--border-color)",
+            color: "var(--foreground)",
+          }}
+        >
+          <option value="">Select Playing Region</option>
+          {regionList.map((r) => (
+            <option key={r} value={r}>
+              {r}
             </option>
           ))}
         </select>
