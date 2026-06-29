@@ -7,7 +7,7 @@ import Loader from "@/components/Loader";
 
 import { toast } from "react-hot-toast";
 
-import CitySelector from "@/components/ui/signup/CitySelector";
+import USLocationSelector from "@/components/ui/signup/USLocationSelector";
 
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -21,10 +21,10 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [dob, setDob] = useState("");
-  const [city, setCity] = useState("");
-  const [subCity, setSubCity] = useState("");
-  const [club, setClub] = useState("");
+  const [region, setRegion] = useState("");
   const [stateCode, setStateCode] = useState("");
+  const [city, setCity] = useState("");
+  const [club, setClub] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("");
 
@@ -39,9 +39,9 @@ export default function SignUpPage() {
       !lastName ||
       !email ||
       !password ||
-      !city ||
-      !subCity ||
+      !region ||
       !stateCode ||
+      !city ||
       !club ||
       !dob
     ) {
@@ -88,9 +88,9 @@ export default function SignUpPage() {
         username,
         password,
         dob,
-        city,
-        subCity,
+        region,
         stateCode,
+        city,
         club,
         phone,
         gender,
@@ -253,13 +253,13 @@ export default function SignUpPage() {
 
             {/* State Code & Gender */}
             {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> */}
-            <CitySelector
-              city={city}
-              setCity={setCity}
-              subCity={subCity}
-              setSubCity={setSubCity}
+            <USLocationSelector
+              region={region}
+              setRegion={setRegion}
               stateCode={stateCode}
               setStateCode={setStateCode}
+              city={city}
+              setCity={setCity}
               club={club}
               setClub={setClub}
             />
