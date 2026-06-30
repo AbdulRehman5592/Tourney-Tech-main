@@ -11,7 +11,7 @@ export const PATCH = asyncHandler(async (req, context) => {
 
   const { fields } = await parseForm(req);
 
-  const { id } = context.params;
+  const { id } = await context.params;
   if (!id) throw new ApiError(400, "ID parameter is missing");
   
   const userExist = await User.findById(id);
