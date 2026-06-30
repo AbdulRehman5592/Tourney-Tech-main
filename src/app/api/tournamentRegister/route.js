@@ -7,16 +7,18 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { parseForm } from "@/utils/server/parseForm";
 import { requireAuth } from "@/utils/server/auth";
+import { requireAdmin } from "@/utils/server/roleGuards";
 import mongoose from "mongoose";
 import "@/models/BankDetails";
 import "@/models/Game";
 
 export const POST = asyncHandler(async (req) => {
   const { fields } = await parseForm(req);
-  const user = await requireAuth();
+  const requester = await requireAuth();
 
   const tournamentId = fields.tournamentId?.toString();
-  const userId = user?._id;
+  const requestedUserId = fields.userId?.toString();
+  const userId = requestedUserId || requester?._id?.toString();
   const gameIds = Array.isArray(fields.gameIds)
     ? fields.gameIds
     : fields.gameIds
@@ -27,6 +29,10 @@ export const POST = asyncHandler(async (req) => {
     typeof fields.paymentDetails === "string"
       ? JSON.parse(fields.paymentDetails)
       : fields.paymentDetails;
+
+  if (requestedUserId && requestedUserId !== requester?._id?.toString()) {
+    await requireAdmin();
+  }
 
   if (!tournamentId || !userId) {
     throw new ApiError(400, "Tournament ID and User ID are required.");
