@@ -1,6 +1,8 @@
 // src\models\Game.js
 
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 const GameSchema = new Schema(
   {

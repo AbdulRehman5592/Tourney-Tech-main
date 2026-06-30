@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 const TournamentGameSchema = new Schema({
   game: { type: Schema.Types.ObjectId, ref: "Game", required: true },

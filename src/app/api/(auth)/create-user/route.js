@@ -1,4 +1,5 @@
 import { User } from "@/models/User";
+import { connectDB } from "@/lib/mongoose";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { parseForm } from "@/utils/server/parseForm";
 
@@ -7,6 +8,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 
 export const POST = asyncHandler(async (req) => {
   await requireAdmin();
+  await connectDB();
 
   const { fields: body } = await parseForm(req);
 

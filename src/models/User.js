@@ -1,6 +1,8 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+
+const { Schema, model, models } = mongoose;
 
 dotenv.config();
 

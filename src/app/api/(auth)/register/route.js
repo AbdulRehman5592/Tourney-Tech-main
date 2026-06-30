@@ -1,4 +1,5 @@
 import { User } from "@/models/User";
+import { connectDB } from "@/lib/mongoose";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { ApiError } from "@/utils/server/ApiError";
 import { asyncHandler } from "@/utils/server/asyncHandler";
@@ -12,6 +13,7 @@ function sanitize(input) {
 }
 
 export const POST = asyncHandler(async (req) => {
+  await connectDB();
   const { fields } = await parseForm(req);
 
   // Email verification temporarily disabled

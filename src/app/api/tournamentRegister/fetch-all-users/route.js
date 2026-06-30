@@ -1,3 +1,4 @@
+import { connectDB } from "@/lib/mongoose";
 import { Registration } from "@/models/Registration";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
@@ -5,6 +6,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 import "@/models/Game";
 
 export const GET = asyncHandler(async () => {
+  await connectDB();
   await requireAdmin();
 
   const fetchAllRegisterdUsersInTournament = await Registration.find()

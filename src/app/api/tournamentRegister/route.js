@@ -1,4 +1,5 @@
 // import { Registration, GameRegistrationSchema } from "@/models/Registration.js";
+import { connectDB } from "@/lib/mongoose.js";
 import { Registration } from "@/models/Registration.js";
 import { Tournament } from "@/models/Tournament.js";
 // import { Team } from "@/models/Team.js";
@@ -13,6 +14,7 @@ import "@/models/BankDetails";
 import "@/models/Game";
 
 export const POST = asyncHandler(async (req) => {
+  await connectDB();
   const { fields } = await parseForm(req);
   const requester = await requireAuth();
 
@@ -64,9 +66,24 @@ export const POST = asyncHandler(async (req) => {
   const existingRegistration = await Registration.findOne({
     tournament: tournamentId,
     user: userId,
-    "gameRegistrationDetails.games": { $all: validGameIds },
   });
+
   if (existingRegistration) {
+    const existingGames = (existingRegistration.gameRegistrationDetails?.games || []).map(
+      (game) => game.toString()
+    );
+    const requestedGames = validGameIds.map((gameId) => gameId.toString());
+    const sameGamesAlreadyRegistered =
+      existingGames.length === requestedGames.length &&
+      requestedGames.every((gameId) => existingGames.includes(gameId));
+
+    if (sameGamesAlreadyRegistered) {
+      throw new ApiError(
+        409,
+        "You have already registered for this game in this tournament."
+      );
+    }
+
     await Registration.findByIdAndUpdate(
       existingRegistration._id,
       {
@@ -143,6 +160,7 @@ export const POST = asyncHandler(async (req) => {
 });
 
 export const GET = asyncHandler(async () => {
+  await connectDB();
   const registrations = await Registration.find()
     .populate("tournament")
     .populate("user", "username email")
@@ -152,7 +170,7 @@ export const GET = asyncHandler(async () => {
     })
     .populate({
       path: "gameRegistrationDetails.team",
-      model: "Teams",
+      model: "Team",
       strictPopulate: false,
     })
     .populate({

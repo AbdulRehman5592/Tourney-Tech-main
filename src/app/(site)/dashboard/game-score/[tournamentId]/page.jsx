@@ -27,16 +27,26 @@ export default function GamePlay() {
 
         const registrations = regRes.data?.data || [];
 
+        const normalizeId = (id) => {
+          if (!id) return null;
+          if (typeof id === "string") return id;
+          if (typeof id === "object" && id._id) return id._id.toString();
+          if (typeof id === "object" && id.toString) return id.toString();
+          return String(id);
+        };
+
         let myRegistrations;
 
         if (Array.isArray(registrations)) {
-          myRegistrations = registrations.filter((reg) => reg.user === userId);
+          myRegistrations = registrations.filter(
+            (reg) => normalizeId(reg.user) === normalizeId(userId)
+          );
         }
 
         let myGames;
 
         // Flatten games
-        if (myRegistrations) {
+        if (Array.isArray(myRegistrations) && myRegistrations.length > 0) {
           myGames = myRegistrations.flatMap(
             (reg) => reg.gameRegistrationDetails?.games || []
           );
