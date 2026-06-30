@@ -83,7 +83,7 @@ export default function USLocationSelector({
 
       {/* Playing Region */}
       <div>
-        <label className="block mb-2 text-sm font-medium">Playing Region</label>
+        <label className="block mb-2 text-sm font-medium">Playing Regions</label>
         <select
           value={region}
           onChange={(e) => setRegion(e.target.value)}
