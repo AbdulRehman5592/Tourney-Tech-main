@@ -19,7 +19,8 @@ import {
   ArrowLeftRight,
   UserPlus2,
   SquareChartGantt,
-  ImageUp
+  ImageUp,
+  ClipboardList,
 } from "lucide-react";
 
 // Change this to adminNavItems if needed
@@ -39,6 +40,7 @@ const adminNavItems = [
   { href: "/admin/all-registered-players", label: "All Registered Players", icon: Users },
   { href: "/admin/create-team", label: "Create Team", icon: PlusCircle },
   { href: "/admin/all-teams", label: "All Teams", icon: Users },
+  { href: "/admin/all-tournaments", label: "All Tournaments", icon: ClipboardList },
   { href: "/admin/sitting", label: "Add Sittings", icon: SquareChartGantt },
   { href: "/admin/gallery", label: "Gallery", icon: ImageUp },
   // {
