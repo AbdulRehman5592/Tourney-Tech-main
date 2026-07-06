@@ -5,6 +5,7 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { Team } from "@/models/Team";
 // import { TeamUp } from "@/models/TeamUp";
 import { User } from "@/models/User"; // agar members check karna ho
+import { getNextSequence } from "@/lib/utils";
 import mongoose from "mongoose";
 import "@/models/BankDetails";
 import "@/models/Game";
@@ -60,14 +61,7 @@ export const POST = asyncHandler(async (req) => {
   }
 
   const teamName = `${users[0].username}_${users[1].username}`;
-  const lastTeam = await Team.findOne({ tournament, game })
-    .sort({ serialNo: -1 })
-    .select("serialNo");
-
-  let newSerial = 1;
-  if (lastTeam) {
-    newSerial = parseInt(lastTeam.serialNo, 10) + 1;
-  }
+  const newSerial = await getNextSequence(`team-serial-${tournament}-${game}`);
 
   const team = await Team.create({
     name: teamName,

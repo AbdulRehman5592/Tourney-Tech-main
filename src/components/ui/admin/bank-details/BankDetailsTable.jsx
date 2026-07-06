@@ -51,6 +51,9 @@ export default function BankDetailsTable() {
           <thead className="bg-[var(--secondary-color)]">
             <tr>
               <th className="px-4 py-3 text-left text-sm font-medium text-[var(--foreground)]">
+                Sr No.
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--foreground)]">
                 Bank Name
               </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-[var(--foreground)]">
@@ -59,17 +62,26 @@ export default function BankDetailsTable() {
               <th className="px-4 py-3 text-left text-sm font-medium text-[var(--foreground)]">
                 Account Holder
               </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-[var(--foreground)]">
+                Created At
+              </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-[var(--foreground)]">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-color)] bg-[var(--card-background)]">
-            {currentRows.map((account) => (
+            {currentRows.map((account, i) => (
               <tr key={account._id} className="hover:bg-[var(--card-hover)]">
+                <td className="px-4 py-3 text-sm">{indexOfFirstRow + i + 1}</td>
                 <td className="px-4 py-3 text-sm">{account.bankName}</td>
                 <td className="px-4 py-3 text-sm">{account.accountNumber}</td>
                 <td className="px-4 py-3 text-sm">{account.accountHolder}</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                  {account.createdAt
+                    ? new Date(account.createdAt).toLocaleString()
+                    : "-"}
+                </td>
                 <td className="px-4 py-3 flex justify-center gap-3">
                   {/* ✅ Open form for edit */}
                   <button

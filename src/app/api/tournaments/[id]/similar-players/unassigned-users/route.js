@@ -11,7 +11,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 
 export const GET = asyncHandler(async (req, context) => {
   await requireAdmin(req);
-  const { id: tournamentId } = context.params;
+  const { id: tournamentId } = await context.params;
   const { searchParams } = new URL(req.url);
   const gameId = searchParams.get("gameId");
 

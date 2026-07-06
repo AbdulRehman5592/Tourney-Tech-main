@@ -5,6 +5,7 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
+import { getNextSequence } from "@/lib/utils";
 import mongoose from "mongoose";
 
 function isValidObjectId(id) {
@@ -137,17 +138,8 @@ export const POST = asyncHandler(async (req) => {
       "Both creator and selected partner must be registered for this game in the tournament"
     );
   }
-  const lastTeam = await Team.findOne({
-    tournament: tournamentId,
-    game: gameId,
-  })
-    .sort({ serialNo: -1 })
-    .select("serialNo");
+  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameId}`);
 
-  let newSerial = 1;
-  if (lastTeam) {
-    newSerial = parseInt(lastTeam.serialNo, 10) + 1;
-  }
   const newTeam = await Team.create({
     tournament: new mongoose.Types.ObjectId(tournamentId),
     game: new mongoose.Types.ObjectId(gameId),

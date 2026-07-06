@@ -96,6 +96,9 @@ export default function AllRegisteredPlayers() {
           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
             <tr>
               <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                Sr No.
+              </th>
+              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
                 User
               </th>
               <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
@@ -107,14 +110,20 @@ export default function AllRegisteredPlayers() {
               <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
                 Games
               </th>
+              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                Registered At
+              </th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
-            {currentRows.map((reg) => (
+            {currentRows.map((reg, i) => (
               <tr
                 key={reg._id}
                 className="hover:bg-[var(--secondary-hover)] transition-colors"
               >
+                <td className="py-2 px-4 border-b border-[var(--border-color)]">
+                  {indexOfFirst + i + 1}
+                </td>
                 <td className="py-2 px-4 border-b border-[var(--border-color)]">
                   {reg.user?.firstname} {reg.user?.lastname}
                 </td>
@@ -139,6 +148,11 @@ export default function AllRegisteredPlayers() {
                   ) : (
                     <span className="text-sm opacity-70">No games</span>
                   )}
+                </td>
+                <td className="py-2 px-4 border-b border-[var(--border-color)] whitespace-nowrap">
+                  {reg.createdAt
+                    ? new Date(reg.createdAt).toLocaleString()
+                    : "-"}
                 </td>
               </tr>
             ))}

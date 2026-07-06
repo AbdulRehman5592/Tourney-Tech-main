@@ -64,6 +64,7 @@ export const GET = asyncHandler(async () => {
 
   const sittingArrangements = await SittingArrangment.find({ user })
     .populate("game tournament user gallery")
+    .sort({ createdAt: -1 })
     .lean();
 
   return Response.json(

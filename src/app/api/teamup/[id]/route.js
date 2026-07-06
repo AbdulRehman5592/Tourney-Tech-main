@@ -12,7 +12,7 @@ import { parseForm } from "@/utils/server/parseForm";
 
 export const PATCH = asyncHandler(async (req, context) => {
   const user = await requireAuth();
-  const { id } = context.params;
+  const { id } = await context.params;
   const { fields } = await parseForm(req);
   const status = fields.status?.toString();
 
@@ -94,7 +94,7 @@ export const PATCH = asyncHandler(async (req, context) => {
 
 export const DELETE = asyncHandler(async (_, context) => {
   const user = await requireAuth();
-  const { id } = context.params;
+  const { id } = await context.params;
 
   const request = await TeamUp.findById(id);
 

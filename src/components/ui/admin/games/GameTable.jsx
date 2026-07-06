@@ -3,6 +3,12 @@ import { useState, useMemo } from "react";
 import { Trash2, Pencil, Repeat } from "lucide-react";
 
 import Image from "next/image";
+
+// Next/Image requires an absolute URL or a root-relative path; some legacy/seed
+// records store placeholder values (e.g. an emoji) that aren't valid image sources.
+const isValidImageSrc = (value) =>
+  typeof value === "string" && (value.startsWith("/") || value.startsWith("http"));
+
 export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -45,6 +51,7 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
               <th className="p-3 border-b border-[var(--border-color)]">Name</th>
               <th className="p-3 border-b border-[var(--border-color)]">Host</th>
               <th className="p-3 border-b border-[var(--border-color)]">Platform</th>
+              <th className="p-3 border-b border-[var(--border-color)]">Created At</th>
               <th className="p-3 border-b border-[var(--border-color)] text-center">Actions</th>
             </tr>
           </thead>
@@ -56,14 +63,19 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
                     {(page - 1) * pageSize + index + 1}
                   </td>
                   <td className="p-3 text-sm">
-                   <Image src={game.icon} alt={game.name} width={40} height={40} className="rounded" />
+                   <Image src={isValidImageSrc(game.icon) ? game.icon : "/images/default-icon.png"} alt={game.name} width={40} height={40} className="rounded" />
                   </td>
                   <td className="p-3 text-sm">
-                   <Image src={game.coverImage} alt={game.coverImage} width={40} height={40} className="rounded" />
+                   <Image src={isValidImageSrc(game.coverImage) ? game.coverImage : "/images/default-cover.jpg"} alt={game.name} width={40} height={40} className="rounded" />
                   </td>
                   <td className="p-3 text-sm">{game.name}</td>
                   <td className="p-3 text-sm">{game.genre || "N/A"}</td>
                   <td className="p-3 text-sm">{game.platform}</td>
+                  <td className="p-3 text-sm whitespace-nowrap">
+                    {game.createdAt
+                      ? new Date(game.createdAt).toLocaleString()
+                      : "-"}
+                  </td>
                   <td className="p-2 text-sm text-center space-x-2">
                     <button
                       onClick={() => onEdit(game)}
@@ -89,7 +101,7 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="p-4 text-center text-gray-500">
+                <td colSpan="8" className="p-4 text-center text-gray-500">
                   No games found.
                 </td>
               </tr>

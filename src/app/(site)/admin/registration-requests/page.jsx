@@ -133,6 +133,7 @@ export default function AdminRegistrationsTable() {
         >
           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
             <tr>
+              <th className="py-2 px-4 text-left">Sr No.</th>
               <th className="py-2 px-4 text-left">User</th>
               <th className="py-2 px-4 text-left">User Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
@@ -144,16 +145,18 @@ export default function AdminRegistrationsTable() {
               <th className="py-2 px-4 text-left">Bank Name</th>
               <th className="py-2 px-4 text-left">Player Account Name</th>
               <th className="py-2 px-4 text-left">Player Transaction ID</th>
+              <th className="py-2 px-4 text-left">Registered At</th>
               <th className="py-2 px-4 text-left">Current Status</th>
               <th className="py-2 px-4 text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
-            {currentRows.map((r) => (
+            {currentRows.map((r, i) => (
               <tr
                 key={r._id}
                 className="border-b border-[var(--border-color)] hover:bg-[var(--secondary-hover)]"
               >
+                <td className="py-2 px-4">{indexOfFirst + i + 1}</td>
                 <td className="py-2 px-4">{r.user?.username}</td>
                 <td className="py-2 px-4">{r.user?.email}</td>
                 <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
@@ -218,6 +221,10 @@ export default function AdminRegistrationsTable() {
                 <td className="py-2 px-4">
                   {r.gameRegistrationDetails?.paymentDetails?.transactionId ||
                     "-"}
+                </td>
+
+                <td className="py-2 px-4 whitespace-nowrap">
+                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
                 </td>
 
                 <td
