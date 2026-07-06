@@ -11,6 +11,31 @@ export default function AdminAllTournamentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [updatingId, setUpdatingId] = useState(null);
+
+  const handleStatusChange = async (tournamentId, newStatus) => {
+    setUpdatingId(tournamentId);
+    try {
+      await api.patch(`/api/tournaments/${tournamentId}`, {
+        status: newStatus,
+      });
+
+      setTournaments((prev) =>
+        prev.map((t) =>
+          t._id === tournamentId ? { ...t, status: newStatus } : t
+        )
+      );
+
+      toast.success(`Tournament marked as ${newStatus}`);
+    } catch (error) {
+      console.error("Failed to update tournament status:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to update tournament status"
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -133,6 +158,19 @@ export default function AdminAllTournamentsPage() {
                       {tournament.status || "N/A"}
                     </span>
                     <span className="text-muted-foreground">{tournamentTeams.length} team{tournamentTeams.length === 1 ? "" : "s"}</span>
+
+                    <select
+                      value={tournament.status || ""}
+                      disabled={updatingId === tournament._id}
+                      onChange={(e) =>
+                        handleStatusChange(tournament._id, e.target.value)
+                      }
+                      className="rounded-full border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1 text-[var(--foreground)] disabled:opacity-50"
+                    >
+                      <option value="upcoming">Upcoming</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                    </select>
                   </div>
                 </div>
 

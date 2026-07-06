@@ -15,7 +15,8 @@ export const GET = asyncHandler(async () => {
       path: "gameRegistrationDetails.games",
       model: "Game",
     })
-    .populate("tournament");
+    .populate("tournament")
+    .sort({ createdAt: -1 });
 
   return Response.json(
     new ApiResponse(

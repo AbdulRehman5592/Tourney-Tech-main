@@ -8,7 +8,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 export const PATCH = asyncHandler(async (req, context) => {
   await requireAdmin();
 
-  const { id } = context.params;
+  const { id } = await context.params;
   if (!id) throw new ApiError(400, "ID parameter is missing");
 
   const { fields } = await parseForm(req);
@@ -43,7 +43,7 @@ export const PATCH = asyncHandler(async (req, context) => {
 export const DELETE = asyncHandler(async (_, context) => {
   await requireAdmin();
 
-  const { id } = context.params;
+  const { id } = await context.params;
   if (!id) throw new ApiError(400, "ID parameter is missing");
 
   const bankDetailsExist = await BankDetails.findById(id);

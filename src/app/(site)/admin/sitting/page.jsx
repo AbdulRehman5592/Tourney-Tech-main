@@ -71,26 +71,29 @@ export default function SittingArrangementsPage() {
                 color: "var(--foreground)",
               }}
             >
+              <th className="p-3 text-left">Sr No.</th>
               <th className="p-3 text-left">Tournament</th>
               <th className="p-3 text-left">Game</th>
               <th className="p-3 text-left">Image</th>
+              <th className="p-3 text-left">Created At</th>
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="4" className="text-center p-4">
+                <td colSpan="6" className="text-center p-4">
                   Loading...
                 </td>
               </tr>
             ) : arrangements.length ? (
-              arrangements.map((item) => (
+              arrangements.map((item, i) => (
                 <tr
                   key={item._id}
                   className="border-b"
                   style={{ borderColor: "var(--border-color)" }}
                 >
+                  <td className="p-3">{i + 1}</td>
                   <td className="p-3">{item.tournament?.name}</td>
                   <td className="p-3">{item.game?.name}</td>
                   <td className="p-3">
@@ -119,6 +122,11 @@ export default function SittingArrangementsPage() {
                       </span>
                     )} */}
                   </td>
+                  <td className="p-3 whitespace-nowrap">
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleString()
+                      : "-"}
+                  </td>
                   <td className="p-3 ">
                     <div className="flex gap-3 h-full">
                       <button
@@ -142,7 +150,7 @@ export default function SittingArrangementsPage() {
             ) : (
               <tr>
                 <td
-                  colSpan="4"
+                  colSpan="6"
                   className="text-center p-4"
                   style={{ color: "var(--foreground)" }}
                 >

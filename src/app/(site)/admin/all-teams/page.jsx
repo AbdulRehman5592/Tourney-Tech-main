@@ -84,8 +84,8 @@ export default function AdminTeamsTable() {
   });
 
   // ✅ Pagination
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const indexOfLastRow = rowsPerPage === "all" ? filteredTeams.length : currentPage * rowsPerPage;
+  const indexOfFirstRow = rowsPerPage === "all" ? 0 : indexOfLastRow - rowsPerPage;
   const currentTeams =
     rowsPerPage === "all"
       ? filteredTeams
@@ -168,13 +168,13 @@ export default function AdminTeamsTable() {
                   </td>
                 </tr>
               ) : (
-                currentTeams.map((team) => (
+                currentTeams.map((team, i) => (
                   <tr
                     key={team._id}
                     className="hover:bg-[var(--secondary-hover)] transition-colors"
                   >
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                      {team.serialNo}
+                      {indexOfFirstRow + i + 1}
                     </td>
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
                       {team.name}

@@ -15,7 +15,7 @@ export const PATCH = asyncHandler(async (req, { params }) => {
   const userInfo = await requireAuth(); // get the logged-in user
   await requireRole(userInfo, "admin"); // enforce admin access
 
-  const userId = params.id;
+  const { id: userId } = await params;
   if (!userId) {
     throw new ApiError(400, "User ID is required in URL");
   }

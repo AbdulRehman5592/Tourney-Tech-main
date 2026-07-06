@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 export const PATCH = asyncHandler(async (req, { params }) => {
   await requireAdmin();
 
-  const { id } = params;
+  const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiResponse(400, null, "Invalid team ID");
   }
@@ -42,7 +42,7 @@ export const PATCH = asyncHandler(async (req, { params }) => {
 export const DELETE = asyncHandler(async (req, { params }) => {
   await requireAdmin();
 
-  const { id } = params;
+  const { id } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiResponse(400, null, "Invalid team ID");
   }

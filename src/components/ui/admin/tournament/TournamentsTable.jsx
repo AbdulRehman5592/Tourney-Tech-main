@@ -48,6 +48,7 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
         <table className="w-full text-sm text-left text-white">
           <thead className="bg-[var(--card-background)]">
             <tr>
+              <th className="p-3">Sr No.</th>
               <th className="p-3">Banner</th>
               <th className="p-3">Title</th>
               <th className="p-3">Location</th>
@@ -55,19 +56,23 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
               <th className="p-3">Status</th>
               <th className="p-3">Games</th>
               <th className="p-3">Entry Fee</th>
+              <th className="p-3">Created At</th>
               <th className="p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {currentTournaments.length === 0 ? (
               <tr>
-                <td colSpan="8" className="p-4 text-center text-gray-400">
+                <td colSpan="10" className="p-4 text-center text-gray-400">
                   No tournaments found.
                 </td>
               </tr>
             ) : (
-              currentTournaments.map((t) => (
+              currentTournaments.map((t, i) => (
                 <tr key={t._id} className="border-b border-gray-700">
+                  <td className="p-3">
+                    {(currentPage - 1) * itemsPerPage + i + 1}
+                  </td>
                   <td className="p-3">
                     {t.bannerUrl ? (
                       <img
@@ -120,6 +125,11 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                     ) : (
                       <span className="text-gray-400 text-xs">No entryFee</span>
                     )}
+                  </td>
+                  <td className="p-3 whitespace-nowrap">
+                    {t.createdAt
+                      ? new Date(t.createdAt).toLocaleString()
+                      : "-"}
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">

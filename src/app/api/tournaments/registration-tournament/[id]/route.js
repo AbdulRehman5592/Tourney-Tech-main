@@ -8,7 +8,7 @@ import { Tournament } from "@/models/Tournament";
 import { Team } from "@/models/Team";
 
 export const GET = asyncHandler(async (_, context) => {
-  const id = context.params?.id;
+  const { id } = await context.params;
   const user = await requireAuth();
 
   if (!id) throw new ApiError(400, "ID parameter is missing");

@@ -96,18 +96,36 @@ export default function TournamentCard({
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
           {userRole ? (
             // ✅ Show View Details for organizers/admins/staff
-            <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
-              <button
-                onClick={() => onSelect(_id)}
-                className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
-                style={{
-                  backgroundColor: "var(--info-color)",
-                  color: "white",
-                }}
-              >
-                View Details
-              </button>
-            </Link>
+            <>
+              <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
+                <button
+                  onClick={() => onSelect(_id)}
+                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{
+                    backgroundColor: "var(--info-color)",
+                    color: "white",
+                  }}
+                >
+                  View Details
+                </button>
+              </Link>
+
+              {status === "ongoing" && (
+                // ✅ Staff/admins can also play & manually score any game
+                <Link href={`/dashboard/game-play/${_id}`} className="flex-1">
+                  <button
+                    onClick={() => onSelect(_id)}
+                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                    style={{
+                      backgroundColor: "var(--success-color)",
+                      color: "white",
+                    }}
+                  >
+                    Play / Manage Scores
+                  </button>
+                </Link>
+              )}
+            </>
           ) : status === "upcoming" ? (
             // ✅ Show Register Now only for upcoming regular users
             <Link

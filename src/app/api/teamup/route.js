@@ -66,6 +66,7 @@ export const GET = asyncHandler(async () => {
     .populate("to", "firstname lastname username email")
     .populate("tournament")
     .populate("gameId")
+    .sort({ createdAt: -1 })
     .lean();
 
   const userIds = [

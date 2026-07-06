@@ -10,7 +10,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 export const PATCH = asyncHandler(async (req, context) => {
   await connectDB();
   await requireAdmin();
-  const { id } = context.params;
+  const { id } = await context.params;
   if (!id) throw new ApiError(400, "ID parameter is missing");
 
   const { fields } = await parseForm(req);

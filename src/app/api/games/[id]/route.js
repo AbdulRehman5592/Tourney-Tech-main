@@ -77,7 +77,7 @@ export const DELETE = asyncHandler(async (_req, context) => {
 export const POST = asyncHandler(async (_, context) => {
   await requireAdmin();
 
-  const { id } = context.params;
+  const { id } = await context.params;
 
   const game = await Game.findById(id);
   if (!game) throw new ApiError(404, "Game not found");

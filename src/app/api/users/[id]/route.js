@@ -11,13 +11,14 @@ import { requireRole } from "@/utils/server/auth";
 export const GET = asyncHandler(async (_, { params }) => {
   await connectDB();
 
+  const { id } = await params;
   const userInfo = await requireAuth();
 
-  if (userInfo._id !== params.id) {
+  if (userInfo._id !== id) {
     await requireRole(userInfo, "admin"); // Only admin can fetch others
   }
 
-  const user = await User.findById(params.id).select(
+  const user = await User.findById(id).select(
     "-password -refreshToken -accessToken -__v"
   );
   if (!user) {
