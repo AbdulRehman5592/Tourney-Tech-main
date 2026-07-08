@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 
+const HAND_OPTIONS = [...Array(11).keys()];
+
 export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
   const [form, setForm] = useState({
     teamAScore: "",
@@ -12,15 +14,12 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
     teamBtotalWon: 0,
     teamAboston: 0,
     teamBboston: 0,
-    teamAAgree: false,
-    teamBAgree: false,
   });
 
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // ✅ Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -35,7 +34,6 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
     if (isOpen) fetchUser();
   }, [isOpen]);
 
-  // ✅ Load match data
   useEffect(() => {
     if (match) {
       setForm({
@@ -45,8 +43,6 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
         teamBtotalWon: match.teamBtotalWon ?? 0,
         teamAboston: match.teamAboston ?? 0,
         teamBboston: match.teamBboston ?? 0,
-        teamAAgree: match.teamAAgree ?? false,
-        teamBAgree: match.teamBAgree ?? false,
       });
     }
   }, [match]);
@@ -65,111 +61,79 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
 
   const isTeamA = teamAMembers.includes(userId);
   const isTeamB = teamBMembers.includes(userId);
+  const mySide = isTeamA ? "teamA" : isTeamB ? "teamB" : null;
 
-  const bothAgreed = form.teamAAgree && form.teamBAgree;
+  const isCompleted = match.status === "completed";
+  // Nobody has entered a score yet -> open for either side to submit on
+  // behalf of both teams.
+  const isOpenForEntry = !isCompleted && !match.scoreEnteredBy;
+  // The side that entered the pending score is waiting on the other side.
+  const iEnteredPending = !isCompleted && match.scoreEnteredBy === mySide;
+  // I'm on the side that needs to agree/disagree with what the other team entered.
+  const needsMyResponse =
+    !isCompleted && match.scoreEnteredBy && match.scoreEnteredBy !== mySide && mySide;
+
+  const canSubmit = isAdmin || (mySide && (isOpenForEntry || iEnteredPending));
 
   const validateForm = () => {
-    const num = (v) => !isNaN(v) && v >= 0;
+    const num = (v) => v !== "" && !isNaN(v) && v >= 0;
     if (!num(form.teamAScore) || !num(form.teamBScore)) {
       toast.error("Scores must be valid numbers");
+      return false;
+    }
+    if (Number(form.teamAScore) === Number(form.teamBScore)) {
+      toast.error("Draw not supported -- scores must differ");
       return false;
     }
     return true;
   };
 
-  // ✅ Save Score (without auto-agree)
-const handleSave = async () => {
-  if (!validateForm()) return;
-  setSaving(true);
-
-  try {
-    // Basic payload
-    let payload = {
-      matchNumber: match.matchNumber,
-    };
-
-    // ✅ Admin can edit both teams' scores and agreements
-    if (isAdmin) {
-      payload = {
-        ...payload,
-        editBy: "admin",
+  const handleSubmitScore = async () => {
+    if (!validateForm()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        matchNumber: match.matchNumber,
+        action: isAdmin ? undefined : "submit",
         teamAScore: Number(form.teamAScore),
         teamBScore: Number(form.teamBScore),
         teamAtotalWon: Number(form.teamAtotalWon),
         teamBtotalWon: Number(form.teamBtotalWon),
         teamAboston: Number(form.teamAboston),
         teamBboston: Number(form.teamBboston),
-        teamAAgree: form.teamAAgree || false,
-        teamBAgree: form.teamBAgree || false,
       };
-    }
-
-    // ✅ Team A can only edit their own side
-    else if (isTeamA) {
-      payload = {
-        ...payload,
-        editBy: "teamA",
-        teamAScore:
-          form.teamAScore !== "" && form.teamAScore !== null
-            ? Number(form.teamAScore)
-            : undefined,
-        teamAtotalWon:
-          form.teamAtotalWon !== "" && form.teamAtotalWon !== null
-            ? Number(form.teamAtotalWon)
-            : undefined,
-        teamAboston:
-          form.teamAboston !== "" && form.teamAboston !== null
-            ? Number(form.teamAboston)
-            : undefined,
-        teamAAgree: form.teamAAgree || false,
-      };
-    }
-
-    // ✅ Team B can only edit their own side
-    else if (isTeamB) {
-      payload = {
-        ...payload,
-        editBy: "teamB",
-        teamBScore:
-          form.teamBScore !== "" && form.teamBScore !== null
-            ? Number(form.teamBScore)
-            : undefined,
-        teamBtotalWon:
-          form.teamBtotalWon !== "" && form.teamBtotalWon !== null
-            ? Number(form.teamBtotalWon)
-            : undefined,
-        teamBboston:
-          form.teamBboston !== "" && form.teamBboston !== null
-            ? Number(form.teamBboston)
-            : undefined,
-        teamBAgree: form.teamBAgree || false,
-      };
-    }
-
-    // ❌ Not part of this match
-    else {
-      toast.error("You are not allowed to edit this match");
+      const res = await api.patch(`/api/matches/${match?._id}`, payload);
+      toast.success(res.data.message || "Score submitted");
+      if (onSave) onSave(match._id, res.data.data);
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to submit score");
+    } finally {
       setSaving(false);
-      return;
     }
+  };
 
-    // ✅ Send to API
-  const res = await api.patch(`/api/matches/${match?._id}`, payload);
-
-
-    toast.success(res.data.message || "Match updated successfully");
-
-    // ✅ Refresh or update state
-    if (onSave) onSave(match._id, res.data.data);
-    onClose();
-  } catch (err) {
-    toast.error(err?.response?.data?.message || "Failed to save match");
-  } finally {
-    setSaving(false);
-  }
-};
-
-
+  const handleRespond = async (agree) => {
+    setSaving(true);
+    try {
+      const res = await api.patch(`/api/matches/${match?._id}`, {
+        matchNumber: match.matchNumber,
+        action: "respond",
+        agree,
+      });
+      toast.success(
+        agree
+          ? res.data.message || "Score confirmed"
+          : "Score disagreed -- you can now submit the correct score"
+      );
+      if (onSave) onSave(match._id, res.data.data);
+      onClose();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to respond");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loadingUser) {
     return (
@@ -179,8 +143,7 @@ const handleSave = async () => {
     );
   }
 
-  const canEditTeamA = isAdmin || isTeamA;
-  const canEditTeamB = isAdmin || isTeamB;
+  const fieldsDisabled = !canSubmit || saving;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
@@ -195,47 +158,54 @@ const handleSave = async () => {
           Edit Match #{match.matchNumber}
         </h2>
 
-        {/* STATUS */}
-        <div className="flex justify-between text-sm mb-4">
-          <p>
-            {match.teamA.name}:{" "}
-            {form.teamAAgree ? (
-              <span className="text-green-500">Agreed ✅</span>
-            ) : (
-              <span className="text-red-400">Pending ❌</span>
+        {/* STATUS BANNER */}
+        {!isAdmin && (
+          <div className="mb-4 text-sm">
+            {isCompleted && (
+              <p className="text-green-500">✅ Match completed.</p>
             )}
-          </p>
-          <p>
-            {match.teamB.name}:{" "}
-            {form.teamBAgree ? (
-              <span className="text-green-500">Agreed ✅</span>
-            ) : (
-              <span className="text-red-400">Pending ❌</span>
+            {isOpenForEntry && (
+              <p className="text-gray-300">
+                No score entered yet -- enter the full result below on behalf of
+                both teams.
+              </p>
             )}
-          </p>
-        </div>
+            {iEnteredPending && (
+              <p className="text-yellow-400">
+                You submitted this score. Waiting for the other team to agree
+                or disagree.
+              </p>
+            )}
+            {needsMyResponse && (
+              <p className="text-yellow-400">
+                The other team submitted this score. Review it below and
+                agree or disagree.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* TEAM INPUTS */}
         <div className="space-y-6">
           {/* TEAM A */}
-          <div className={`${!canEditTeamA ? "opacity-60" : ""}`}>
+          <div>
             <h3 className="font-semibold mb-2">
               {match.teamA.serialNo} {match.teamA.name}
             </h3>
             <input
               type="number"
               value={form.teamAScore}
-              disabled={!canEditTeamA}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamAScore", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent"
+              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent disabled:opacity-60"
             />
             <select
               value={form.teamAtotalWon}
-              disabled={!canEditTeamA}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamAtotalWon", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)]"
+              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)] disabled:opacity-60"
             >
-              {[...Array(11).keys()].map((n) => (
+              {HAND_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   Hands Won: {n}
                 </option>
@@ -243,48 +213,37 @@ const handleSave = async () => {
             </select>
             <select
               value={form.teamAboston}
-              disabled={!canEditTeamA}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamAboston", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2"
+              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2 disabled:opacity-60"
             >
-              {[...Array(11).keys()].map((n) => (
+              {HAND_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   Boston: {n}
                 </option>
               ))}
             </select>
-
-            {/* ✅ Agree checkbox */}
-            <label className="flex items-center gap-2 mt-2 text-sm">
-              <input
-                type="checkbox"
-                disabled={!canEditTeamA}
-                checked={form.teamAAgree}
-                onChange={(e) => handleChange("teamAAgree", e.target.checked)}
-              />
-              I agree with the entered score
-            </label>
           </div>
 
           {/* TEAM B */}
-          <div className={`${!canEditTeamB ? "opacity-60" : ""}`}>
+          <div>
             <h3 className="font-semibold mb-2">
               {match.teamB.serialNo} {match.teamB.name}
             </h3>
             <input
               type="number"
               value={form.teamBScore}
-              disabled={!canEditTeamB}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamBScore", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent"
+              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent disabled:opacity-60"
             />
             <select
               value={form.teamBtotalWon}
-              disabled={!canEditTeamB}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamBtotalWon", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)]"
+              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)] disabled:opacity-60"
             >
-              {[...Array(11).keys()].map((n) => (
+              {HAND_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   Hands Won: {n}
                 </option>
@@ -292,27 +251,16 @@ const handleSave = async () => {
             </select>
             <select
               value={form.teamBboston}
-              disabled={!canEditTeamB}
+              disabled={fieldsDisabled}
               onChange={(e) => handleChange("teamBboston", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2"
+              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2 disabled:opacity-60"
             >
-              {[...Array(11).keys()].map((n) => (
+              {HAND_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   Boston: {n}
                 </option>
               ))}
             </select>
-
-            {/* ✅ Agree checkbox */}
-            <label className="flex items-center gap-2 mt-2 text-sm">
-              <input
-                type="checkbox"
-                disabled={!canEditTeamB}
-                checked={form.teamBAgree}
-                onChange={(e) => handleChange("teamBAgree", e.target.checked)}
-              />
-              I agree with the entered score
-            </label>
           </div>
         </div>
 
@@ -326,21 +274,35 @@ const handleSave = async () => {
             Cancel
           </button>
 
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
+          {needsMyResponse && !isAdmin ? (
+            <>
+              <button
+                onClick={() => handleRespond(false)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                Disagree
+              </button>
+              <button
+                onClick={() => handleRespond(true)}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Agree
+              </button>
+            </>
+          ) : (
+            canSubmit && (
+              <button
+                onClick={handleSubmitScore}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Submit Score"}
+              </button>
+            )
+          )}
         </div>
-
-        {/* COMPLETE STATUS */}
-        {bothAgreed && (
-          <div className="mt-4 text-center text-green-500 font-semibold">
-            ✅ Both teams agreed. Match ready for next stage.
-          </div>
-        )}
       </div>
     </div>
   );

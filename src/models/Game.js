@@ -8,6 +8,10 @@ const GameSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     genre: { type: String, trim: true },
+    gameType: {
+      type: String,
+      enum: ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"],
+    },
     platform: {
       type: String,
       required: true,

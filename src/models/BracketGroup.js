@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 const BracketGroupSchema = new Schema(
   {
@@ -6,7 +8,7 @@ const BracketGroupSchema = new Schema(
     game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
     name: { type: String, required: true },
     order: { type: Number, required: true },
-    bracketSide: { type: String, enum: ["winner", "loser"], default: "winner" },
+    bracketSide: { type: String, enum: ["winner", "loser", "pool"], default: "winner" },
   },
   { timestamps: true }
 );

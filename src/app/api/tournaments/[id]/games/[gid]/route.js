@@ -31,7 +31,7 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (!game) throw new ApiError(404, "Game config not found");
 
   // Allowed fields according to schema
-  const allowedFields = ["game","entryFee", "rounds", "teamBased", "tournamentTeamType"];
+  const allowedFields = ["game", "entryFee", "format", "meshGroupCount", "teamBased", "tournamentTeamType"];
   allowedFields.forEach((field) => {
     if (field in body) {
       game[field] = body[field];
@@ -39,7 +39,8 @@ export const PATCH = asyncHandler(async (req, context) => {
   });
 
   // Validate enums manually if needed
-  if (body.format && ![ "double_elimination"].includes(body.format)) {
+  const validFormats = ["round_robin", "mesh", "single_elimination", "double_elimination"];
+  if (body.format && !validFormats.includes(body.format)) {
     throw new ApiError(400, "Invalid format");
   }
 

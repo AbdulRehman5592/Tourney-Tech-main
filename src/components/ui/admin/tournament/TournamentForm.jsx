@@ -79,10 +79,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           gameConfigId: g._id || "",
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
-          format: g.format || "double_elimination",
+          format: g.format || "",
+          meshGroupCount: g.meshGroupCount || "",
           teamBased: g.teamBased || false,
           tournamentTeamType: g.tournamentTeamType || "double_player",
-          rounds: g.rounds || "",
         }))
       );
 
@@ -123,7 +123,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
       {
         game: "",
         entryFee: "",
-        format: "double_elimination",
+        format: "",
+        meshGroupCount: "",
         teamBased: false,
         tournamentTeamType: "double_player",
       },
@@ -135,7 +136,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     const updated = [...gameFields];
     if (name === "teamBased") {
       updated[index][name] = value === true || value === "true";
-    } else if (["entryFee"].includes(name)) {
+    } else if (["entryFee", "meshGroupCount"].includes(name)) {
       updated[index][name] = value === "" ? "" : Number(value);
     } else {
       updated[index][name] = value;
@@ -207,7 +208,11 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
       }
 
       const validGames = gameFields.filter(
-        (g) => g.game && (g.entryFee === "" || !isNaN(g.entryFee)) && g.tournamentTeamType
+        (g) =>
+          g.game &&
+          g.format &&
+          (g.entryFee === "" || !isNaN(g.entryFee)) &&
+          g.tournamentTeamType
       );
 
       const jsonPayload = {
@@ -226,9 +231,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             game: g.game,
             entryFee: Number(g.entryFee),
             format: g.format,
+            meshGroupCount: g.format === "mesh" ? Number(g.meshGroupCount) || undefined : undefined,
             teamBased: Boolean(g.teamBased),
             tournamentTeamType: g.tournamentTeamType,
-            rounds: Number(g.rounds),
           };
           if (g.gameConfigId) {
             // ✅ Update existing game
@@ -499,35 +504,39 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               />
 
               {/* Format */}
-              {/* <select
+              <select
                 value={field.format}
                 onChange={(e) =>
                   handleGameFieldChange(index, "format", e.target.value)
                 }
                 className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
               >
+                <option value="">Select Format</option>
+                <option value="round_robin">Round Robin</option>
+                <option value="mesh">Mesh (Groups)</option>
                 <option value="single_elimination">Single Elimination</option>
                 <option value="double_elimination">Double Elimination</option>
-                <option value="round_robin">Round Robin</option>
-              </select> */}
+              </select>
 
-              {/* Rounds */}
-              <input
-                type="number"
-                placeholder="Rounds"
-                value={field.rounds || ""}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  if (val >= 1 && val <= 99) {
-                    handleGameFieldChange(index, "rounds", val);
-                  } else if (e.target.value === "") {
-                    handleGameFieldChange(index, "rounds", "");
-                  }
-                }}
-                min={1}
-                max={99}
-                className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
-              />
+              {/* Mesh group count */}
+              {field.format === "mesh" && (
+                <input
+                  type="number"
+                  placeholder="Number of groups (optional)"
+                  value={field.meshGroupCount || ""}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (val >= 2 && val <= 99) {
+                      handleGameFieldChange(index, "meshGroupCount", val);
+                    } else if (e.target.value === "") {
+                      handleGameFieldChange(index, "meshGroupCount", "");
+                    }
+                  }}
+                  min={2}
+                  max={99}
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                />
+              )}
 
               {/* Team Based */}
               <label className="flex gap-2 items-center">
@@ -565,9 +574,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       game: field.game,
                       entryFee: field.entryFee,
                       format: field.format,
+                      meshGroupCount:
+                        field.format === "mesh" ? field.meshGroupCount : undefined,
                       teamBased: field.teamBased,
                       tournamentTeamType: field.tournamentTeamType,
-                      rounds: field.rounds,
                     })
                   }
                   className="bg-[var(--accent-color)] px-3 py-1 mt-2 rounded text-black text-sm"
