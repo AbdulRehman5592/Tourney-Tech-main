@@ -4,12 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/utils/axios";
 import EditMatchModal from "./EditMatchesModel";
 
-export default function RoundOneMatches({
-  matches,
-  onUpdate,
-  pageSize = 12,
-  isRefresh,
-}) {
+export default function RoundOneMatches({ matches, onUpdate, pageSize = 12 }) {
   const [editingMatch, setEditingMatch] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -47,7 +42,7 @@ export default function RoundOneMatches({
   );
 
   const handleSave = (id, updatedMatch) => {
-    if (onUpdate) onUpdate(!isRefresh);
+    if (onUpdate) onUpdate(id, updatedMatch);
     setEditingMatch(null);
   };
 

@@ -54,7 +54,6 @@ async function seedDummyTournament() {
         format: "double_elimination",
         teamBased: true,
         tournamentTeamType: "double_player",
-        rounds: 3,
       },
     ],
     staff: [],

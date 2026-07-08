@@ -1,4 +1,6 @@
-import { Schema, model, models } from "mongoose";
+import mongoose from "mongoose";
+
+const { Schema, model, models } = mongoose;
 
 const MatchSchema = new Schema(
   {
@@ -11,9 +13,27 @@ const MatchSchema = new Schema(
     matchNumber: { type: Number },
     bracketGroup: { type: Schema.Types.ObjectId, ref: "BracketGroup" },
     round: { type: Number },
+    slot: { type: Number },
     stage: {
       type: String,
+      enum: ["round1", "playoff"],
     },
+    bracketSide: {
+      type: String,
+      enum: ["winners", "losers", "grand_final"],
+    },
+    winTarget: {
+      type: { round: { type: Number }, match: { type: Number } },
+      _id: false,
+    },
+    lossTarget: {
+      type: { round: { type: Number }, match: { type: Number } },
+      _id: false,
+    },
+    // True when this slot will structurally only ever receive one occupant
+    // (a bracket bye, or a "pass-through" loser's-bracket slot orphaned by an
+    // upstream bye) -- whoever lands here auto-advances with no game played.
+    isBye: { type: Boolean, default: false },
     teamA: { type: Schema.Types.ObjectId, ref: "Team" },
     teamB: { type: Schema.Types.ObjectId, ref: "Team" },
 
@@ -23,6 +43,9 @@ const MatchSchema = new Schema(
 
     teamAAgree: { type: Boolean, default: false },
     teamBAgree: { type: Boolean, default: false },
+    // Which side entered the current (unconfirmed) score, so only the other
+    // side may agree/disagree with it. Cleared once the match completes.
+    scoreEnteredBy: { type: String, enum: ["teamA", "teamB"] },
 
     winner: { type: Schema.Types.ObjectId, ref: "Team" },
     loser: { type: Schema.Types.ObjectId, ref: "Team" },

@@ -50,6 +50,7 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
               <th className="p-3 border-b border-[var(--border-color)]">Game Banner</th>
               <th className="p-3 border-b border-[var(--border-color)]">Name</th>
               <th className="p-3 border-b border-[var(--border-color)]">Host</th>
+              <th className="p-3 border-b border-[var(--border-color)]">Game Type</th>
               <th className="p-3 border-b border-[var(--border-color)]">Platform</th>
               <th className="p-3 border-b border-[var(--border-color)]">Created At</th>
               <th className="p-3 border-b border-[var(--border-color)] text-center">Actions</th>
@@ -70,6 +71,7 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
                   </td>
                   <td className="p-3 text-sm">{game.name}</td>
                   <td className="p-3 text-sm">{game.genre || "N/A"}</td>
+                  <td className="p-3 text-sm">{game.gameType || "N/A"}</td>
                   <td className="p-3 text-sm">{game.platform}</td>
                   <td className="p-3 text-sm whitespace-nowrap">
                     {game.createdAt
@@ -101,7 +103,7 @@ export default function GamesTable({ games, onEdit, onDelete , onDuplicate}) {
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="p-4 text-center text-gray-500">
+                <td colSpan="9" className="p-4 text-center text-gray-500">
                   No games found.
                 </td>
               </tr>

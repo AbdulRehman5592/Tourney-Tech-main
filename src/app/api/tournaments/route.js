@@ -37,18 +37,19 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "At least one game is required");
   }
 
- for (const game of games) {
+const validFormats = ["round_robin", "mesh", "single_elimination", "double_elimination"];
+for (const game of games) {
   if (
     !game.game ||
     typeof game.teamBased !== "boolean" ||
     !game.tournamentTeamType ||
-    !game.rounds // ✅ check rounds
+    !game.format
   ) {
-    throw new ApiError(400, "Invalid game configuration (missing rounds)");
+    throw new ApiError(400, "Invalid game configuration (missing format)");
   }
 
-  if (isNaN(game.rounds) || game.rounds <= 0) {
-    throw new ApiError(400, "Rounds must be a positive number");
+  if (!validFormats.includes(game.format)) {
+    throw new ApiError(400, "Invalid tournament format");
   }
 }
 

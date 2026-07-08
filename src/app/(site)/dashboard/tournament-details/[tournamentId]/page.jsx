@@ -183,12 +183,23 @@ export default function TournamentDetailsPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-gray-400">Format:</span>{" "}
-                        <span className="font-semibold">{game.format || "N/A"}</span>
+                        <span className="font-semibold">
+                          {game.format
+                            ? game.format
+                                .split("_")
+                                .map((w) => w[0].toUpperCase() + w.slice(1))
+                                .join(" ")
+                            : "N/A"}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-gray-400">Rounds:</span>{" "}
-                        <span className="font-semibold">{game.rounds || "N/A"}</span>
-                      </div>
+                      {game.format === "mesh" && (
+                        <div>
+                          <span className="text-gray-400">Groups:</span>{" "}
+                          <span className="font-semibold">
+                            {game.meshGroupCount || "Auto"}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <span className="text-gray-400">Team Based:</span>{" "}
                         <span className="font-semibold">

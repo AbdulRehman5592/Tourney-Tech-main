@@ -5,6 +5,7 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
   const [formData, setFormData] = useState({
     name: "",
     genre: "",
+    gameType: "",
     platform: "",
     description: "",
     rulesUrl: "",
@@ -19,6 +20,7 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
     setFormData({
       name: initialData?.name || "",
       genre: initialData?.genre || "",
+      gameType: initialData?.gameType || "",
       platform: initialData?.platform || "",
       description: initialData?.description || "",
       rulesUrl: initialData?.rulesUrl || "",
@@ -52,6 +54,7 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
     const data = new FormData();
     data.append("name", formData.name);
     data.append("genre", formData.genre);
+    data.append("gameType", formData.gameType);
     data.append("platform", formData.platform);
     data.append("description", formData.description);
     data.append("rulesUrl", formData.rulesUrl || "");
@@ -99,6 +102,20 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
           required
           className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)]"
         />
+        <select
+          name="gameType"
+          value={formData.gameType}
+          onChange={handleChange}
+          className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)]"
+        >
+          <option value="">Select Game Type</option>
+          <option value="Spades">Spades</option>
+          <option value="Hearts">Hearts</option>
+          <option value="Bridge">Bridge</option>
+          <option value="Euchre">Euchre</option>
+          <option value="Pinochle">Pinochle</option>
+          <option value="Uno">Uno</option>
+        </select>
         <input
           name="rulesUrl"
           value={formData.rulesUrl}

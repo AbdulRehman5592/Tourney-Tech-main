@@ -25,10 +25,15 @@ export const PATCH = asyncHandler(async (req, context) => {
   const allowedFields = [
     "name",
     "genre",
+    "gameType",
     "platform",
     "description",
     "rulesUrl",
   ];
+  const validGameTypes = ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"];
+  if (fields.gameType && !validGameTypes.includes(fields.gameType.toString())) {
+    throw new ApiError(400, "Invalid game type.");
+  }
   for (const key of allowedFields) {
     if (fields[key]) game[key] = fields[key].toString();
   }
@@ -85,6 +90,7 @@ export const POST = asyncHandler(async (_, context) => {
   const duplicateGame = await Game.create({
     name: game.name,
     genre: game.genre,
+    gameType: game.gameType,
     platform: game.platform,
     description: game.description,
     rulesUrl: game.rulesUrl,

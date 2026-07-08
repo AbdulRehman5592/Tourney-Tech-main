@@ -1,17 +1,23 @@
 import { Match } from "@/models/Match";
-import { Team } from "@/models/Team";
-import { Tournament } from "@/models/Tournament";
+import "@/models/Team";
+import "@/models/Tournament";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { parseForm } from "@/utils/server/parseForm";
 import { requireAuth } from "@/utils/server/auth";
+import { routeIntoTarget } from "@/utils/server/bracketProgression";
 import "@/models/Game";
 
-function getStageName(numTeams, round) {
-  if (numTeams === 2) return "final";
-  if (numTeams === 4) return "semi_final";
-  if (numTeams >= 6) return `stage_${round - 1}`;
-  return "semi_final"; // fallback
+function assignWinner(match) {
+  if (match.teamAScore > match.teamBScore) {
+    match.winner = match.teamA._id;
+    match.loser = match.teamB._id;
+  } else if (match.teamBScore > match.teamAScore) {
+    match.winner = match.teamB._id;
+    match.loser = match.teamA._id;
+  } else {
+    throw new ApiResponse(400, null, "Draw not supported in knockout format");
+  }
 }
 
 export const PATCH = asyncHandler(async (req, context) => {
@@ -25,8 +31,8 @@ export const PATCH = asyncHandler(async (req, context) => {
     teamBtotalWon,
     teamAboston,
     teamBboston,
-    teamAAgree,
-    teamBAgree,
+    action, // "submit" | "respond" (regular users only; admin always overrides)
+    agree, // for action: "respond"
   } = fields;
 
   const match = await Match.findById(matchId).populate(
@@ -34,370 +40,153 @@ export const PATCH = asyncHandler(async (req, context) => {
   );
   if (!match) throw new ApiResponse(404, null, "Match not found");
 
-  // ✅ Role-based access
-  // if (user.role !== "admin") {
-  //   // Normal user → check if user belongs to teamA or teamB
-  //   const userTeam = await Team.findOne({
-  //     createdBy: user._id,
-  //     tournament: match?.tournament?._id,
-  //   });
-
-  //   if (!userTeam) {
-  //     throw new ApiResponse(403, null, "You are not the owner of any team");
-  //   }
-
-  //   // ✅ Check if this userTeam is playing in this match
-  //   const isTeamA = match.teamA._id.toString() === userTeam._id.toString();
-  //   const isTeamB = match.teamB._id.toString() === userTeam._id.toString();
-
-  //   if (!isTeamA && !isTeamB) {
-  //     throw new ApiResponse(
-  //       403,
-  //       null,
-  //       "You are not the owner of this team or this match does not belong to your team"
-  //     );
-  //   }
-
-  //   // ✅ Strict check: User cannot update the other team's score
-  //   if (isTeamA) {
-  //     if (teamBScore || teamBtotalWon) {
-  //       throw new ApiResponse(
-  //         403,
-  //         null,
-  //         "You cannot update opponent's score (Team B)"
-  //       );
-  //     }
-  //     match.teamAScore = teamAScore;
-  //     match.teamAtotalWon = teamAtotalWon;
-  //     match.teamAboston = teamAboston;
-  //   } else if (isTeamB) {
-  //     if (teamAScore || teamAtotalWon) {
-  //       throw new ApiResponse(
-  //         403,
-  //         null,
-  //         "You cannot update opponent's score (Team A)"
-  //       );
-  //     }
-  //     match.teamBScore = teamBScore;
-  //     match.teamBtotalWon = teamBtotalWon;
-  //     match.teamBboston = teamBboston;
-  //   }
-
-  //   // ✅ Check if both teams have submitted scores
-  //   if (
-  //     match.teamAScore !== undefined &&
-  //     match.teamBScore !== undefined &&
-  //     match.teamAScore !== null &&
-  //     match.teamBScore !== null &&
-  //     match.teamAScore > 0 &&
-  //     match.teamBScore > 0
-  //   ) {
-  //     if (match.teamAScore > match.teamBScore) {
-  //       match.winner = match.teamA._id;
-  //       match.loser = match.teamB._id;
-  //       match.status = "completed";
-  //       match.completedAt = new Date();
-  //     } else if (match.teamBScore > match.teamAScore) {
-  //       match.winner = match.teamB._id;
-  //       match.loser = match.teamA._id;
-  //       match.status = "completed";
-  //       match.completedAt = new Date();
-  //     } else {
-  //       throw new ApiResponse(
-  //         400,
-  //         null,
-  //         "Draw not supported in knockout format"
-  //       );
-  //     }
-  //   }
-  // } else {
-  //   // ✅ Admin can update both teams’ scores
-  //   console.log("running Admin");
-  //   match.teamAScore = teamAScore;
-  //   match.teamBScore = teamBScore;
-  //   match.teamAtotalWon = teamAtotalWon;
-  //   match.teamBtotalWon = teamBtotalWon;
-  //   match.teamAboston = teamAboston;
-  //   match.teamBboston = teamBboston;
-  //   match.completedAt = new Date();
-  //   match.status = "completed";
-
-  //   // ✅ Winner decide (after scores set)
-  //   if (match.teamAScore > match.teamBScore) {
-  //     match.winner = match.teamA._id;
-  //     match.loser = match.teamB._id;
-  //   } else if (match.teamBScore > match.teamAScore) {
-  //     match.winner = match.teamB._id;
-  //     match.loser = match.teamA._id;
-  //   } else {
-  //     throw new ApiResponse(400, null, "Draw not supported in knockout format");
-  //   }
-  // }
-
-  if (user.role !== "admin") {
-    const userTeam = await Team.findOne({
-      createdBy: user._id,
-      tournament: match?.tournament?._id,
-    });
-
-    if (!userTeam) {
-      throw new ApiResponse(403, null, "You are not the owner of any team");
+  if (user.role === "admin") {
+    // ✅ Admin full control: sets both sides and completes immediately.
+    match.teamAScore = Number(teamAScore) || 0;
+    match.teamBScore = Number(teamBScore) || 0;
+    match.teamAtotalWon = Number(teamAtotalWon) || 0;
+    match.teamBtotalWon = Number(teamBtotalWon) || 0;
+    match.teamAboston = Number(teamAboston) || 0;
+    match.teamBboston = Number(teamBboston) || 0;
+    match.teamAAgree = true;
+    match.teamBAgree = true;
+    match.scoreEnteredBy = undefined;
+    match.status = "completed";
+    match.completedAt = new Date();
+    assignWinner(match);
+  } else {
+    if (match.status === "completed") {
+      throw new ApiResponse(400, null, "This match is already completed");
     }
 
-    const isTeamA = match.teamA._id.toString() === userTeam._id.toString();
-    const isTeamB = match.teamB._id.toString() === userTeam._id.toString();
+    const userId = user._id.toString();
+    const isTeamA = (match.teamA.members || []).some(
+      (m) => (typeof m === "string" ? m : m.toString()) === userId
+    );
+    const isTeamB = (match.teamB.members || []).some(
+      (m) => (typeof m === "string" ? m : m.toString()) === userId
+    );
 
     if (!isTeamA && !isTeamB) {
       throw new ApiResponse(
         403,
         null,
-        "You are not the owner of this team or this match does not belong to your team"
+        "You are not part of either team in this match"
       );
     }
 
-    // ✅ Score update + Agree tracking
-    if (isTeamA) {
-      if (teamBScore || teamBtotalWon) {
-        throw new ApiResponse(
-          403,
-          null,
-          "You cannot update opponent's score (Team B)"
-        );
-      }
-      match.teamAScore = teamAScore;
-      match.teamAtotalWon = teamAtotalWon;
-      match.teamAboston = teamAboston;
-      match.teamAAgree = teamAAgree; // ✅ team A confirmed
-    } else if (isTeamB) {
-      if (teamAScore || teamAtotalWon) {
-        throw new ApiResponse(
-          403,
-          null,
-          "You cannot update opponent's score (Team A)"
-        );
-      }
-      match.teamBScore = teamBScore;
-      match.teamBtotalWon = teamBtotalWon;
-      match.teamBboston = teamBboston;
-      match.teamBAgree = teamBAgree; // ✅ team B confirmed
-    }
+    const mySide = isTeamA ? "teamA" : "teamB";
 
-    // ✅ Match completion only if both teams agree
-    if (match.teamAAgree && match.teamBAgree) {
+    if (action === "submit") {
+      // Any player from either side can enter the full result on behalf of
+      // both teams -- but once the *other* side has an unconfirmed entry
+      // waiting on you, you must Agree/Disagree with it instead of overwriting it.
+      if (match.scoreEnteredBy && match.scoreEnteredBy !== mySide) {
+        throw new ApiResponse(
+          400,
+          null,
+          "The other team already submitted a score for this match. Please agree or disagree with it."
+        );
+      }
+
       if (
-        match.teamAScore !== undefined &&
-        match.teamBScore !== undefined &&
-        match.teamAScore !== null &&
-        match.teamBScore !== null
+        teamAScore === undefined ||
+        teamBScore === undefined ||
+        Number(teamAScore) === Number(teamBScore)
       ) {
-        if (match.teamAScore > match.teamBScore) {
-          match.winner = match.teamA._id;
-          match.loser = match.teamB._id;
-          match.status = "completed";
-          match.completedAt = new Date();
-        } else if (match.teamBScore > match.teamAScore) {
-          match.winner = match.teamB._id;
-          match.loser = match.teamA._id;
-          match.status = "completed";
-          match.completedAt = new Date();
-        } else {
-          throw new ApiResponse(
-            400,
-            null,
-            "Draw not supported in knockout format"
-          );
-        }
+        throw new ApiResponse(
+          400,
+          null,
+          teamAScore === undefined || teamBScore === undefined
+            ? "Both teams' scores are required"
+            : "Draw not supported in knockout format"
+        );
+      }
+
+      match.teamAScore = Number(teamAScore);
+      match.teamBScore = Number(teamBScore);
+      match.teamAtotalWon = Number(teamAtotalWon) || 0;
+      match.teamBtotalWon = Number(teamBtotalWon) || 0;
+      match.teamAboston = Number(teamAboston) || 0;
+      match.teamBboston = Number(teamBboston) || 0;
+      match.scoreEnteredBy = mySide;
+      match.teamAAgree = mySide === "teamA";
+      match.teamBAgree = mySide === "teamB";
+      match.status = "pending";
+    } else if (action === "respond") {
+      if (!match.scoreEnteredBy) {
+        throw new ApiResponse(400, null, "No score has been submitted yet");
+      }
+      if (match.scoreEnteredBy === mySide) {
+        throw new ApiResponse(
+          403,
+          null,
+          "You submitted this score -- waiting for the other team to respond"
+        );
+      }
+
+      const agreeing = agree === true || agree === "true";
+
+      if (agreeing) {
+        match.teamAAgree = true;
+        match.teamBAgree = true;
+        match.status = "completed";
+        match.completedAt = new Date();
+        assignWinner(match);
+      } else {
+        // Disagreement: wipe the score and hand entry rights to the team
+        // that just disagreed, so they can submit their own version.
+        match.teamAScore = 0;
+        match.teamBScore = 0;
+        match.teamAtotalWon = 0;
+        match.teamBtotalWon = 0;
+        match.teamAboston = 0;
+        match.teamBboston = 0;
+        match.teamAAgree = false;
+        match.teamBAgree = false;
+        match.scoreEnteredBy = mySide;
+        match.status = "pending";
       }
     } else {
-      match.status = "pending"; // ✅ still waiting for the other team
-    }
-  } else {
-    // ✅ Admin full control
-    match.teamAScore = teamAScore;
-    match.teamBScore = teamBScore;
-    match.teamAtotalWon = teamAtotalWon;
-    match.teamBtotalWon = teamBtotalWon;
-    match.teamAboston = teamAboston;
-    match.teamBboston = teamBboston;
-    match.teamAAgree = teamAAgree;
-    match.teamBAgree = teamBAgree;
-    match.status = "completed";
-    match.completedAt = new Date();
-
-    if (match.teamAScore > match.teamBScore) {
-      match.winner = match.teamA._id;
-      match.loser = match.teamB._id;
-    } else if (match.teamBScore > match.teamAScore) {
-      match.winner = match.teamB._id;
-      match.loser = match.teamA._id;
-    } else {
-      throw new ApiResponse(400, null, "Draw not supported in knockout format");
+      throw new ApiResponse(400, null, "Invalid action");
     }
   }
 
   await match.save();
 
-  // ✅ Check if current round is complete
-  const sameRoundMatches = await Match.find({
-    tournament: match.tournament._id,
-    game: match.game._id,
-    round: match.round,
-  });
+  if (match.status === "completed") {
+    const gameConfig = match.tournament.games?.find(
+      (g) => g.game.toString() === match.game._id.toString()
+    );
 
-  const allCompleted = sameRoundMatches.every((m) => m.status === "completed");
+    const isElimination =
+      match.stage === "playoff" ||
+      ["single_elimination", "double_elimination"].includes(gameConfig?.format);
 
-  if (allCompleted) {
-    // ✅ If stage is "group" → Apply Top 50 logic
-    if (match.stage === "group") {
-      const allTeams = await Team.find({
-        tournament: match.tournament._id,
-        game: match.game._id,
-      });
-
-      // ✅ Calculate total scores for each team
-      const teamScores = await Promise.all(
-        allTeams.map(async (team) => {
-          const scoreAggregation = await Match.aggregate([
-            {
-              $match: {
-                tournament: match.tournament._id,
-                game: match.game._id,
-                stage: "group",
-                status: "completed",
-                $or: [{ teamA: team._id }, { teamB: team._id }],
-              },
-            },
-            {
-              $addFields: {
-                teamScore: {
-                  $cond: {
-                    if: { $eq: ["$teamA", team._id] },
-                    then: { $toInt: "$teamAScore" },
-                    else: { $toInt: "$teamBScore" },
-                  },
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalScore: { $sum: "$teamScore" },
-              },
-            },
-          ]);
-          const totalScore =
-            scoreAggregation.length > 0
-              ? scoreAggregation[0].totalScore || 0
-              : 0;
-          return { teamId: team._id, score: totalScore };
-        })
-      );
-
-      // ✅ Sort descending by score
-      teamScores.sort((a, b) => b.score - a.score);
-
-      const halfCount = Math.floor(teamScores.length / 2);
-      const topTeams = teamScores.slice(0, halfCount).map((t) => t.teamId);
-      let nextRound = match.round + 1;
-      let nextStage = getStageName(topTeams.length, nextRound);
-
-      // ✅ Create matches for next round
-      let matchNumber =
-        (await Match.countDocuments({
-          tournament: match.tournament._id,
-          game: match.game._id,
-        })) + 1;
-
-      const shuffled = [...topTeams].sort(() => Math.random() - 0.5);
-      for (let i = 0; i < shuffled.length; i += 2) {
-        const teamA = shuffled[i];
-        const teamB = shuffled[i + 1];
-
-        if (!teamB) {
-          await Match.create({
-            tournament: match.tournament._id,
-            game: match.game._id,
-            round: nextRound,
-            stage: nextStage,
-            status: "completed",
-            teamA,
-            winner: teamA,
-            matchNumber,
-          });
-        } else {
-          await Match.create({
-            tournament: match.tournament._id,
-            game: match.game._id,
-            round: nextRound,
-            stage: nextStage,
-            status: "pending",
-            teamA,
-            teamB,
-            matchNumber,
-          });
-        }
-        matchNumber++;
+    if (isElimination) {
+      await routeIntoTarget(match, match.winner, match.winTarget);
+      if (gameConfig?.format === "double_elimination") {
+        await routeIntoTarget(match, match.loser, match.lossTarget);
       }
-    } else {
-      // ✅ Normal knockout flow
-      let winners = sameRoundMatches.map((m) => m.winner);
 
-      const totalTeams = await Team.countDocuments({
+      if (!match.winTarget && gameConfig) {
+        // No further match consumes this winner -> this was the final.
+        gameConfig.round1Status = "completed";
+        gameConfig.winner = match.winner;
+        await match.tournament.save();
+      }
+    } else if (gameConfig) {
+      // Round robin / mesh round1: score-based, no auto-advancement between matches.
+      const round1Matches = await Match.find({
         tournament: match.tournament._id,
         game: match.game._id,
+        stage: "round1",
       });
-      const totalRounds = Math.ceil(Math.log2(totalTeams));
-      const nextRound = match.round + 1;
+      const allDone = round1Matches.every((m) => m.status === "completed");
 
-      if (nextRound <= totalRounds) {
-        const nextStage = getStageName(winners.length, nextRound);
-
-        if (winners.length % 2 !== 0) {
-          const byeTeam = winners.pop();
-          winners.unshift(byeTeam);
-        }
-
-        let matchNumber =
-          (await Match.countDocuments({
-            tournament: match.tournament._id,
-            game: match.game._id,
-          })) + 1;
-
-        for (let i = 0; i < winners.length; i += 2) {
-          const teamA = winners[i];
-          const teamB = winners[i + 1];
-
-          if (!teamB) {
-            await Match.create({
-              tournament: match.tournament._id,
-              game: match.game._id,
-              round: nextRound,
-              stage: nextStage,
-              status: "completed",
-              teamA,
-              winner: teamA,
-              matchNumber: matchNumber++,
-            });
-            continue;
-          }
-
-          await Match.create({
-            tournament: match.tournament._id,
-            game: match.game._id,
-            round: nextRound,
-            stage: nextStage,
-            status: "pending",
-            teamA,
-            teamB,
-            matchNumber: matchNumber++,
-          });
-        }
-      } else {
-        const lastWinner = winners[0];
-        await Tournament.findByIdAndUpdate(match.tournament._id, {
-          status: "completed",
-          winner: lastWinner,
-        });
+      if (allDone && gameConfig.round1Status !== "awaiting_playoff_decision") {
+        gameConfig.round1Status = "awaiting_playoff_decision";
+        await match.tournament.save();
       }
     }
   }
@@ -406,7 +195,7 @@ export const PATCH = asyncHandler(async (req, context) => {
     new ApiResponse(
       200,
       match,
-      `Match updated: ${match.teamA.name} vs ${match.teamB.name}`
+      `Match updated: ${match.teamA?.name ?? "TBD"} vs ${match.teamB?.name ?? "TBD"}`
     )
   );
 });

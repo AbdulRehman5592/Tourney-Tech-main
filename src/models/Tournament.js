@@ -7,16 +7,22 @@ const TournamentGameSchema = new Schema({
   entryFee: { type: Number, default: 0 },
   format: {
     type: String,
-    enum: ["double_elimination"],
-    default: "double_elimination",
+    enum: ["round_robin", "mesh", "single_elimination", "double_elimination"],
+    required: true,
   },
+  meshGroupCount: { type: Number },
+  round1Status: {
+    type: String,
+    enum: ["pending", "in_progress", "awaiting_playoff_decision", "completed"],
+    default: "pending",
+  },
+  winner: { type: Schema.Types.ObjectId, ref: "Team" },
   teamBased: { type: Boolean, default: true },
   tournamentTeamType: {
     type: String,
     enum: ["single_player", "double_player"],
     required: true,
   },
-  rounds: { type: Number, required: true }, 
 });
 
 const TournamentStaffSchema = new Schema(

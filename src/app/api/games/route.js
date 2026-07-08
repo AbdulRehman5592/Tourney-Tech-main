@@ -20,12 +20,18 @@ export const POST = asyncHandler(async (req) => {
 
   const name = fields.name?.toString();
   const genre = fields.genre?.toString();
+  const gameType = fields.gameType?.toString();
   const platform = fields.platform?.toString();
   const description = fields.description?.toString();
   const rulesUrl = fields.rulesUrl?.toString();
 
   if (!name || !platform) {
     throw new ApiError(400, "Game name and platform are required.");
+  }
+
+  const validGameTypes = ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"];
+  if (gameType && !validGameTypes.includes(gameType)) {
+    throw new ApiError(400, "Invalid game type.");
   }
 
   const iconPath = Array.isArray(files.icon)
@@ -47,6 +53,7 @@ export const POST = asyncHandler(async (req) => {
   const createdGame = await Game.create({
     name,
     genre,
+    gameType,
     platform,
     description,
     rulesUrl,

@@ -23,18 +23,18 @@ export const POST = asyncHandler(async (req, context) => {
     game,
     entryFee = 0,
     format,
-    rounds,
+    meshGroupCount,
     teamBased = true,
     tournamentTeamType,
   } = body;
 
   // ✅ Required fields
-  if (!game || !rounds || !tournamentTeamType) {
+  if (!game || !format || !tournamentTeamType) {
     throw new ApiError(400, "Missing required fields");
   }
 
   // ✅ Validate enums
-  const validFormats = ["double_elimination"];
+  const validFormats = ["round_robin", "mesh", "single_elimination", "double_elimination"];
   if (!validFormats.includes(format)) {
     throw new ApiError(400, "Invalid format");
   }
@@ -66,7 +66,7 @@ export const POST = asyncHandler(async (req, context) => {
     game,
     entryFee,
     format,
-    rounds,
+    meshGroupCount: format === "mesh" ? meshGroupCount : undefined,
     teamBased,
     tournamentTeamType,
   });
