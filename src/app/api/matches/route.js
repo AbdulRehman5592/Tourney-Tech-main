@@ -1,25 +1,28 @@
 import { Team } from "@/models/Team";
 import { Match } from "@/models/Match";
 import { Tournament } from "@/models/Tournament";
-import { BracketGroup } from "@/models/BracketGroup";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
 import {
   buildSingleElimination,
+  buildSingleEliminationWithProtectedSeed,
   buildDoubleElimination,
   buildRoundRobin,
   buildMesh,
+  buildStandardRotation,
+  assignTableNumbers,
 } from "@/utils/server/tournamentBracket";
 import { propagateByeWinners } from "@/utils/server/bracketProgression";
 import "@/models/Game";
+import "@/models/BracketGroup";
 
 export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
 
   const { fields } = await parseForm(req);
-  const { tournamentId: tournament, gameId: game } = fields;
+  const { tournamentId: tournament, gameId: game, protectedSeedTeamId } = fields;
 
   if (!tournament || !game) {
     throw new ApiResponse(400, null, "Tournament ID and Game ID are required");
@@ -34,7 +37,13 @@ export const POST = asyncHandler(async (req) => {
   );
   if (!existingGameConfig) throw new ApiResponse(400, null, "Game not found");
 
-  const validFormats = ["single_elimination", "double_elimination", "round_robin", "mesh"];
+  const validFormats = [
+    "single_elimination",
+    "double_elimination",
+    "round_robin",
+    "mesh",
+    "standard",
+  ];
   if (!validFormats.includes(existingGameConfig.format)) {
     throw new ApiResponse(400, null, "Unknown tournament format");
   }
@@ -45,27 +54,53 @@ export const POST = asyncHandler(async (req) => {
   }
 
   const matchDocs = [];
-  const bracketGroups = [];
 
   if (existingGameConfig.format === "single_elimination") {
-    matchDocs.push(...buildSingleElimination(teams));
+    if (existingGameConfig.rewardByeType && existingGameConfig.rewardByeType !== "none" && protectedSeedTeamId) {
+      matchDocs.push(
+        ...buildSingleEliminationWithProtectedSeed(teams, {
+          protectedTeamId: protectedSeedTeamId,
+          byeDepth: existingGameConfig.rewardByeType,
+        })
+      );
+    } else {
+      matchDocs.push(...buildSingleElimination(teams));
+    }
   } else if (existingGameConfig.format === "double_elimination") {
     matchDocs.push(...buildDoubleElimination(teams));
   } else if (existingGameConfig.format === "round_robin") {
     matchDocs.push(...buildRoundRobin(teams));
   } else if (existingGameConfig.format === "mesh") {
-    const groups = buildMesh(teams, existingGameConfig.meshGroupCount);
-    for (const group of groups) {
-      bracketGroups.push(group);
-    }
+    matchDocs.push(...buildMesh(teams, { rounds: existingGameConfig.meshRounds }));
+  } else if (existingGameConfig.format === "standard") {
+    // A fixed round count builds the whole schedule up front, same as mesh;
+    // left unset, only round 1 is built -- later rounds come one at a time
+    // from the next-round endpoint until the admin declines "another round?".
+    matchDocs.push(
+      ...buildStandardRotation(teams, {
+        direction: existingGameConfig.standardDirection,
+        fromRound: 1,
+        count: existingGameConfig.standardRounds || 1,
+      })
+    );
   }
 
   // Atomically claim the pending -> in_progress transition so two concurrent
   // requests (e.g. duplicate effect fires, double-clicks) can't both pass the
   // "not generated yet" check and each create a full duplicate bracket.
+  const inProgressUpdate = { "games.$[g].round1Status": "in_progress" };
+  if (
+    existingGameConfig.format === "single_elimination" &&
+    existingGameConfig.rewardByeType &&
+    existingGameConfig.rewardByeType !== "none" &&
+    protectedSeedTeamId
+  ) {
+    inProgressUpdate["games.$[g].protectedSeedTeam"] = protectedSeedTeamId;
+  }
+
   const tournamentDoc = await Tournament.findOneAndUpdate(
     { _id: tournament, games: { $elemMatch: { game, round1Status: "pending" } } },
-    { $set: { "games.$[g].round1Status": "in_progress" } },
+    { $set: inProgressUpdate },
     { arrayFilters: [{ "g.game": game }], new: true }
   );
   if (!tournamentDoc) {
@@ -74,18 +109,15 @@ export const POST = asyncHandler(async (req) => {
 
   const gameConfig = tournamentDoc.games.find((v) => v?.game.toString() === game);
 
-  for (const group of bracketGroups) {
-    const bracketGroup = await BracketGroup.create({
-      tournament,
-      game,
-      name: group.groupName,
-      order: group.groupIndex,
-      bracketSide: "pool",
+  // Table numbers: elimination brackets number continuously through the whole
+  // event; mesh and standard both reuse the same table numbers every round
+  // (their `slot` field already *is* the table number, by construction).
+  if (["mesh", "standard"].includes(existingGameConfig.format)) {
+    matchDocs.forEach((m) => {
+      m.tableNumber = m.isBye ? undefined : m.slot;
     });
-    group.matches.forEach((m) => {
-      m.bracketGroup = bracketGroup._id;
-    });
-    matchDocs.push(...group.matches);
+  } else {
+    assignTableNumbers(matchDocs);
   }
 
   const existingCount = await Match.countDocuments({ tournament, game });

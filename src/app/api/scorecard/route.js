@@ -1,8 +1,18 @@
 // GET /api/scoreboard
 import { Match } from "@/models/Match";
+import { Game } from "@/models/Game";
+import { GameType } from "@/models/GameType";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import "@/models/Team";
+
+// Fallback layout when the game has no configured GameType, matching the
+// classic Spades columns the app shipped with before game types existed.
+const DEFAULT_SCORE_FIELDS = [
+  { key: "score", label: "Score", isPrimary: true },
+  { key: "hands", label: "Hands Won" },
+  { key: "boston", label: "Bostons" },
+];
 
 export const GET = asyncHandler(async (req) => {
   const { searchParams } = new URL(req.url);
@@ -39,6 +49,15 @@ export const GET = asyncHandler(async (req) => {
     return Response.json(new ApiResponse(200, [], "No matches found"));
   }
 
+  // Resolve this game's score-column layout so the results table can render
+  // the same columns as the score-entry form (e.g. Score/Hands/Bostons, or
+  // whatever a custom game type defines).
+  const game = await Game.findById(gameId).select("gameType").lean();
+  const gameType = game?.gameType
+    ? await GameType.findOne({ name: game.gameType }).lean()
+    : null;
+  const scoreFields = gameType?.scoreFields?.length ? gameType.scoreFields : DEFAULT_SCORE_FIELDS;
+
   // ✅ Group by rounds
   const scoreboard = {};
   const teamScores = {}; // For calculating total score per team
@@ -52,9 +71,35 @@ export const GET = asyncHandler(async (req) => {
       };
     }
 
+    // Dynamic per-game-type score maps (e.g. { score, hands, boston }), filled
+    // in with the legacy columns for older matches that predate the map.
+    const teamAScoresMap = match.teamAScores ? Object.fromEntries(match.teamAScores) : {};
+    const teamBScoresMap = match.teamBScores ? Object.fromEntries(match.teamBScores) : {};
+    for (const f of scoreFields) {
+      if (teamAScoresMap[f.key] === undefined) {
+        teamAScoresMap[f.key] = f.isPrimary
+          ? match.teamAScore ?? 0
+          : f.key === "boston"
+          ? match.teamAboston ?? 0
+          : f.key === "hands"
+          ? match.teamAtotalWon ?? 0
+          : undefined;
+      }
+      if (teamBScoresMap[f.key] === undefined) {
+        teamBScoresMap[f.key] = f.isPrimary
+          ? match.teamBScore ?? 0
+          : f.key === "boston"
+          ? match.teamBboston ?? 0
+          : f.key === "hands"
+          ? match.teamBtotalWon ?? 0
+          : undefined;
+      }
+    }
+
     // Match info
     const matchData = {
       matchNumber: match.matchNumber,
+      tableNumber: match.tableNumber ?? null,
       teamA: match.teamA?.name || "TBD",
       teamB: match.teamB?.name || "TBD",
       teamAScore: match.teamAScore ?? 0,
@@ -63,8 +108,8 @@ export const GET = asyncHandler(async (req) => {
       status: match.status,
       teamACity: match.teamA?.createdBy?.city || null,
       teamBCity: match.teamB?.createdBy?.city || null,
-      teamABoston: match.teamAboston,
-      teamBBoston: match.teamBboston
+      teamAScores: teamAScoresMap,
+      teamBScores: teamBScoresMap,
     };
 
     // Push match data into round
@@ -101,6 +146,7 @@ export const GET = asyncHandler(async (req) => {
   const responseData = {
     topScorer,
     ranking,
+    scoreFields,
     rounds: scoreboard,
   };
 

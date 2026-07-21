@@ -21,6 +21,7 @@ import {
   SquareChartGantt,
   ImageUp,
   ClipboardList,
+  Spade,
 } from "lucide-react";
 
 // Change this to adminNavItems if needed
@@ -30,6 +31,7 @@ const adminNavItems = [
   { href: "/admin/users", label: "Manage Users", icon: Users },
   { href: "/admin/register-player", label: "Register Player", icon: UserPlus2 },
   { href: "/admin/add-games", label: "Add Game", icon: Gamepad2 },
+  { href: "/admin/game-types", label: "Game Types", icon: Spade },
   {
     href: "/admin/create-tournament",
     label: "Create Tournament",

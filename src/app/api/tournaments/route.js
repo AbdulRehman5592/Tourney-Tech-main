@@ -37,7 +37,7 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "At least one game is required");
   }
 
-const validFormats = ["round_robin", "mesh", "single_elimination", "double_elimination"];
+const validFormats = ["round_robin", "mesh", "standard", "single_elimination", "double_elimination"];
 for (const game of games) {
   if (
     !game.game ||
@@ -50,6 +50,24 @@ for (const game of games) {
 
   if (!validFormats.includes(game.format)) {
     throw new ApiError(400, "Invalid tournament format");
+  }
+
+  // Mesh (table-movement) format has no default round count -- it must be
+  // set explicitly so it's never silently skipped at setup.
+  if (game.format === "mesh" && (!game.meshRounds || Number(game.meshRounds) < 1)) {
+    throw new ApiError(400, "meshRounds is required for the mesh format");
+  }
+
+  if (game.format === "standard" && game.standardDirection && !["up", "down"].includes(game.standardDirection)) {
+    throw new ApiError(400, "Invalid standardDirection");
+  }
+
+  if (
+    game.rewardByeType &&
+    game.rewardByeType !== "none" &&
+    game.format !== "single_elimination"
+  ) {
+    throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
 }
 

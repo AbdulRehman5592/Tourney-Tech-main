@@ -1,6 +1,8 @@
 import { Team } from "@/models/Team";
+import { User } from "@/models/User";
 // import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
+import { assignTeamNumber } from "@/utils/server/teamNumbering";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
@@ -140,6 +142,16 @@ export const POST = asyncHandler(async (req) => {
   }
   const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameId}`);
 
+  // Region-based team numbering (RR-TTT): creator is primary, partner secondary.
+  const [creatorUser, partnerUser] = await Promise.all([
+    User.findById(user._id).select("region"),
+    User.findById(partnerId).select("region"),
+  ]);
+  const numbering = await assignTeamNumber([
+    creatorUser?.region,
+    partnerUser?.region,
+  ]);
+
   const newTeam = await Team.create({
     tournament: new mongoose.Types.ObjectId(tournamentId),
     game: new mongoose.Types.ObjectId(gameId),
@@ -148,6 +160,7 @@ export const POST = asyncHandler(async (req) => {
     createdBy: user._id,
     serialNo: newSerial.toString(),
     name: `${teamName}-${newSerial}`,
+    ...numbering,
   });
 
   const populatedTeam = await Team.findById(newTeam._id)

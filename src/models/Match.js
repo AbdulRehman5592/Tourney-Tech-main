@@ -11,6 +11,8 @@ const MatchSchema = new Schema(
     },
     game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
     matchNumber: { type: Number },
+    // Physical table assignment, 1..N. Byes/walkovers get none (null).
+    tableNumber: { type: Number },
     bracketGroup: { type: Schema.Types.ObjectId, ref: "BracketGroup" },
     round: { type: Number },
     slot: { type: Number },
@@ -64,6 +66,12 @@ const MatchSchema = new Schema(
     teamBtotalWon: { type: Number, default: 0 },
     teamAboston: { type: Number, default: 0 },
     teamBboston: { type: Number, default: 0 },
+
+    // Dynamic per-game-type score fields, keyed by the GameType scoreField `key`
+    // (e.g. { score: 300, hands: 7, boston: 1 }). The primary field's value is
+    // mirrored into teamAScore/teamBScore so winner/standings logic is unchanged.
+    teamAScores: { type: Map, of: Number, default: {} },
+    teamBScores: { type: Map, of: Number, default: {} },
   },
   { timestamps: true }
 );

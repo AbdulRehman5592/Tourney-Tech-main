@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 export default function Scoreboard() {
   const { tournamentId, gameId } = useParams();
   const [scoreboard, setScoreboard] = useState({});
+  const [scoreFields, setScoreFields] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // ✅ Independent search + pagination
@@ -26,6 +27,7 @@ export default function Scoreboard() {
         const query = new URLSearchParams({ tournamentId, gameId });
         const res = await api.get(`/api/scorecard?${query.toString()}`);
         setScoreboard(res.data?.data?.rounds || {});
+        setScoreFields(res.data?.data?.scoreFields || []);
       } catch (err) {
         console.error("Error fetching scoreboard:", err);
       } finally {
@@ -88,6 +90,7 @@ export default function Scoreboard() {
       <TableSection
         title="Round 1"
         matches={groupedRounds.roundOne}
+        scoreFields={scoreFields}
         search={searchRound1}
         setSearch={setSearchRound1}
         page={pageRound1}
@@ -99,6 +102,7 @@ export default function Scoreboard() {
       <TableSection
         title="Round 2"
         matches={groupedRounds.roundTwoPlus}
+        scoreFields={scoreFields}
         search={searchRound2}
         setSearch={setSearchRound2}
         page={pageRound2}
@@ -113,6 +117,7 @@ export default function Scoreboard() {
 function TableSection({
   title,
   matches,
+  scoreFields,
   search,
   setSearch,
   page,
@@ -122,6 +127,12 @@ function TableSection({
   const totalPages = Math.ceil(matches.length / perPage);
   const start = (page - 1) * perPage;
   const paginated = matches.slice(start, start + perPage);
+
+  // The primary field's value already drives teamAScore/teamBScore/winner, so
+  // only the non-primary fields (Boston, Hands, ...) need their own columns --
+  // the primary one is shown as the plain "Score" column, same as before.
+  const extraFields = scoreFields.filter((f) => !f.isPrimary);
+  const columnCount = 8 + extraFields.length * 2;
 
   return (
     <div>
@@ -146,14 +157,23 @@ function TableSection({
           <thead className="bg-gray-800 text-white">
             <tr>
               <th className="p-3 text-left">Match #</th>
+              <th className="p-3 text-left">Table</th>
               <th className="p-3 text-left">Team A</th>
               <th className="p-3 text-left">Team A Region</th>
               <th className="p-3 text-left">Score</th>
-              <th className="p-3 text-left">Team A Boston</th>
+              {extraFields.map((f) => (
+                <th key={`a-${f.key}`} className="p-3 text-left">
+                  Team A {f.label}
+                </th>
+              ))}
               <th className="p-3 text-left">Team B</th>
               <th className="p-3 text-left">Team B Region</th>
               <th className="p-3 text-left">Score</th>
-              <th className="p-3 text-left">Team B Boston</th>
+              {extraFields.map((f) => (
+                <th key={`b-${f.key}`} className="p-3 text-left">
+                  Team B {f.label}
+                </th>
+              ))}
               <th className="p-3 text-left">Winner</th>
               <th className="p-3 text-left">Status</th>
             </tr>
@@ -166,6 +186,7 @@ function TableSection({
                   className="border-b border-gray-700 hover:bg-gray-800 transition"
                 >
                   <td className="p-3">#{match.matchNumber}</td>
+                  <td className="p-3">{match.tableNumber ? `Table ${match.tableNumber}` : "—"}</td>
                   <td
                     className={`p-3 ${
                       match.winner === match.teamA ? "text-green-400 font-bold" : ""
@@ -175,7 +196,11 @@ function TableSection({
                   </td>
                   <td className="p-3">{match.teamACity || "N/A"}</td>
                   <td className="p-3">{match.teamAScore ?? "-"}</td>
-                  <td className="p-3">{match.teamABoston ?? "-"}</td>
+                  {extraFields.map((f) => (
+                    <td key={`a-${f.key}`} className="p-3">
+                      {match.teamAScores?.[f.key] ?? "-"}
+                    </td>
+                  ))}
                   <td
                     className={`p-3 ${
                       match.winner === match.teamB ? "text-green-400 font-bold" : ""
@@ -185,7 +210,11 @@ function TableSection({
                   </td>
                   <td className="p-3">{match.teamBCity || "N/A"}</td>
                   <td className="p-3">{match.teamBScore ?? "-"}</td>
-                  <td className="p-3">{match.teamBBoston ?? "-"}</td>
+                  {extraFields.map((f) => (
+                    <td key={`b-${f.key}`} className="p-3">
+                      {match.teamBScores?.[f.key] ?? "-"}
+                    </td>
+                  ))}
                   <td className="p-3 text-yellow-400 font-semibold">
                     {match.winner || "TBD"}
                   </td>
@@ -202,7 +231,7 @@ function TableSection({
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="p-4 text-center text-gray-400 italic">
+                <td colSpan={columnCount} className="p-4 text-center text-gray-400 italic">
                   No data found
                 </td>
               </tr>

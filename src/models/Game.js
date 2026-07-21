@@ -8,9 +8,12 @@ const GameSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
     genre: { type: String, trim: true },
+    // Name of a GameType (admin-managed collection). Kept as a string so it
+    // stays populated even if a GameType is later renamed/removed; the score
+    // layout is looked up by this name at score-entry time.
     gameType: {
       type: String,
-      enum: ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"],
+      trim: true,
     },
     platform: {
       type: String,

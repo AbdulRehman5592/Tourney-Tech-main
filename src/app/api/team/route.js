@@ -5,11 +5,12 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { Team } from "@/models/Team";
 // import { TeamUp } from "@/models/TeamUp";
 import { User } from "@/models/User"; // agar members check karna ho
+import { Tournament } from "@/models/Tournament";
 import { getNextSequence } from "@/lib/utils";
+import { assignTeamNumber } from "@/utils/server/teamNumbering";
 import mongoose from "mongoose";
 import "@/models/BankDetails";
 import "@/models/Game";
-import "@/models/Tournament";
 
 export const POST = asyncHandler(async (req) => {
   await requireAdmin();
@@ -27,16 +28,24 @@ export const POST = asyncHandler(async (req) => {
 
   const memberIds = Array.isArray(members) ? members : [members];
 
-  if (memberIds.length !== 2) {
+  if (!memberIds.every((id) => mongoose.Types.ObjectId.isValid(id))) {
+    throw new ApiResponse(400, null, "Invalid member IDs");
+  }
+
+  // Team size is dictated by the game's configured tournamentTeamType --
+  // single_player games form a solo "team" of 1, double_player games need a pair.
+  const tournamentDoc = await Tournament.findById(tournament).select("games");
+  if (!tournamentDoc) throw new ApiResponse(404, null, "Tournament not found");
+  const gameConfig = tournamentDoc.games?.find((g) => g.game.toString() === game);
+  if (!gameConfig) throw new ApiResponse(404, null, "Game not configured for this tournament");
+
+  const expectedSize = gameConfig.tournamentTeamType === "single_player" ? 1 : 2;
+  if (memberIds.length !== expectedSize) {
     throw new ApiResponse(
       400,
       null,
-      "Exactly 2 members are required to create a team"
+      `Exactly ${expectedSize} member${expectedSize > 1 ? "s are" : " is"} required to create a team for this game`
     );
-  }
-
-  if (!memberIds.every((id) => mongoose.Types.ObjectId.isValid(id))) {
-    throw new ApiResponse(400, null, "Invalid member IDs");
   }
 
   // check if members are already in a team
@@ -54,14 +63,25 @@ export const POST = asyncHandler(async (req) => {
     );
   }
 
-  const users = await User.find({ _id: { $in: memberIds } }).select("username");
+  const users = await User.find({ _id: { $in: memberIds } }).select(
+    "username region"
+  );
 
-  if (users.length !== 2) {
-    throw new ApiResponse(400, null, "Both users must exist");
+  if (users.length !== memberIds.length) {
+    throw new ApiResponse(400, null, "All selected members must exist");
   }
 
-  const teamName = `${users[0].username}_${users[1].username}`;
+  const userById = new Map(users.map((u) => [u._id.toString(), u]));
+  const orderedUsers = memberIds.map((id) => userById.get(id.toString()));
+
+  const teamName = orderedUsers.map((u) => u.username).join("_");
   const newSerial = await getNextSequence(`team-serial-${tournament}-${game}`);
+
+  // Region-based team numbering (RR-TTT). Order the region codes to match the
+  // members order so primary/secondary are stable. A solo team just uses its
+  // one player's region -- no partner to compare against.
+  const memberRegions = orderedUsers.map((u) => u.region);
+  const numbering = await assignTeamNumber(memberRegions);
 
   const team = await Team.create({
     name: teamName,
@@ -71,15 +91,23 @@ export const POST = asyncHandler(async (req) => {
     createdBy: memberIds[0],
     members: memberIds,
     serialNo: newSerial.toString(),
-    partner: memberIds[1],
+    partner: expectedSize === 2 ? memberIds[1] : undefined,
+    ...numbering,
   });
 
   return Response.json(new ApiResponse(201, team, "Team created successfully"));
 });
 
-export const GET = asyncHandler(async () => {
+export const GET = asyncHandler(async (req) => {
   await requireAdmin();
-  const teams = await Team.find()
+  const { searchParams } = new URL(req.url);
+  const tournament = searchParams.get("tournament");
+  const game = searchParams.get("game");
+  const filter = {};
+  if (tournament) filter.tournament = tournament;
+  if (game) filter.game = game;
+
+  const teams = await Team.find(filter)
     .populate("game")
     .populate("tournament")
     .populate("createdBy", "firstname lastname username email")

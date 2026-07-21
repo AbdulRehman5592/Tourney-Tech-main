@@ -25,6 +25,7 @@ export const POST = asyncHandler(async (req) => {
     password,
     club,
     subCity,
+    region,
   } = body;
 
   let { username } = body;
@@ -49,6 +50,7 @@ export const POST = asyncHandler(async (req) => {
     password,
     subCity,
     club,
+    region: region || "00",
     isVerified: true,
   });
 

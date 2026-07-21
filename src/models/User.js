@@ -111,6 +111,12 @@ const UserSchema = new Schema(
     subCity: {
       type: String,
     },
+    // 2-digit geographic region classification code (see constants/regions.js).
+    // Drives team-number assignment and the round-1 same-region seating rule.
+    region: {
+      type: String,
+      default: "00",
+    },
     club: {
       type: String,
     },

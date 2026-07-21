@@ -21,6 +21,28 @@ const TeamSchema = new Schema(
     ],
     partner: { type: Schema.Types.ObjectId, ref: "User" },
     serialNo: { type: String, required: true },
+
+    // Team numbering system (RR-TTT). See constants/regions.js + teamNumbering.js.
+    classification: {
+      type: String,
+      enum: [
+        "geographic",
+        "alliance",
+        "temporary",
+        "international",
+        "invitational",
+        "house",
+        "provisional",
+        "admin",
+      ],
+      default: "geographic",
+    },
+    regionCode: { type: String }, // 2-digit "RR"
+    teamNumber: { type: Number }, // sequential within regionCode ("TTT")
+    displayId: { type: String }, // "RR-TTT"
+    // For hybrid/alliance teams: the two home regions of the paired players.
+    primaryRegion: { type: String },
+    secondaryRegion: { type: String },
   },
   { timestamps: true }
 );

@@ -26,6 +26,11 @@ const userNavItems = [
         { href: "/dashboard/select-partner", label: "Select Partner" }
       ],
     },
+    {
+      href: "/dashboard/my-solo-teams",
+      label: "My Solo Teams",
+      icon: Trophy,
+    },
      { href: "/dashboard/check-sittings", label: "Sitting Arrangements", icon: SquareChartGantt },
   { href: "/logOut", label: "Logout", icon: LogOut },
 ];

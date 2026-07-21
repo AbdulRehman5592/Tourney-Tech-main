@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import api from "@/utils/axios";
 
 export default function GameForm({ onSubmit, initialData = {}, onClose }) {
   const [formData, setFormData] = useState({
@@ -11,10 +12,18 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
     rulesUrl: "",
   });
 
+  const [gameTypes, setGameTypes] = useState([]);
   const [iconFile, setIconFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [iconPreview, setIconPreview] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
+
+  useEffect(() => {
+    api
+      .get("/api/game-types")
+      .then((res) => setGameTypes(res.data?.data || []))
+      .catch(() => setGameTypes([]));
+  }, []);
 
   useEffect(() => {
     setFormData({
@@ -109,12 +118,11 @@ export default function GameForm({ onSubmit, initialData = {}, onClose }) {
           className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)]"
         >
           <option value="">Select Game Type</option>
-          <option value="Spades">Spades</option>
-          <option value="Hearts">Hearts</option>
-          <option value="Bridge">Bridge</option>
-          <option value="Euchre">Euchre</option>
-          <option value="Pinochle">Pinochle</option>
-          <option value="Uno">Uno</option>
+          {gameTypes.map((gt) => (
+            <option key={gt._id} value={gt.name}>
+              {gt.name}
+            </option>
+          ))}
         </select>
         <input
           name="rulesUrl"

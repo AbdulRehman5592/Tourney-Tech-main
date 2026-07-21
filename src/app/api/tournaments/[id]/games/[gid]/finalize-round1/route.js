@@ -10,15 +10,18 @@ import { ApiError } from "@/utils/server/ApiError";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import {
   buildSingleElimination,
+  buildSingleEliminationWithProtectedSeed,
   computeStandingsRoundRobin,
   computeStandingsMesh,
+  assignTableNumbers,
 } from "@/utils/server/tournamentBracket";
 import { propagateByeWinners } from "@/utils/server/bracketProgression";
 import "@/models/Game";
 
 // POST /api/tournaments/:id/games/:gid/finalize-round1
-// Admin decision after a round_robin/mesh round 1 finishes: crown the standings
-// winner outright, or take the top N into a single-elimination playoff bracket.
+// Admin decision after a round_robin/mesh/standard round 1 finishes: crown
+// the standings winner outright, or take the top N into a single-elimination
+// playoff bracket.
 export const POST = asyncHandler(async (req, context) => {
   const user = await requireAuth(req);
   const params = await context.params;
@@ -37,10 +40,10 @@ export const POST = asyncHandler(async (req, context) => {
   const gameConfig = tournament.games.id(gameConfigId);
   if (!gameConfig) throw new ApiError(404, "Game config not found");
 
-  if (!["round_robin", "mesh"].includes(gameConfig.format)) {
+  if (!["round_robin", "mesh", "standard"].includes(gameConfig.format)) {
     throw new ApiError(
       400,
-      "Finalizing round 1 only applies to round_robin or mesh formats"
+      "Finalizing round 1 only applies to round_robin, mesh, or standard formats"
     );
   }
   if (gameConfig.round1Status !== "awaiting_playoff_decision") {
@@ -48,7 +51,7 @@ export const POST = asyncHandler(async (req, context) => {
   }
 
   const body = await req.json();
-  const { playoff, qualifiersCount } = body;
+  const { playoff, qualifiersCount, protectedSeedTeamId, rewardByeType } = body;
 
   const round1Matches = await Match.find({
     tournament: tournamentId,
@@ -60,10 +63,14 @@ export const POST = asyncHandler(async (req, context) => {
     game: gameConfig.game,
   });
 
+  // Mesh tallies standings the same flat way as round robin (no pools) --
+  // computeStandingsMesh is kept as a distinct export in case mesh's
+  // standings ever need to diverge, but today it's the same function.
+  const criteria = gameConfig.winCriteria || "wins";
   const standings =
     gameConfig.format === "mesh"
-      ? computeStandingsMesh(round1Matches, teams)
-      : computeStandingsRoundRobin(round1Matches, teams);
+      ? computeStandingsMesh(round1Matches, teams, criteria)
+      : computeStandingsRoundRobin(round1Matches, teams, criteria);
 
   if (!playoff) {
     const champion = standings[0];
@@ -94,7 +101,21 @@ export const POST = asyncHandler(async (req, context) => {
     .map((s) => teamById.get(s.teamId))
     .filter(Boolean);
 
-  const matchDocs = buildSingleElimination(qualifierTeams, { seeded: true });
+  const byeDepth = rewardByeType || "none";
+  const matchDocs =
+    byeDepth !== "none" && protectedSeedTeamId
+      ? buildSingleEliminationWithProtectedSeed(qualifierTeams, {
+          protectedTeamId: protectedSeedTeamId,
+          byeDepth,
+          seeded: true,
+        })
+      : buildSingleElimination(qualifierTeams, { seeded: true });
+  assignTableNumbers(matchDocs);
+
+  if (byeDepth !== "none" && protectedSeedTeamId) {
+    gameConfig.rewardByeType = byeDepth;
+    gameConfig.protectedSeedTeam = protectedSeedTeamId;
+  }
 
   const existingCount = await Match.countDocuments({
     tournament: tournamentId,
