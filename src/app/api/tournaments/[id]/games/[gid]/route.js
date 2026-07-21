@@ -31,7 +31,18 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (!game) throw new ApiError(404, "Game config not found");
 
   // Allowed fields according to schema
-  const allowedFields = ["game", "entryFee", "format", "meshGroupCount", "teamBased", "tournamentTeamType"];
+  const allowedFields = [
+    "game",
+    "entryFee",
+    "format",
+    "meshRounds",
+    "standardRounds",
+    "standardDirection",
+    "rewardByeType",
+    "winCriteria",
+    "teamBased",
+    "tournamentTeamType",
+  ];
   allowedFields.forEach((field) => {
     if (field in body) {
       game[field] = body[field];
@@ -39,13 +50,58 @@ export const PATCH = asyncHandler(async (req, context) => {
   });
 
   // Validate enums manually if needed
-  const validFormats = ["round_robin", "mesh", "single_elimination", "double_elimination"];
+  const validFormats = [
+    "round_robin",
+    "mesh",
+    "standard",
+    "single_elimination",
+    "double_elimination",
+  ];
   if (body.format && !validFormats.includes(body.format)) {
     throw new ApiError(400, "Invalid format");
   }
 
   if (body.tournamentTeamType && !["single_player", "double_player"].includes(body.tournamentTeamType)) {
     throw new ApiError(400, "Invalid tournamentTeamType");
+  }
+
+  if (body.winCriteria && !["wins", "hands", "points"].includes(body.winCriteria)) {
+    throw new ApiError(400, "Invalid winCriteria");
+  }
+
+  if (body.standardDirection && !["up", "down"].includes(body.standardDirection)) {
+    throw new ApiError(400, "Invalid standardDirection");
+  }
+
+  const effectiveFormat = body.format || game.format;
+  if (effectiveFormat === "mesh") {
+    const rounds = "meshRounds" in body ? Number(body.meshRounds) : game.meshRounds;
+    if (!rounds || rounds < 1) {
+      throw new ApiError(400, "meshRounds is required for the mesh format");
+    }
+  }
+  if (effectiveFormat === "standard") {
+    const rounds =
+      "standardRounds" in body ? Number(body.standardRounds) : game.standardRounds;
+    if (rounds !== undefined && rounds !== null && rounds !== "" && rounds < 1) {
+      throw new ApiError(400, "standardRounds must be at least 1 when set");
+    }
+  }
+
+  const effectiveByeType = "rewardByeType" in body ? body.rewardByeType : game.rewardByeType;
+  const validByeTypes = [
+    "none",
+    "first_round",
+    "quarterfinal",
+    "semifinal",
+    "final_four",
+    "championship",
+  ];
+  if (effectiveByeType && !validByeTypes.includes(effectiveByeType)) {
+    throw new ApiError(400, "Invalid rewardByeType");
+  }
+  if (effectiveByeType && effectiveByeType !== "none" && effectiveFormat !== "single_elimination") {
+    throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
 
   // Save tournament

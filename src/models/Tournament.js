@@ -7,16 +7,56 @@ const TournamentGameSchema = new Schema({
   entryFee: { type: Number, default: 0 },
   format: {
     type: String,
-    enum: ["round_robin", "mesh", "single_elimination", "double_elimination"],
+    enum: [
+      "round_robin",
+      "mesh",
+      "standard",
+      "single_elimination",
+      "double_elimination",
+    ],
     required: true,
   },
-  meshGroupCount: { type: Number },
+  meshGroupCount: { type: Number }, // deprecated: mesh no longer uses pools
+  // Mesh (table-movement) format: fixed number of rounds, required at setup --
+  // deliberately has no default so it can never be silently skipped.
+  meshRounds: { type: Number, min: 1 },
+  // Standard (fixed-home rotation) format: which way the away team shifts
+  // each round, and an optional round cap -- when left unset the format runs
+  // indefinitely, one round at a time, until the admin declines "another
+  // round?" during score entry.
+  standardDirection: { type: String, enum: ["up", "down"], default: "up" },
+  standardRounds: { type: Number, min: 1 },
+  // How standings (round_robin / mesh / standard) rank teams, and what a
+  // finalize-round1 "no playoff" decision crowns as champion.
+  winCriteria: {
+    type: String,
+    enum: ["wins", "hands", "points"],
+    default: "wins",
+  },
   round1Status: {
     type: String,
-    enum: ["pending", "in_progress", "awaiting_playoff_decision", "completed"],
+    enum: [
+      "pending",
+      "in_progress",
+      // Standard format only, indefinite mode: the just-generated round is
+      // fully played and the admin needs to say whether to generate another.
+      "awaiting_next_round_decision",
+      "awaiting_playoff_decision",
+      "completed",
+    ],
     default: "pending",
   },
   winner: { type: Schema.Types.ObjectId, ref: "Team" },
+  // Reward bye / protected seed (single_elimination only): how deep a
+  // protected team's bye reaches before it plays its first match. Which team
+  // is protected is chosen at bracket-generation time (once teams exist, not
+  // at setup) and recorded here afterward for display.
+  rewardByeType: {
+    type: String,
+    enum: ["none", "first_round", "quarterfinal", "semifinal", "final_four", "championship"],
+    default: "none",
+  },
+  protectedSeedTeam: { type: Schema.Types.ObjectId, ref: "Team" },
   teamBased: { type: Boolean, default: true },
   tournamentTeamType: {
     type: String,

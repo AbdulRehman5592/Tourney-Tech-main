@@ -7,6 +7,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { ApiError } from "@/utils/server/ApiError";
 import { requireAdmin } from "@/utils/server/roleGuards";
+import { GameType } from "@/models/GameType";
 
 export const config = {
   api: { bodyParser: false },
@@ -29,9 +30,9 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "Game name and platform are required.");
   }
 
-  const validGameTypes = ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"];
-  if (gameType && !validGameTypes.includes(gameType)) {
-    throw new ApiError(400, "Invalid game type.");
+  if (gameType) {
+    const exists = await GameType.exists({ name: gameType });
+    if (!exists) throw new ApiError(400, "Invalid game type.");
   }
 
   const iconPath = Array.isArray(files.icon)

@@ -194,12 +194,53 @@ export default function TournamentDetailsPage() {
                       </div>
                       {game.format === "mesh" && (
                         <div>
-                          <span className="text-gray-400">Groups:</span>{" "}
+                          <span className="text-gray-400">Rounds:</span>{" "}
                           <span className="font-semibold">
-                            {game.meshGroupCount || "Auto"}
+                            {game.meshRounds || "N/A"}
                           </span>
                         </div>
                       )}
+                      {game.format === "standard" && (
+                        <>
+                          <div>
+                            <span className="text-gray-400">Rounds:</span>{" "}
+                            <span className="font-semibold">
+                              {game.standardRounds || "Indefinite"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">Away moves:</span>{" "}
+                            <span className="font-semibold">
+                              {game.standardDirection === "down" ? "Down" : "Up"}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      {["round_robin", "mesh", "standard"].includes(game.format) && (
+                        <div>
+                          <span className="text-gray-400">Ranked by:</span>{" "}
+                          <span className="font-semibold">
+                            {game.winCriteria === "hands"
+                              ? "Most Hands"
+                              : game.winCriteria === "points"
+                              ? "Most Points"
+                              : "Most Wins"}
+                          </span>
+                        </div>
+                      )}
+                      {game.format === "single_elimination" &&
+                        game.rewardByeType &&
+                        game.rewardByeType !== "none" && (
+                          <div>
+                            <span className="text-gray-400">Reward Bye:</span>{" "}
+                            <span className="font-semibold">
+                              {game.rewardByeType
+                                .split("_")
+                                .map((w) => w[0].toUpperCase() + w.slice(1))
+                                .join(" ")}
+                            </span>
+                          </div>
+                        )}
                       <div>
                         <span className="text-gray-400">Team Based:</span>{" "}
                         <span className="font-semibold">

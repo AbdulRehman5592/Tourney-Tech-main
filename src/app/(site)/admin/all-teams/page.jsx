@@ -138,6 +138,9 @@ export default function AdminTeamsTable() {
                   Sr No.
                 </th>
                 <th className="py-2 px-4 text-left font-semibold border-b border-[var(--border-color)]">
+                  Team ID
+                </th>
+                <th className="py-2 px-4 text-left font-semibold border-b border-[var(--border-color)]">
                   Name
                 </th>
                 <th className="py-2 px-4 text-left font-semibold border-b border-[var(--border-color)]">
@@ -150,7 +153,7 @@ export default function AdminTeamsTable() {
                   Members
                 </th>
                 <th className="py-2 px-4 text-left font-semibold border-b border-[var(--border-color)]">
-                  Team Leader
+                  Created By
                 </th>
                   <th className="py-2 px-4 text-left font-semibold border-b border-[var(--border-color)]">
                   Created At
@@ -163,7 +166,7 @@ export default function AdminTeamsTable() {
             <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
               {currentTeams.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-gray-400">
+                  <td colSpan={8} className="text-center py-4 text-gray-400">
                     No teams found
                   </td>
                 </tr>
@@ -175,6 +178,9 @@ export default function AdminTeamsTable() {
                   >
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
                       {indexOfFirstRow + i + 1}
+                    </td>
+                    <td className="py-2 px-4 border-b border-[var(--border-color)] font-mono">
+                      {team.displayId || "—"}
                     </td>
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
                       {team.name}

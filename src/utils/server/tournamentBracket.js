@@ -1,5 +1,6 @@
 import { SingleElimination, DoubleElimination, RoundRobin } from "tournament-pairings";
 import { ApiError } from "@/utils/server/ApiError";
+import { seatingRegionOf } from "@/utils/server/teamNumbering";
 
 function shuffleArray(array) {
   return array
@@ -8,8 +9,98 @@ function shuffleArray(array) {
     .map(({ value }) => value);
 }
 
+// Maps every team id (as a string) to its seating region code, for enforcing the
+// "no same-region matchup in round 1" rule.
+function regionMapOf(teams) {
+  return new Map(teams.map((t) => [t._id.toString(), seatingRegionOf(t)]));
+}
+
+// Reorders a shuffled team list so same-region teams are spread apart, giving
+// downstream sequential/seeded pairing a head start at avoiding same-region
+// round-1 matchups. Deals teams out of per-region buckets (largest first) so
+// adjacent positions tend to differ in region.
+function spreadByRegion(teams, regionMap) {
+  const buckets = new Map();
+  for (const t of teams) {
+    const region = regionMap.get(t._id.toString());
+    if (!buckets.has(region)) buckets.set(region, []);
+    buckets.get(region).push(t);
+  }
+  const ordered = [];
+  const groups = [...buckets.values()];
+  while (ordered.length < teams.length) {
+    groups.sort((a, b) => b.length - a.length);
+    for (const g of groups) {
+      if (g.length) ordered.push(g.shift());
+    }
+  }
+  return ordered;
+}
+
+// Post-processes generated round-1 matches so no match pairs two same-region
+// teams, when a clash-free arrangement is achievable. Only "first playable"
+// matches are touched: those with both team slots already filled and not a bye
+// (in an elimination bracket, exactly the round-1 / prelim games). Swapping the
+// occupants of two such slots is structurally safe -- progression targets are
+// fixed to slots, not teams, so winners still advance correctly.
+function fixRound1RegionClashes(matchDocs, regionMap) {
+  const regionOf = (teamId) =>
+    teamId ? regionMap.get(teamId.toString()) : undefined;
+  const clash = (m) =>
+    m.teamA && m.teamB && regionOf(m.teamA) === regionOf(m.teamB);
+
+  const playable = matchDocs.filter(
+    (m) => m.teamA && m.teamB && !m.isBye && m.status !== "completed"
+  );
+
+  for (const m of playable) {
+    if (!clash(m)) continue;
+    for (const n of playable) {
+      if (n === m) continue;
+      // Try swapping m.teamB with each slot of n; keep the first swap that
+      // leaves both matches clash-free.
+      for (const slot of ["teamA", "teamB"]) {
+        const mB = m.teamB;
+        const nX = n[slot];
+        const otherOfN = slot === "teamA" ? n.teamB : n.teamA;
+        if (regionOf(m.teamA) === regionOf(nX)) continue; // would still clash in m
+        if (regionOf(mB) === regionOf(otherOfN)) continue; // would clash in n
+        m.teamB = nX;
+        n[slot] = mB;
+        break;
+      }
+      if (!clash(m)) break;
+    }
+  }
+  return matchDocs;
+}
+
 function toPairingIds(teams) {
   return teams.map((t) => t._id.toString());
+}
+
+// Stamps sequential table numbers (starting at 1) onto the playable matches, just
+// like the printed bracket charts. Ordering: the whole winner's bracket first,
+// then the entire elimination (loser's) bracket, then the grand final -- and
+// within each, by round then slot. So a 16-team double-elim numbers the winner's
+// bracket Tables 1-15, the loser's bracket 16-30, and the grand final 31.
+// Structural byes/walkovers (never played at a table) are skipped.
+const BRACKET_SIDE_ORDER = { winners: 0, losers: 1, grand_final: 2 };
+
+export function assignTableNumbers(matchDocs) {
+  const sideRank = (m) => BRACKET_SIDE_ORDER[m.bracketSide] ?? 0;
+  const sorted = [...matchDocs].sort(
+    (a, b) =>
+      sideRank(a) - sideRank(b) ||
+      (a.round || 0) - (b.round || 0) ||
+      (a.slot || 0) - (b.slot || 0)
+  );
+  let table = 1;
+  for (const m of sorted) {
+    if (m.isBye || m.status === "completed") continue;
+    m.tableNumber = table++;
+  }
+  return matchDocs;
 }
 
 function nextPowerOfTwo(n) {
@@ -164,14 +255,19 @@ export function buildSingleElimination(teams, { seeded = false } = {}) {
   if (teams.length < 2) {
     throw new ApiError(400, "Need at least 2 teams for single elimination");
   }
-  const ordered = seeded ? teams : shuffleArray(teams);
+  // Playoff brackets keep their standings seed; initial round-1 brackets are
+  // shuffled, then region-spread so the first round avoids same-region matchups.
+  const regionMap = regionMapOf(teams);
+  const ordered = seeded
+    ? teams
+    : spreadByRegion(shuffleArray(teams), regionMap);
 
   const lowerSize = previousPowerOfTwo(ordered.length);
   const excess = ordered.length - lowerSize;
 
   if (excess === 0) {
     const raw = SingleElimination(toPairingIds(ordered), 1, false, true);
-    return raw.map((m) => ({
+    const docs = raw.map((m) => ({
       teamA: m.player1 || null,
       teamB: m.player2 || null,
       round: m.round,
@@ -183,6 +279,7 @@ export function buildSingleElimination(teams, { seeded = false } = {}) {
       bracketGroup: null,
       isBye: false,
     }));
+    return seeded ? docs : fixRound1RegionClashes(docs, regionMap);
   }
 
   // Lowest-ranked (or, unseeded, arbitrary since already shuffled) `2*excess`
@@ -239,19 +336,151 @@ export function buildSingleElimination(teams, { seeded = false } = {}) {
     };
   });
 
-  return [...prelimDocs, ...mainDocs];
+  const docs = [...prelimDocs, ...mainDocs];
+  return seeded ? docs : fixRound1RegionClashes(docs, regionMap);
+}
+
+// Single-elimination bracket with one team exempted from play until a chosen
+// depth ("reward bye" / "protected seed"): Championship (bye straight to the
+// final), Semifinal / Final Four (bye to the final four), Quarterfinal (bye
+// to the quarterfinals), or First Round (bye through just round 1).
+// `byeDepth: "none"` (or no protectedTeamId) is just a normal bracket.
+//
+// Mechanically: the other N-1 teams are split into (slots-1) independent
+// groups -- Championship=1 group, Semifinal/FinalFour=3, Quarterfinal=7,
+// First Round=half the padded field minus 1 -- each playing its own ordinary
+// buildSingleElimination down to a single group champion. Those champions
+// plus the protected seed then form the "final stage" bracket, built the same
+// way this file already resolves preliminary/excess teams above: placeholder
+// tokens stand in for "TBD, winner of group N" until that group's own final
+// match is known, at which point its winTarget is pointed at the resolved
+// slot in the final stage. Because routeIntoTarget looks a match up purely by
+// (round, slot), a group's champion can arrive at any real-world time --
+// rounds don't need to run in lockstep across groups.
+//
+// Scoped to single-elimination only; double-elimination's winners/losers
+// structure would need its own (more involved) surgery.
+export function buildSingleEliminationWithProtectedSeed(
+  teams,
+  { protectedTeamId, byeDepth = "none", seeded = false } = {}
+) {
+  if (!protectedTeamId || byeDepth === "none") {
+    return buildSingleElimination(teams, { seeded });
+  }
+
+  const protectedTeam = teams.find((t) => t._id.toString() === protectedTeamId.toString());
+  if (!protectedTeam) {
+    throw new ApiError(400, "Protected seed is not one of this game's teams");
+  }
+  const fieldTeams = teams.filter((t) => t._id.toString() !== protectedTeamId.toString());
+  if (fieldTeams.length < 1) {
+    throw new ApiError(400, "Need at least one other team to build a protected-seed bracket");
+  }
+
+  const paddedSize = nextPowerOfTwo(teams.length);
+  const slotsAtEntry = {
+    championship: 2,
+    semifinal: 4,
+    final_four: 4,
+    quarterfinal: 8,
+    first_round: Math.max(2, paddedSize / 2),
+  }[byeDepth];
+  if (!slotsAtEntry) {
+    throw new ApiError(400, `Unknown reward bye depth: ${byeDepth}`);
+  }
+  if (slotsAtEntry > paddedSize) {
+    throw new ApiError(
+      400,
+      `Bracket is too small for a "${byeDepth}" reward bye (needs at least ${slotsAtEntry} teams)`
+    );
+  }
+
+  const groupCount = slotsAtEntry - 1;
+  const regionMap = regionMapOf(fieldTeams);
+  const spreadField = spreadByRegion(shuffleArray(fieldTeams), regionMap);
+  const groups = Array.from({ length: groupCount }, () => []);
+  spreadField.forEach((team, i) => groups[i % groupCount].push(team));
+
+  // Each group's own buildSingleElimination call numbers its slots fresh
+  // starting at 1, which would collide with every other group's slot numbers
+  // at the same round (routeIntoTarget addresses matches purely by round+slot
+  // per game). Give every group a private slot range via a large per-group
+  // offset, applied consistently to both each doc's own slot and any
+  // winTarget/lossTarget that points to a sibling within the same group.
+  const SLOT_STRIDE = 10000;
+  const groupDocs = [];
+  const groupFinals = groups.map((groupTeams, gIndex) => {
+    if (groupTeams.length === 1) {
+      // A "group" of one is already decided -- no match needed.
+      return { isDecided: true, winner: groupTeams[0]._id, lastRound: 0 };
+    }
+    const offset = gIndex * SLOT_STRIDE;
+    const docs = buildSingleElimination(groupTeams, { seeded: false });
+    docs.forEach((d) => {
+      d.groupIndex = gIndex;
+      d.slot += offset;
+      if (d.winTarget) d.winTarget.match += offset;
+      if (d.lossTarget) d.lossTarget.match += offset;
+    });
+    groupDocs.push(...docs);
+    const final = docs.reduce((max, d) => (d.round > (max?.round ?? 0) ? d : max), null);
+    return { isDecided: false, matchRef: final, lastRound: final.round };
+  });
+
+  const maxGroupRound = Math.max(0, ...groupFinals.map((g) => g.lastRound));
+  const finalStageStartRound = maxGroupRound + 1;
+
+  const placeholders = [
+    protectedTeam._id.toString(),
+    ...groupFinals.map((_, i) => `GROUP_${i}`),
+  ];
+  const rawFinal = SingleElimination(placeholders, 1, false, true);
+
+  const finalDocs = rawFinal.map((m) => {
+    const resolve = (token) => {
+      if (token == null) return null;
+      if (token.startsWith("GROUP_")) {
+        const gIndex = Number(token.slice("GROUP_".length));
+        const group = groupFinals[gIndex];
+        if (group.isDecided) return group.winner.toString();
+        group.matchRef.winTarget = {
+          round: finalStageStartRound + (m.round - 1),
+          match: m.match,
+        };
+        return null;
+      }
+      return token;
+    };
+    return {
+      teamA: resolve(m.player1),
+      teamB: resolve(m.player2),
+      round: finalStageStartRound + (m.round - 1),
+      slot: m.match,
+      winTarget: m.win
+        ? { round: finalStageStartRound + (m.win.round - 1), match: m.win.match }
+        : null,
+      lossTarget: null,
+      stage: "round1",
+      bracketSide: null,
+      bracketGroup: null,
+      isBye: false,
+    };
+  });
+
+  return [...groupDocs, ...finalDocs];
 }
 
 export function buildDoubleElimination(teams) {
   if (teams.length < 4) {
     throw new ApiError(400, "Double elimination needs at least 4 teams");
   }
-  const shuffled = shuffleArray(teams);
+  const regionMap = regionMapOf(teams);
+  const shuffled = spreadByRegion(shuffleArray(teams), regionMap);
   const raw = DoubleElimination(paddedIds(shuffled), 1, true);
   const sideByRound = classifyBracketSides(raw);
   const { analyze } = analyzeBracket(raw);
 
-  return raw
+  const docs = raw
     .map((m) => {
       const a = analyze(m);
       if (a.count === 0) return null; // phantom slot -- nothing will ever occupy it
@@ -279,18 +508,21 @@ export function buildDoubleElimination(teams) {
       return doc;
     })
     .filter(Boolean);
+
+  return fixRound1RegionClashes(docs, regionMap);
 }
 
 export function buildRoundRobin(teams) {
   if (teams.length < 2) {
     throw new ApiError(400, "Need at least 2 teams for round robin");
   }
-  const shuffled = shuffleArray(teams);
+  const regionMap = regionMapOf(teams);
+  const shuffled = spreadByRegion(shuffleArray(teams), regionMap);
   const raw = RoundRobin(toPairingIds(shuffled), 1, true);
 
   // A null player in round-robin output means "sits out this round" (a bye) --
   // there is no game to play and no winner/loser, so we simply don't create a match.
-  return raw
+  const docs = raw
     .filter((m) => m.player1 && m.player2)
     .map((m) => ({
       teamA: m.player1,
@@ -303,41 +535,163 @@ export function buildRoundRobin(teams) {
       bracketSide: null,
       bracketGroup: null,
     }));
+
+  // The "no same-region matchup" rule only applies to round 1 -- every team
+  // plays every other team over the course of a full round robin anyway, so
+  // later rounds necessarily re-pair some same-region teams eventually.
+  const round1Docs = docs.filter((d) => d.round === 1);
+  fixRound1RegionClashes(round1Docs, regionMap);
+  return docs;
 }
 
-// Splits teams into pools and runs a round robin within each. Returns one entry per
-// pool so the caller can create a BracketGroup doc per pool and stamp its id onto
-// each match before insertion.
-export function buildMesh(teams, groupCount) {
+// Mesh ("movement") format: every round, the winner of each table moves UP
+// toward the top table and the loser moves DOWN toward table 1; nobody is
+// ever eliminated, everyone plays every round. The whole `rounds`-deep shell
+// is pre-built up front (round 1 seeded, later rounds empty) exactly like the
+// elimination builders, and reuses the SAME progression mechanism: each
+// match's winTarget/lossTarget names a {round, table} in the next round's
+// shell, and the existing routeIntoTarget() (bracketProgression.js) drops the
+// winner/loser into that slot as soon as the match completes.
+//
+// The winner/loser destination-table formula is derived from the reference
+// movement chart (30 teams / 15 tables / 4 rounds): for N tables,
+//   loser of table i   -> table ceil(i / 2)              (funnels toward 1)
+//   winner of table i  -> table ceil((i + N) / 2)         (funnels toward N)
+// This is a clean bijection: every destination table receives exactly one
+// winner-arrival and one loser-arrival (they coincide at a single "pivot"
+// table when N is odd), so no round ever over- or under-fills a table.
+export function buildMesh(teams, { rounds } = {}) {
+  if (!rounds || rounds < 1) {
+    throw new ApiError(400, "Number of rounds is required for the mesh format");
+  }
   if (teams.length < 4) {
     throw new ApiError(400, "Mesh format needs at least 4 teams");
   }
-  const shuffled = shuffleArray(teams);
-  const maxGroups = Math.max(1, Math.floor(shuffled.length / 2));
-  let count = groupCount && groupCount >= 2 ? groupCount : Math.max(2, Math.round(shuffled.length / 5));
-  count = Math.min(count, maxGroups);
 
-  const groups = Array.from({ length: count }, () => []);
-  shuffled.forEach((team, i) => groups[i % count].push(team));
+  const regionMap = regionMapOf(teams);
+  const seeded = spreadByRegion(shuffleArray(teams), regionMap);
+  const tableCount = Math.ceil(seeded.length / 2);
 
-  return groups.map((groupTeams, index) => ({
-    groupIndex: index,
-    groupName: `Group ${String.fromCharCode(65 + index)}`,
-    teams: groupTeams,
-    matches: buildRoundRobin(groupTeams),
-  }));
+  const loserTarget = (table) => Math.ceil(table / 2);
+  const winnerTarget = (table) => Math.ceil((table + tableCount) / 2);
+
+  const docs = [];
+  for (let round = 1; round <= rounds; round++) {
+    const isLastRound = round === rounds;
+    for (let table = 1; table <= tableCount; table++) {
+      docs.push({
+        round,
+        slot: table,
+        teamA: null,
+        teamB: null,
+        winTarget: isLastRound ? null : { round: round + 1, match: winnerTarget(table) },
+        lossTarget: isLastRound ? null : { round: round + 1, match: loserTarget(table) },
+        stage: "round1",
+        bracketSide: null,
+        bracketGroup: null,
+        isBye: false,
+      });
+    }
+  }
+
+  // Seed round 1 two teams per table off the region-spread order. An odd
+  // field leaves the last table's second slot empty -- that team gets a bye
+  // this round and auto-advances via the winner route, same as an elimination
+  // bracket bye.
+  const round1 = docs.filter((d) => d.round === 1);
+  let i = 0;
+  for (const match of round1) {
+    match.teamA = seeded[i++]?._id ?? null;
+    match.teamB = seeded[i++]?._id ?? null;
+    if (match.teamA && !match.teamB) {
+      match.isBye = true;
+      match.lossTarget = null; // a bye never produces a loser
+      match.status = "completed";
+      match.winner = match.teamA;
+      match.completedAt = new Date();
+    }
+  }
+  fixRound1RegionClashes(round1, regionMap);
+
+  return docs;
 }
 
-function rankByWinsThenDiff(statsList) {
-  return statsList.sort((x, y) => {
-    if (y.wins !== x.wins) return y.wins - x.wins;
-    return y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst);
-  });
+// "Standard" rotation format: the simplest preliminary format. Home teams are
+// fixed permanently to their table; the away team shifts by one table every
+// round (direction admin-configurable), wrapping around at the ends (e.g. a
+// 15-table event shifting "up": table 15's away team goes to table 1 next).
+// Movement is purely mechanical -- it never depends on who wins -- so, unlike
+// mesh, a round's pairing is a pure function of the round number and can be
+// computed directly without any winTarget/lossTarget routing.
+//
+// Because the total round count isn't always known up front (the format can
+// run "indefinitely" until the admin declines "another round?"), this builds
+// exactly the rounds requested (`fromRound`..`fromRound + count - 1`) rather
+// than a whole fixed shell -- called once for `rounds` rounds at generation
+// time when the organizer set a fixed count, or called repeatedly for one
+// round at a time when they didn't.
+export function buildStandardRotation(teams, { direction = "up", fromRound = 1, count = 1 } = {}) {
+  if (teams.length < 4) {
+    throw new ApiError(400, "Standard rotation format needs at least 4 teams");
+  }
+  const step = direction === "down" ? -1 : 1;
+
+  const regionMap = regionMapOf(teams);
+  const spread = spreadByRegion(shuffleArray(teams), regionMap);
+  const tableCount = Math.ceil(spread.length / 2);
+  const homeTeams = spread.slice(0, tableCount);
+  const awayTeams = spread.slice(tableCount);
+
+  const docs = [];
+  for (let round = fromRound; round < fromRound + count; round++) {
+    // Away team originally seeded at index p sits at table
+    // (p + (round-1)*step) mod tableCount this round; home teams never move.
+    const awayAtTable = new Map();
+    awayTeams.forEach((team, p) => {
+      const table = (((p + (round - 1) * step) % tableCount) + tableCount) % tableCount;
+      awayAtTable.set(table, team);
+    });
+
+    for (let table = 0; table < tableCount; table++) {
+      const away = awayAtTable.get(table);
+      if (!away) continue; // this round's bye table -- no away visitor, no match
+      docs.push({
+        teamA: homeTeams[table]._id,
+        teamB: away._id,
+        round,
+        slot: table + 1,
+        winTarget: null,
+        lossTarget: null,
+        stage: "round1",
+        bracketSide: null,
+        bracketGroup: null,
+      });
+    }
+  }
+
+  return docs;
+}
+
+const STANDINGS_CRITERIA = {
+  wins: (x, y) => y.wins - x.wins || (y.pointsFor - y.pointsAgainst) - (x.pointsFor - x.pointsAgainst),
+  points: (x, y) => y.pointsFor - x.pointsFor || y.wins - x.wins,
+  hands: (x, y) => y.handsFor - x.handsFor || y.wins - x.wins,
+};
+
+function rankByCriteria(statsList, criteria) {
+  return statsList.sort(STANDINGS_CRITERIA[criteria] || STANDINGS_CRITERIA.wins);
+}
+
+// Reads a dynamic score-map value regardless of whether the match doc is a
+// live Mongoose document (Map) or a plain/.lean() object.
+function scoreMapValue(scoresField, key) {
+  if (!scoresField) return undefined;
+  return typeof scoresField.get === "function" ? scoresField.get(key) : scoresField[key];
 }
 
 function tallyStandings(matches, teamIds) {
   const stats = new Map(
-    teamIds.map((id) => [id, { teamId: id, wins: 0, pointsFor: 0, pointsAgainst: 0 }])
+    teamIds.map((id) => [id, { teamId: id, wins: 0, pointsFor: 0, pointsAgainst: 0, handsFor: 0 }])
   );
   for (const m of matches) {
     if (m.status !== "completed" || !m.teamA || !m.teamB) continue;
@@ -350,43 +704,20 @@ function tallyStandings(matches, teamIds) {
     a.pointsAgainst += m.teamBScore || 0;
     b.pointsFor += m.teamBScore || 0;
     b.pointsAgainst += m.teamAScore || 0;
+    a.handsFor += Number(scoreMapValue(m.teamAScores, "hands") ?? m.teamAtotalWon ?? 0);
+    b.handsFor += Number(scoreMapValue(m.teamBScores, "hands") ?? m.teamBtotalWon ?? 0);
     if (m.winner?.toString() === aId) a.wins += 1;
     else if (m.winner?.toString() === bId) b.wins += 1;
   }
-  return rankByWinsThenDiff([...stats.values()]);
+  return [...stats.values()];
 }
 
-export function computeStandingsRoundRobin(matches, teams) {
-  return tallyStandings(matches, teams.map((t) => t._id.toString()));
+export function computeStandingsRoundRobin(matches, teams, criteria = "wins") {
+  return rankByCriteria(tallyStandings(matches, teams.map((t) => t._id.toString())), criteria);
 }
 
-// Ranks within each pool (grouped by bracketGroup id on the match docs), then
-// interleaves pool standings snake-style: all pool rank-1s, then all rank-2s, etc.
-export function computeStandingsMesh(matches, teams) {
-  const teamById = new Map(teams.map((t) => [t._id.toString(), t]));
-  const matchesByGroup = new Map();
-  for (const m of matches) {
-    const groupId = m.bracketGroup?.toString();
-    if (!groupId) continue;
-    if (!matchesByGroup.has(groupId)) matchesByGroup.set(groupId, []);
-    matchesByGroup.get(groupId).push(m);
-  }
-
-  const perGroupStandings = [...matchesByGroup.values()].map((groupMatches) => {
-    const teamIds = new Set();
-    groupMatches.forEach((m) => {
-      if (m.teamA) teamIds.add(m.teamA.toString());
-      if (m.teamB) teamIds.add(m.teamB.toString());
-    });
-    return tallyStandings(groupMatches, [...teamIds]);
-  });
-
-  const maxLen = Math.max(0, ...perGroupStandings.map((g) => g.length));
-  const interleaved = [];
-  for (let rank = 0; rank < maxLen; rank++) {
-    for (const group of perGroupStandings) {
-      if (group[rank]) interleaved.push(group[rank]);
-    }
-  }
-  return interleaved.filter((s) => teamById.has(s.teamId));
+// Mesh has no pools to group by -- every team plays every round, so standings
+// are just a flat tally across all rounds' matches, same as round robin.
+export function computeStandingsMesh(matches, teams, criteria = "wins") {
+  return computeStandingsRoundRobin(matches, teams, criteria);
 }

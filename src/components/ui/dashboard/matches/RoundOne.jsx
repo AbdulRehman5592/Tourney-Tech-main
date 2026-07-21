@@ -107,9 +107,16 @@ export default function RoundOneMatches({ matches, onUpdate, pageSize = 12 }) {
               }}
             >
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-semibold">
-                  Match #{match.matchNumber}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold">
+                    Match #{match.matchNumber}
+                  </h3>
+                  {match.tableNumber && (
+                    <span className="rounded-md bg-[var(--secondary-color)] px-2 py-0.5 text-xs font-medium text-[var(--foreground)]">
+                      Table {match.tableNumber}
+                    </span>
+                  )}
+                </div>
                 <span className="text-sm text-gray-400">
                   {match.stage || "Round 1"}
                 </span>

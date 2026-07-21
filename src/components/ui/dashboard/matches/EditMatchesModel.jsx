@@ -4,21 +4,36 @@ import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 
-const HAND_OPTIONS = [...Array(11).keys()];
+// Fallback layout (classic Spades) when a match's game has no configured type --
+// keeps behaviour identical to before game types existed.
+const DEFAULT_FIELDS = [
+  { key: "score", label: "Score", input: "number", min: 0, isPrimary: true },
+  { key: "hands", label: "Hands Won", input: "select", min: 0, max: 10 },
+  { key: "boston", label: "Boston", input: "select", min: 0, max: 10 },
+];
+
+// Reads a field value for a side off the match, preferring the dynamic scores
+// map and falling back to the legacy columns so old matches still populate.
+function initialValue(match, side, field) {
+  const map = match?.[`${side}Scores`];
+  const fromMap = map && (map[field.key] ?? map.get?.(field.key));
+  if (fromMap !== undefined && fromMap !== null) return fromMap;
+  if (field.isPrimary) return match?.[`${side}Score`] ?? 0;
+  if (field.key === "boston") return match?.[`${side}boston`] ?? 0;
+  if (field.key === "hands") return match?.[`${side}totalWon`] ?? 0;
+  return field.min ?? 0;
+}
 
 export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
-  const [form, setForm] = useState({
-    teamAScore: "",
-    teamBScore: "",
-    teamAtotalWon: 0,
-    teamBtotalWon: 0,
-    teamAboston: 0,
-    teamBboston: 0,
-  });
+  const [fields, setFields] = useState(DEFAULT_FIELDS);
+  const [teamA, setTeamA] = useState({});
+  const [teamB, setTeamB] = useState({});
 
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const primaryKey = (fields.find((f) => f.isPrimary) || fields[0])?.key;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -34,22 +49,35 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
     if (isOpen) fetchUser();
   }, [isOpen]);
 
+  // Resolve the score layout for this match's game type.
   useEffect(() => {
-    if (match) {
-      setForm({
-        teamAScore: match.teamAScore ?? 0,
-        teamBScore: match.teamBScore ?? 0,
-        teamAtotalWon: match.teamAtotalWon ?? 0,
-        teamBtotalWon: match.teamBtotalWon ?? 0,
-        teamAboston: match.teamAboston ?? 0,
-        teamBboston: match.teamBboston ?? 0,
-      });
+    if (!isOpen) return;
+    const typeName = match?.game?.gameType;
+    if (!typeName) {
+      setFields(DEFAULT_FIELDS);
+      return;
     }
-  }, [match]);
+    api
+      .get("/api/game-types")
+      .then((res) => {
+        const found = (res.data?.data || []).find((gt) => gt.name === typeName);
+        setFields(found?.scoreFields?.length ? found.scoreFields : DEFAULT_FIELDS);
+      })
+      .catch(() => setFields(DEFAULT_FIELDS));
+  }, [isOpen, match?.game?.gameType]);
 
-  const handleChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  // (Re)initialize inputs whenever the match or the resolved fields change.
+  useEffect(() => {
+    if (!match) return;
+    const a = {};
+    const b = {};
+    for (const f of fields) {
+      a[f.key] = initialValue(match, "teamA", f);
+      b[f.key] = initialValue(match, "teamB", f);
+    }
+    setTeamA(a);
+    setTeamB(b);
+  }, [match, fields]);
 
   if (!isOpen || !match) return null;
 
@@ -64,28 +92,44 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
   const mySide = isTeamA ? "teamA" : isTeamB ? "teamB" : null;
 
   const isCompleted = match.status === "completed";
-  // Nobody has entered a score yet -> open for either side to submit on
-  // behalf of both teams.
   const isOpenForEntry = !isCompleted && !match.scoreEnteredBy;
-  // The side that entered the pending score is waiting on the other side.
   const iEnteredPending = !isCompleted && match.scoreEnteredBy === mySide;
-  // I'm on the side that needs to agree/disagree with what the other team entered.
   const needsMyResponse =
     !isCompleted && match.scoreEnteredBy && match.scoreEnteredBy !== mySide && mySide;
 
   const canSubmit = isAdmin || (mySide && (isOpenForEntry || iEnteredPending));
+  const fieldsDisabled = !canSubmit || saving;
+
+  const setA = (key, value) => setTeamA((p) => ({ ...p, [key]: value }));
+  const setB = (key, value) => setTeamB((p) => ({ ...p, [key]: value }));
 
   const validateForm = () => {
-    const num = (v) => v !== "" && !isNaN(v) && v >= 0;
-    if (!num(form.teamAScore) || !num(form.teamBScore)) {
+    const primA = Number(teamA[primaryKey]);
+    const primB = Number(teamB[primaryKey]);
+    if (isNaN(primA) || isNaN(primB) || primA < 0 || primB < 0) {
       toast.error("Scores must be valid numbers");
       return false;
     }
-    if (Number(form.teamAScore) === Number(form.teamBScore)) {
+    if (primA === primB) {
       toast.error("Draw not supported -- scores must differ");
       return false;
     }
     return true;
+  };
+
+  const buildScorePayload = () => {
+    const teamAScores = {};
+    const teamBScores = {};
+    for (const f of fields) {
+      teamAScores[f.key] = Number(teamA[f.key]) || 0;
+      teamBScores[f.key] = Number(teamB[f.key]) || 0;
+    }
+    return {
+      teamAScore: Number(teamA[primaryKey]) || 0,
+      teamBScore: Number(teamB[primaryKey]) || 0,
+      teamAScores,
+      teamBScores,
+    };
   };
 
   const handleSubmitScore = async () => {
@@ -95,12 +139,7 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
       const payload = {
         matchNumber: match.matchNumber,
         action: isAdmin ? undefined : "submit",
-        teamAScore: Number(form.teamAScore),
-        teamBScore: Number(form.teamBScore),
-        teamAtotalWon: Number(form.teamAtotalWon),
-        teamBtotalWon: Number(form.teamBtotalWon),
-        teamAboston: Number(form.teamAboston),
-        teamBboston: Number(form.teamBboston),
+        ...buildScorePayload(),
       };
       const res = await api.patch(`/api/matches/${match?._id}`, payload);
       toast.success(res.data.message || "Score submitted");
@@ -143,128 +182,102 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
     );
   }
 
-  const fieldsDisabled = !canSubmit || saving;
+  const renderFields = (values, setter) =>
+    fields.map((f) => {
+      if (f.input === "select") {
+        const max = Number.isFinite(Number(f.max)) ? Number(f.max) : 10;
+        const min = Number(f.min) || 0;
+        const options = [];
+        for (let n = min; n <= max; n++) options.push(n);
+        return (
+          <select
+            key={f.key}
+            value={values[f.key] ?? min}
+            disabled={fieldsDisabled}
+            onChange={(e) => setter(f.key, e.target.value)}
+            className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)] disabled:opacity-60"
+          >
+            {options.map((n) => (
+              <option key={n} value={n}>
+                {f.label}: {n}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      return (
+        <div key={f.key} className="mb-2">
+          <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
+            {f.label}
+            {f.isPrimary ? " ★" : ""}
+          </label>
+          <input
+            type="number"
+            min={f.min ?? 0}
+            value={values[f.key] ?? ""}
+            disabled={fieldsDisabled}
+            onChange={(e) => setter(f.key, e.target.value)}
+            className="w-full rounded-lg px-3 py-2 border bg-transparent disabled:opacity-60"
+          />
+        </div>
+      );
+    });
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
       <div
-        className="w-full max-w-lg rounded-xl p-6"
+        className="w-full max-w-lg rounded-xl p-6 max-h-[90vh] overflow-y-auto scrollbar"
         style={{
           background: "var(--card-background)",
           border: "1px solid var(--border-color)",
         }}
       >
-        <h2 className="text-lg font-semibold mb-4">
+        <h2 className="text-lg font-semibold mb-1">
           Edit Match #{match.matchNumber}
+          {match.tableNumber ? ` · Table ${match.tableNumber}` : ""}
         </h2>
+        {match?.game?.gameType && (
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            {match.game.gameType} scoring
+          </p>
+        )}
 
-        {/* STATUS BANNER */}
         {!isAdmin && (
           <div className="mb-4 text-sm">
-            {isCompleted && (
-              <p className="text-green-500">✅ Match completed.</p>
-            )}
+            {isCompleted && <p className="text-green-500">✅ Match completed.</p>}
             {isOpenForEntry && (
               <p className="text-gray-300">
-                No score entered yet -- enter the full result below on behalf of
-                both teams.
+                No score entered yet -- enter the full result below on behalf of both teams.
               </p>
             )}
             {iEnteredPending && (
               <p className="text-yellow-400">
-                You submitted this score. Waiting for the other team to agree
-                or disagree.
+                You submitted this score. Waiting for the other team to agree or disagree.
               </p>
             )}
             {needsMyResponse && (
               <p className="text-yellow-400">
-                The other team submitted this score. Review it below and
-                agree or disagree.
+                The other team submitted this score. Review it below and agree or disagree.
               </p>
             )}
           </div>
         )}
 
-        {/* TEAM INPUTS */}
         <div className="space-y-6">
-          {/* TEAM A */}
           <div>
             <h3 className="font-semibold mb-2">
-              {match.teamA.serialNo} {match.teamA.name}
+              {match.teamA.displayId || match.teamA.serialNo} {match.teamA.name}
             </h3>
-            <input
-              type="number"
-              value={form.teamAScore}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamAScore", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent disabled:opacity-60"
-            />
-            <select
-              value={form.teamAtotalWon}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamAtotalWon", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)] disabled:opacity-60"
-            >
-              {HAND_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  Hands Won: {n}
-                </option>
-              ))}
-            </select>
-            <select
-              value={form.teamAboston}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamAboston", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2 disabled:opacity-60"
-            >
-              {HAND_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  Boston: {n}
-                </option>
-              ))}
-            </select>
+            {renderFields(teamA, setA)}
           </div>
-
-          {/* TEAM B */}
           <div>
             <h3 className="font-semibold mb-2">
-              {match.teamB.serialNo} {match.teamB.name}
+              {match.teamB.displayId || match.teamB.serialNo} {match.teamB.name}
             </h3>
-            <input
-              type="number"
-              value={form.teamBScore}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamBScore", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-transparent disabled:opacity-60"
-            />
-            <select
-              value={form.teamBtotalWon}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamBtotalWon", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border mb-2 bg-[var(--card-background)] disabled:opacity-60"
-            >
-              {HAND_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  Hands Won: {n}
-                </option>
-              ))}
-            </select>
-            <select
-              value={form.teamBboston}
-              disabled={fieldsDisabled}
-              onChange={(e) => handleChange("teamBboston", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 border bg-[var(--card-background)] mb-2 disabled:opacity-60"
-            >
-              {HAND_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  Boston: {n}
-                </option>
-              ))}
-            </select>
+            {renderFields(teamB, setB)}
           </div>
         </div>
 
-        {/* ACTION BUTTONS */}
         <div className="flex justify-end space-x-3 mt-6">
           <button
             onClick={onClose}

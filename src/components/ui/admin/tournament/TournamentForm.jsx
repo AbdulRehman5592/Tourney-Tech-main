@@ -80,7 +80,11 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
           format: g.format || "",
-          meshGroupCount: g.meshGroupCount || "",
+          meshRounds: g.meshRounds || "",
+          standardRounds: g.standardRounds || "",
+          standardDirection: g.standardDirection || "up",
+          rewardByeType: g.rewardByeType || "none",
+          winCriteria: g.winCriteria || "wins",
           teamBased: g.teamBased || false,
           tournamentTeamType: g.tournamentTeamType || "double_player",
         }))
@@ -124,7 +128,11 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         game: "",
         entryFee: "",
         format: "",
-        meshGroupCount: "",
+        meshRounds: "",
+        standardRounds: "",
+        standardDirection: "up",
+        rewardByeType: "none",
+        winCriteria: "wins",
         teamBased: false,
         tournamentTeamType: "double_player",
       },
@@ -136,7 +144,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     const updated = [...gameFields];
     if (name === "teamBased") {
       updated[index][name] = value === true || value === "true";
-    } else if (["entryFee", "meshGroupCount"].includes(name)) {
+    } else if (["entryFee", "meshRounds", "standardRounds"].includes(name)) {
       updated[index][name] = value === "" ? "" : Number(value);
     } else {
       updated[index][name] = value;
@@ -212,7 +220,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           g.game &&
           g.format &&
           (g.entryFee === "" || !isNaN(g.entryFee)) &&
-          g.tournamentTeamType
+          g.tournamentTeamType &&
+          (g.format !== "mesh" || (g.meshRounds && Number(g.meshRounds) >= 1))
       );
 
       const jsonPayload = {
@@ -231,7 +240,13 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             game: g.game,
             entryFee: Number(g.entryFee),
             format: g.format,
-            meshGroupCount: g.format === "mesh" ? Number(g.meshGroupCount) || undefined : undefined,
+            meshRounds: g.format === "mesh" ? Number(g.meshRounds) : undefined,
+            standardRounds:
+              g.format === "standard" && g.standardRounds ? Number(g.standardRounds) : undefined,
+            standardDirection: g.format === "standard" ? g.standardDirection || "up" : undefined,
+            rewardByeType:
+              g.format === "single_elimination" ? g.rewardByeType || "none" : "none",
+            winCriteria: g.winCriteria || "wins",
             teamBased: Boolean(g.teamBased),
             tournamentTeamType: g.tournamentTeamType,
           };
@@ -513,29 +528,110 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               >
                 <option value="">Select Format</option>
                 <option value="round_robin">Round Robin</option>
-                <option value="mesh">Mesh (Groups)</option>
+                <option value="mesh">Mesh (Table Movement)</option>
+                <option value="standard">Standard (Fixed Home Rotation)</option>
                 <option value="single_elimination">Single Elimination</option>
                 <option value="double_elimination">Double Elimination</option>
               </select>
 
-              {/* Mesh group count */}
+              {/* Mesh rounds -- required, deliberately no default so it can't be skipped */}
               {field.format === "mesh" && (
-                <input
-                  type="number"
-                  placeholder="Number of groups (optional)"
-                  value={field.meshGroupCount || ""}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    if (val >= 2 && val <= 99) {
-                      handleGameFieldChange(index, "meshGroupCount", val);
-                    } else if (e.target.value === "") {
-                      handleGameFieldChange(index, "meshGroupCount", "");
-                    }
-                  }}
-                  min={2}
-                  max={99}
+                <div>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Number of rounds (required)"
+                    value={field.meshRounds || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleGameFieldChange(
+                        index,
+                        "meshRounds",
+                        val === "" ? "" : Number(val)
+                      );
+                    }}
+                    min={1}
+                    className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                  />
+                  {!field.meshRounds && (
+                    <p className="text-xs text-red-400 mt-1">
+                      Number of rounds is required for mesh.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Reward bye -- how deep a protected team's bye reaches. Which team
+                  is protected is chosen later, once teams exist, right before the
+                  bracket is generated. */}
+              {field.format === "single_elimination" && (
+                <select
+                  value={field.rewardByeType || "none"}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "rewardByeType", e.target.value)
+                  }
                   className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
-                />
+                >
+                  <option value="none">Reward Bye: None</option>
+                  <option value="first_round">Reward Bye: First Round</option>
+                  <option value="quarterfinal">Reward Bye: Quarterfinal</option>
+                  <option value="semifinal">Reward Bye: Semifinal</option>
+                  <option value="final_four">Reward Bye: Final Four</option>
+                  <option value="championship">Reward Bye: Championship</option>
+                </select>
+              )}
+
+              {/* Standard rotation: direction + optional round cap (blank = indefinite,
+                  runs one round at a time until the admin declines "another round?") */}
+              {field.format === "standard" && (
+                <>
+                  <select
+                    value={field.standardDirection || "up"}
+                    onChange={(e) =>
+                      handleGameFieldChange(index, "standardDirection", e.target.value)
+                    }
+                    className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                  >
+                    <option value="up">Away team shifts up (e.g. table 15 → table 1)</option>
+                    <option value="down">Away team shifts down (e.g. table 1 → table 15)</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Number of rounds (blank = indefinite)"
+                    value={field.standardRounds || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleGameFieldChange(
+                        index,
+                        "standardRounds",
+                        val === "" ? "" : Number(val)
+                      );
+                    }}
+                    min={1}
+                    className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                  />
+                  {!field.standardRounds && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      No round count set -- the admin will be asked "another round?"
+                      after each round during score entry.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {/* Win criteria -- how standings rank teams for round robin / mesh / standard */}
+              {["round_robin", "mesh", "standard"].includes(field.format) && (
+                <select
+                  value={field.winCriteria || "wins"}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "winCriteria", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                >
+                  <option value="wins">Rank by: Most Wins</option>
+                  <option value="hands">Rank by: Most Hands</option>
+                  <option value="points">Rank by: Most Points</option>
+                </select>
               )}
 
               {/* Team Based */}
@@ -574,8 +670,19 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       game: field.game,
                       entryFee: field.entryFee,
                       format: field.format,
-                      meshGroupCount:
-                        field.format === "mesh" ? field.meshGroupCount : undefined,
+                      meshRounds:
+                        field.format === "mesh" ? Number(field.meshRounds) : undefined,
+                      standardRounds:
+                        field.format === "standard" && field.standardRounds
+                          ? Number(field.standardRounds)
+                          : undefined,
+                      standardDirection:
+                        field.format === "standard" ? field.standardDirection || "up" : undefined,
+                      rewardByeType:
+                        field.format === "single_elimination"
+                          ? field.rewardByeType || "none"
+                          : "none",
+                      winCriteria: field.winCriteria || "wins",
                       teamBased: field.teamBased,
                       tournamentTeamType: field.tournamentTeamType,
                     })

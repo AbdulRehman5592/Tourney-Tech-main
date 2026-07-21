@@ -7,6 +7,7 @@ import { ApiError } from "@/utils/server/ApiError";
 import { requireAdmin } from "@/utils/server/roleGuards";
 import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { parseForm } from "@/utils/server/parseForm"; // ✅ Use shared util
+import { GameType } from "@/models/GameType";
 
 export const config = {
   api: { bodyParser: false },
@@ -30,9 +31,9 @@ export const PATCH = asyncHandler(async (req, context) => {
     "description",
     "rulesUrl",
   ];
-  const validGameTypes = ["Spades", "Hearts", "Bridge", "Euchre", "Pinochle", "Uno"];
-  if (fields.gameType && !validGameTypes.includes(fields.gameType.toString())) {
-    throw new ApiError(400, "Invalid game type.");
+  if (fields.gameType) {
+    const exists = await GameType.exists({ name: fields.gameType.toString() });
+    if (!exists) throw new ApiError(400, "Invalid game type.");
   }
   for (const key of allowedFields) {
     if (fields[key]) game[key] = fields[key].toString();

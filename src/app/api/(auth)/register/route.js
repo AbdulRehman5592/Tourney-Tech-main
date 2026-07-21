@@ -6,6 +6,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 // import crypto from "crypto";
 import sendEmail from "@/constants/EmailProvider";
 import { parseForm } from "@/utils/server/parseForm";
+import { resolveRegionCode } from "@/constants/regions";
 
 function sanitize(input) {
   if (typeof input !== "string") return "";
@@ -34,6 +35,7 @@ export const POST = asyncHandler(async (req) => {
     avatar,
     club,
     subCity,
+    region,
   } = fields;
 
   const clean = {
@@ -50,6 +52,7 @@ export const POST = asyncHandler(async (req) => {
     avatar: sanitize(avatar),
     club: sanitize(club),
     subCity: sanitize(subCity),
+    region: resolveRegionCode(region),
   };
 
   // ✅ Required field validation
@@ -95,6 +98,7 @@ export const POST = asyncHandler(async (req) => {
     avatar: clean.avatar || undefined,
     club: clean.club,
     subCity: clean.subCity,
+    region: clean.region,
     isVerified: true, // Auto-verify since email verification is disabled
     // otp, // Email verification temporarily disabled
     // otpExpiry, // Email verification temporarily disabled

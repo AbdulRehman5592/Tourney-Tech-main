@@ -79,6 +79,11 @@ function BracketMatchCard({ match, onMatchClick, topParty, bottomParty, topWon, 
       }`}
       style={{ background: "#1a1f2e" }}
     >
+      {match.raw?.tableNumber && (
+        <span className="px-1 text-[10px] uppercase tracking-wide text-gray-400">
+          Table {match.raw.tableNumber}
+        </span>
+      )}
       {renderParty(topParty, topWon)}
       {renderParty(bottomParty, bottomWon)}
     </div>
