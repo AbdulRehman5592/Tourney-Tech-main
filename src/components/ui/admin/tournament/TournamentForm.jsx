@@ -171,7 +171,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
 
   // staff
   const handleAddStaff = () => {
-    setStaffList((prev) => [...prev, { userId: "", role: "" }]);
+    setStaffList((prev) => [{ userId: "", role: "" }, ...prev]);
   };
 
   const handleStaffChange = (index, name, value) => {

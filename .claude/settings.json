@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"allow-scripts\")",
+      "Bash(npm rebuild *)",
+      "Bash(npm approve-scripts *)",
+      "Bash(node -e \"const bcrypt=require\\('bcrypt'\\); bcrypt.hash\\('test',10\\).then\\(h=>console.log\\('bcrypt OK', h.slice\\(0,10\\)\\)\\)\")",
+      "Bash(node -e \"const sharp=require\\('sharp'\\); console.log\\('sharp OK', sharp.format ? 'formats loaded' : sharp\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/)",
+      "Bash(node scripts/cleanup-orphan-registrations.js --dry-run)",
+      "Bash(node --env-file=.env.local scripts/cleanup-orphan-registrations.js --dry-run)",
+      "Bash(node --env-file=.env.local scripts/cleanup-orphan-registrations.js)",
+      "Bash(npm view *)",
+      "Bash(npx eslint *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/admin/all-registered-players)",
+      "Bash(curl -s -o /dev/null -w \"my-tournaments: %{http_code}\\\\n\" http://localhost:3001/dashboard/my-tournaments)",
+      "Bash(curl -s -o /dev/null -w \"dashboard: %{http_code}\\\\n\" http://localhost:3001/dashboard)",
+      "Bash(curl -s -o /dev/null -w \"all-tournaments: %{http_code}\\\\n\" http://localhost:3001/admin/all-tournaments)",
+      "Bash(curl -s -o /dev/null -w \"create-tournament related page check\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/admin/create-tournament)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/parse-us-locations.js)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"signup: %{http_code}\\\\n\" http://localhost:3001/auth/signup)"
+    ]
+  }
+}

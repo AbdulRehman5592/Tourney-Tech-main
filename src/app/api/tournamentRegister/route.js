@@ -2,6 +2,7 @@
 import { connectDB } from "@/lib/mongoose.js";
 import { Registration } from "@/models/Registration.js";
 import { Tournament } from "@/models/Tournament.js";
+import { User } from "@/models/User.js";
 // import { Team } from "@/models/Team.js";
 import { ApiError } from "@/utils/server/ApiError";
 import { ApiResponse } from "@/utils/server/ApiResponse";
@@ -61,6 +62,11 @@ export const POST = asyncHandler(async (req) => {
   const tournament = await Tournament.findById(tournamentId);
   if (!tournament) {
     throw new ApiError(404, "Tournament not found.");
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found.");
   }
 
   const existingRegistration = await Registration.findOne({

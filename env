@@ -1,0 +1,14 @@
+MONGODB_URI=mongodb://abdulasosrehman_db_user:D7yFC0JFf23szRGE@ac-lwlkmjm-shard-00-00.hyqwudi.mongodb.net:27017,ac-lwlkmjm-shard-00-01.hyqwudi.mongodb.net:27017,ac-lwlkmjm-shard-00-02.hyqwudi.mongodb.net:27017/?ssl=true&replicaSet=atlas-38ywij-shard-0&authSource=admin&appName=TourneyTech
+
+# JWT Token Secrets (required for authentication)
+ACCESS_TOKEN_SECRET=e72d64f3891ee25ef562137aee940db5c5a37551523e816033524e5ea6ffbd0e
+REFRESH_TOKEN_SECRET=2566ea6484d8d83bd068e978b188f85a581fa1cc65bf34a598e424cc46b41510
+
+# JWT Token Expiry (optional - defaults shown)
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
+
+# Email credentials (currently disabled - email verification is commented out in code)
+# EMAIL_USER=mazharballoch74372@gmail.com
+# EMAIL_PASS=MAZhr254@
+# EMAIL_SERVICE=gmail

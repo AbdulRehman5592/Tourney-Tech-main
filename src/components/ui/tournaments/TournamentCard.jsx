@@ -94,7 +94,7 @@ export default function TournamentCard({
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
-          {userRole ? (
+          {userRole && userRole !== "player" ? (
             // ✅ Show View Details for organizers/admins/staff
             <>
               <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
@@ -126,6 +126,46 @@ export default function TournamentCard({
                 </Link>
               )}
             </>
+          ) : userRole === "player" ? (
+            // ✅ Approved player: already registered, no need to register again
+            status === "ongoing" ? (
+              <Link href={`/dashboard/game-play/${_id}`} className="flex-1">
+                <button
+                  onClick={() => onSelect(_id)}
+                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{
+                    backgroundColor: "var(--info-color)",
+                    color: "white",
+                  }}
+                >
+                  Play Tournament
+                </button>
+              </Link>
+            ) : status === "upcoming" ? (
+              <button
+                disabled
+                className="w-full py-2 rounded-lg font-semibold cursor-not-allowed opacity-70"
+                style={{
+                  backgroundColor: "var(--accent-color)",
+                  color: "var(--background)",
+                }}
+              >
+                Registered ✓
+              </button>
+            ) : (
+              <Link href={`/dashboard/game-score/${_id}`} className="flex-1">
+                <button
+                  onClick={() => onSelect(_id)}
+                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{
+                    backgroundColor: "var(--success-color)",
+                    color: "white",
+                  }}
+                >
+                  View ScoreBoard
+                </button>
+              </Link>
+            )
           ) : status === "upcoming" ? (
             // ✅ Show Register Now only for upcoming regular users
             <Link
@@ -146,23 +186,21 @@ export default function TournamentCard({
               </button>
             </Link>
           ) : status === "ongoing" ? (
-            // ✅ Show Play Tournament for ongoing
+            // ✅ Registration closed for ongoing tournaments the user isn't part of
             <div className="w-full">
-              <Link href={`/dashboard/game-play/${_id}`} className="flex-1">
-                <button
-                  onClick={() => onSelect(_id)}
-                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01] hover:bg[]"
-                  style={{
-                    backgroundColor: "var(--info-color)",
-                    color: "white",
-                  }}
-                >
-                  Play Tournament
-                </button>
-              </Link>
+              <button
+                disabled
+                className="w-full py-2 rounded-lg font-semibold cursor-not-allowed opacity-50"
+                style={{
+                  backgroundColor: "var(--info-color)",
+                  color: "white",
+                }}
+              >
+                Play Tournament
+              </button>
 
               <p className="mt-3 text-sm text-center text-[var(--accent-color)]">
-                Online registration is closed. Please Contact to the tournament
+                Online registration is closed. Please contact the tournament
                 director.
               </p>
             </div>
