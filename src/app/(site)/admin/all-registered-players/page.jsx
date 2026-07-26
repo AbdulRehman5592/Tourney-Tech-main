@@ -1,22 +1,28 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import * as XLSX from "xlsx";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from "@tanstack/react-table";
 
 export default function AllRegisteredPlayers() {
   const [registrations, setRegistrations] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(30); // ✅ default 30
-  const [search, setSearch] = useState("");
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState([]);
 
   const fetchRegistrations = async () => {
     try {
       setLoading(true);
       const res = await api.get("/api/tournamentRegister/fetch-all-users");
       setRegistrations(res.data?.data || []);
-      setFiltered(res.data?.data || []);
     } catch (err) {
       console.error("❌ Failed to fetch registrations:", err);
       toast.error("Failed to fetch registrations");
@@ -29,25 +35,91 @@ export default function AllRegisteredPlayers() {
     fetchRegistrations();
   }, []);
 
-  // Search/filter logic
-  useEffect(() => {
-    const query = search.toLowerCase();
-    const filteredData = registrations.filter((reg) => {
-      const username = `${reg.user?.firstname || ""} ${reg.user?.lastname || ""}`.toLowerCase();
-      const email = reg.user?.email?.toLowerCase() || "";
-      const tournament = reg.tournament?.name?.toLowerCase() || "";
-      return username.includes(query) || email.includes(query) || tournament.includes(query);
-    });
-    setFiltered(filteredData);
-    setCurrentPage(1); // reset to first page when searching
-  }, [search, registrations]);
+  const columns = useMemo(
+    () => [
+      { header: "Sr No.", cell: ({ row }) => row.index + 1, enableSorting: false, enableColumnFilter: false },
+      {
+        header: "User",
+        id: "user",
+        accessorFn: (row) => `${row.user?.firstname || ""} ${row.user?.lastname || ""}`.trim(),
+      },
+      {
+        header: "Email",
+        id: "email",
+        accessorFn: (row) => row.user?.email || "",
+      },
+      {
+        header: "Tournament",
+        id: "tournament",
+        accessorFn: (row) => row.tournament?.name || "",
+      },
+      {
+        header: "Games",
+        id: "games",
+        accessorFn: (row) =>
+          row.gameRegistrationDetails?.games?.map((g) => g.name).join(", ") || "",
+        cell: ({ getValue }) =>
+          getValue() ? (
+            getValue()
+              .split(", ")
+              .map((name, i) => (
+                <span
+                  key={i}
+                  className="mr-1 mb-1 inline-block px-2 py-1 rounded-lg bg-[var(--secondary-hover)] text-sm"
+                >
+                  {name}
+                </span>
+              ))
+          ) : (
+            <span className="text-sm opacity-70">No games</span>
+          ),
+      },
+      {
+        header: "Registered At",
+        id: "registeredAt",
+        accessorFn: (row) => row.createdAt,
+        cell: ({ getValue }) => (getValue() ? new Date(getValue()).toLocaleString() : "-"),
+      },
+    ],
+    []
+  );
 
-  // Pagination logic
-  const indexOfLast = rowsPerPage === "all" ? filtered.length : currentPage * rowsPerPage;
-  const indexOfFirst = rowsPerPage === "all" ? 0 : indexOfLast - rowsPerPage;
-  const currentRows = filtered.slice(indexOfFirst, indexOfLast);
-  const totalPages =
-    rowsPerPage === "all" ? 1 : Math.ceil(filtered.length / rowsPerPage);
+  const table = useReactTable({
+    data: registrations,
+    columns,
+    state: { globalFilter, columnFilters },
+    onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 30 } },
+  });
+
+  const handlePageSizeChange = (e) => {
+    const value = e.target.value;
+    table.setPageSize(value === "all" ? registrations.length || 30 : Number(value));
+  };
+
+  const handleExport = () => {
+    const rows = table.getFilteredRowModel().rows.map((row) => {
+      const r = row.original;
+      return {
+        "Sr No.": row.index + 1,
+        User: `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim(),
+        Email: r.user?.email || "",
+        Tournament: r.tournament?.name || "",
+        Games: r.gameRegistrationDetails?.games?.map((g) => g.name).join(", ") || "No games",
+        "Registered At": r.createdAt ? new Date(r.createdAt).toLocaleString() : "-",
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registered Users");
+    XLSX.writeFile(workbook, `registered-users-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   if (loading)
     return <p className="text-center mt-10 text-white">Loading registrations...</p>;
@@ -57,29 +129,39 @@ export default function AllRegisteredPlayers() {
 
   return (
     <div className="min-h-screen p-6 bg-[var(--background)] text-[var(--foreground)]">
-      <h1 className="text-2xl font-bold mb-6">Registered Users</h1>
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold">Registered Users</h1>
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 rounded-lg font-semibold transition hover:scale-[1.02]"
+          style={{ backgroundColor: "var(--success-color)", color: "white" }}
+        >
+          Export to Excel
+        </button>
+      </div>
 
       {/* Search + Rows per page */}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
         <input
           type="text"
           placeholder="Search by user, email, or tournament"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
           className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-white w-full sm:w-64"
         />
 
-        {/* Rows per page dropdown */}
         <div className="flex items-center gap-2">
           <label htmlFor="rowsPerPage" className="text-sm">
             Rows per page:
           </label>
           <select
             id="rowsPerPage"
-            value={rowsPerPage}
-            onChange={(e) =>
-              setRowsPerPage(e.target.value === "all" ? "all" : Number(e.target.value))
+            value={
+              table.getState().pagination.pageSize >= registrations.length
+                ? "all"
+                : table.getState().pagination.pageSize
             }
+            onChange={handlePageSizeChange}
             className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)]"
           >
             <option value={10}>10</option>
@@ -94,94 +176,102 @@ export default function AllRegisteredPlayers() {
       <div className="overflow-x-auto scrollbar rounded-lg border border-[var(--border-color)]">
         <table className="min-w-full border-collapse">
           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
-            <tr>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                Sr No.
-              </th>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                User
-              </th>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                Email
-              </th>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                Tournament
-              </th>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                Games
-              </th>
-              <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
-                Registered At
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
-            {currentRows.map((reg, i) => (
-              <tr
-                key={reg._id}
-                className="hover:bg-[var(--secondary-hover)] transition-colors"
-              >
-                <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                  {indexOfFirst + i + 1}
-                </td>
-                <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                  {reg.user?.firstname} {reg.user?.lastname}
-                </td>
-                <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                  {reg.user?.email}
-                </td>
-                <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                  {reg.tournament?.name}
-                </td>
-                <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                  {reg.gameRegistrationDetails &&
-                  Array.isArray(reg.gameRegistrationDetails.games) &&
-                  reg.gameRegistrationDetails.games.length > 0 ? (
-                    reg.gameRegistrationDetails.games.map((game, i) => (
-                      <span
-                        key={i}
-                        className="mr-1 mb-1 inline-block px-2 py-1 rounded-lg bg-[var(--secondary-hover)] text-sm"
-                      >
-                        {game.name}
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]"
+                  >
+                    <div
+                      onClick={header.column.getToggleSortingHandler()}
+                      className={`flex items-center gap-1 select-none ${
+                        header.column.getCanSort() ? "cursor-pointer" : ""
+                      }`}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <span>
+                        {{ asc: "🔼", desc: "🔽" }[header.column.getIsSorted()] ?? ""}
                       </span>
-                    ))
-                  ) : (
-                    <span className="text-sm opacity-70">No games</span>
-                  )}
-                </td>
-                <td className="py-2 px-4 border-b border-[var(--border-color)] whitespace-nowrap">
-                  {reg.createdAt
-                    ? new Date(reg.createdAt).toLocaleString()
-                    : "-"}
-                </td>
+                    </div>
+
+                    {header.column.getCanFilter() && (
+                      <input
+                        type="text"
+                        value={header.column.getFilterValue() ?? ""}
+                        onChange={(e) => header.column.setFilterValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Filter..."
+                        className="mt-1 w-full p-1 text-xs font-normal rounded border border-[var(--border-color)] bg-[var(--card-background)]"
+                      />
+                    )}
+                  </th>
+                ))}
               </tr>
             ))}
+          </thead>
+
+          <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
+            {table.getRowModel().rows.map((row) => (
+              <tr key={row.id} className="hover:bg-[var(--secondary-hover)] transition-colors">
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="py-2 px-4 border-b border-[var(--border-color)]">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+            {table.getRowModel().rows.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="py-6 text-center opacity-70 text-sm">
+                  No matching registrations
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      {rowsPerPage !== "all" && (
-        <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-2 text-[var(--foreground)]">
+      <div className="flex flex-col sm:flex-row justify-between items-center mt-4 gap-2 text-[var(--foreground)]">
+        <div className="text-sm text-gray-400">
+          Showing{" "}
+          <strong>
+            {table.getFilteredRowModel().rows.length === 0
+              ? 0
+              : table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+          </strong>{" "}
+          -
+          <strong>
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length
+            )}
+          </strong>{" "}
+          of <strong>{table.getFilteredRowModel().rows.length}</strong> registrations
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
             className="px-3 py-1 rounded-lg bg-[var(--secondary-color)] hover:bg-[var(--secondary-hover)] disabled:opacity-50"
           >
             Previous
           </button>
           <span>
-            Page {currentPage} of {totalPages}
+            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
           </span>
           <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
             className="px-3 py-1 rounded-lg bg-[var(--secondary-color)] hover:bg-[var(--secondary-hover)] disabled:opacity-50"
           >
             Next
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

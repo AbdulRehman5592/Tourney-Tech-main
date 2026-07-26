@@ -8,6 +8,7 @@ import { ClipboardList, Search } from "lucide-react";
 export default function AdminAllTournamentsPage() {
   const [tournaments, setTournaments] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -41,13 +42,15 @@ export default function AdminAllTournamentsPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [tournamentRes, teamRes] = await Promise.all([
+        const [tournamentRes, teamRes, registrationRes] = await Promise.all([
           api.get("/api/tournaments"),
           api.get("/api/team"),
+          api.get("/api/tournamentRegister"),
         ]);
 
         setTournaments(tournamentRes.data?.data || []);
         setTeams(teamRes.data?.data || []);
+        setRegistrations(registrationRes.data?.data || []);
       } catch (error) {
         console.error("Failed to load tournaments or teams:", error);
         toast.error("Failed to load admin tournament data");
@@ -72,6 +75,21 @@ export default function AdminAllTournamentsPage() {
       return acc;
     }, {});
   }, [teams]);
+
+  const groupedRegistrations = useMemo(() => {
+    return registrations.reduce((acc, registration) => {
+      const tournamentId =
+        registration?.tournament?._id || registration?.tournament;
+      if (!tournamentId) return acc;
+
+      if (!acc[tournamentId]) {
+        acc[tournamentId] = [];
+      }
+
+      acc[tournamentId].push(registration);
+      return acc;
+    }, {});
+  }, [registrations]);
 
   const filteredTournaments = useMemo(() => {
     return tournaments.filter((tournament) => {
@@ -138,6 +156,8 @@ export default function AdminAllTournamentsPage() {
         <div className="space-y-6">
           {filteredTournaments.map((tournament) => {
             const tournamentTeams = groupedTeams[tournament._id] || [];
+            const tournamentRegistrations =
+              groupedRegistrations[tournament._id] || [];
 
             return (
               <section
@@ -172,6 +192,71 @@ export default function AdminAllTournamentsPage() {
                       <option value="completed">Completed</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-foreground">Registered Players</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {tournamentRegistrations.length} registrant
+                      {tournamentRegistrations.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {tournamentRegistrations.length > 0 ? (
+                    <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium">Player</th>
+                            <th className="px-4 py-2 text-left font-medium">Email</th>
+                            <th className="px-4 py-2 text-left font-medium">Game(s)</th>
+                            <th className="px-4 py-2 text-left font-medium">Team</th>
+                            <th className="px-4 py-2 text-left font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-[var(--background)] text-[var(--foreground)]">
+                          {tournamentRegistrations.map((registration) => {
+                            const team = tournamentTeams.find(
+                              (t) =>
+                                t._id ===
+                                (registration.gameRegistrationDetails?.team?._id ||
+                                  registration.gameRegistrationDetails?.team)
+                            );
+
+                            return (
+                              <tr
+                                key={registration._id}
+                                className="border-t border-[var(--border-color)]"
+                              >
+                                <td className="px-4 py-2">
+                                  {registration.user?.username ||
+                                    `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||
+                                    "-"}
+                                </td>
+                                <td className="px-4 py-2">{registration.user?.email || "-"}</td>
+                                <td className="px-4 py-2">
+                                  {registration.gameRegistrationDetails?.games
+                                    ?.map((g) => g.name)
+                                    .join(", ") || "-"}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {team ? team.name : "Not teamed up yet"}
+                                </td>
+                                <td className="px-4 py-2 capitalize">
+                                  {registration.gameRegistrationDetails?.status || "pending"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
+                      No players have registered for this tournament yet.
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-6 space-y-4">

@@ -1,4 +1,5 @@
 import { Tournament } from "@/models/Tournament";
+import { Registration } from "@/models/Registration";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
@@ -7,7 +8,7 @@ export const GET = asyncHandler(async (req) => {
   const user = await requireAuth(req);
 
   // Find tournaments where user is in staff array
-  const tournaments = await Tournament.find({
+  const staffTournaments = await Tournament.find({
     "staff.user": user._id,
   })
     .populate("games.game", "name icon")
@@ -16,7 +17,7 @@ export const GET = asyncHandler(async (req) => {
     .lean();
 
   // Add user's role for each tournament
-  const tournamentsWithUserRole = tournaments.map((tournament) => {
+  const tournamentsWithUserRole = staffTournaments.map((tournament) => {
     const staffMember = tournament.staff.find(
       (m) => m.user._id.toString() === user._id.toString()
     );
@@ -25,6 +26,35 @@ export const GET = asyncHandler(async (req) => {
       userRole: staffMember?.role || null,
     };
   });
+
+  const staffTournamentIds = new Set(
+    tournamentsWithUserRole.map((tournament) => tournament._id.toString())
+  );
+
+  // Find tournaments the user has an approved registration for, so an
+  // approved player also sees the tournament even without a staff role
+  const approvedRegistrations = await Registration.find({
+    user: user._id,
+    "gameRegistrationDetails.status": "approved",
+  })
+    .populate({
+      path: "tournament",
+      populate: { path: "games.game", select: "name icon" },
+    })
+    .lean();
+
+  for (const registration of approvedRegistrations) {
+    const tournament = registration.tournament;
+    if (!tournament || staffTournamentIds.has(tournament._id.toString())) {
+      continue;
+    }
+    staffTournamentIds.add(tournament._id.toString());
+    tournamentsWithUserRole.push({ ...tournament, userRole: "player" });
+  }
+
+  tournamentsWithUserRole.sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
 
   return Response.json(
     new ApiResponse(

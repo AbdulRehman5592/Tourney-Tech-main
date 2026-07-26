@@ -1,34 +1,34 @@
 {
   "regionList": [
-    "NY-NJ-DE",
-    "PHIL / PA CITIES",
+    "NY/NJ",
+    "PHIL / PA CITIES / DE",
     "CT/MAS/NH/VT (NE)",
-    "DMV / BALTIMORE",
+    "DMV/BAL",
     "7-Cities / Richmond",
-    "Detroit",
-    "Atlanta",
-    "Birmingham",
-    "Columbus",
+    "Detroit, MI",
+    "Atlanta, GA",
+    "Birmingham, AL",
+    "Columbus, OH",
     "Florida",
-    "Cincinnati",
-    "Chicago",
-    "Dallas",
-    "Austin",
-    "Houston",
-    "San Antonio",
-    "New Orleans",
-    "Los Angeles",
-    "Las Vegas",
+    "Cincinnati, OH",
+    "Chicago, IL",
+    "Dallas, TX",
+    "Austin, TX",
+    "Houston, TX",
+    "San Antonio, TX",
+    "New Orleans, LA",
+    "Los Angeles, CA",
+    "Las Vegas, NV",
     "Other"
   ],
   "statesByRegion": {
-    "NY-NJ-DE": [
+    "NY/NJ": [
       "NY",
-      "NJ",
-      "DE"
+      "NJ"
     ],
-    "PHIL / PA CITIES": [
-      "PA"
+    "PHIL / PA CITIES / DE": [
+      "PA",
+      "DE"
     ],
     "CT/MAS/NH/VT (NE)": [
       "CT",
@@ -36,7 +36,7 @@
       "NH",
       "VT"
     ],
-    "DMV / BALTIMORE": [
+    "DMV/BAL": [
       "DC",
       "MD",
       "VA"
@@ -44,46 +44,46 @@
     "7-Cities / Richmond": [
       "VA"
     ],
-    "Detroit": [
+    "Detroit, MI": [
       "MI"
     ],
-    "Atlanta": [
+    "Atlanta, GA": [
       "GA"
     ],
-    "Birmingham": [
+    "Birmingham, AL": [
       "AL"
     ],
-    "Columbus": [
+    "Columbus, OH": [
       "OH"
     ],
     "Florida": [
       "FL"
     ],
-    "Cincinnati": [
+    "Cincinnati, OH": [
       "OH"
     ],
-    "Chicago": [
+    "Chicago, IL": [
       "IL"
     ],
-    "Dallas": [
+    "Dallas, TX": [
       "TX"
     ],
-    "Austin": [
+    "Austin, TX": [
       "TX"
     ],
-    "Houston": [
+    "Houston, TX": [
       "TX"
     ],
-    "San Antonio": [
+    "San Antonio, TX": [
       "TX"
     ],
-    "New Orleans": [
+    "New Orleans, LA": [
       "LA"
     ],
-    "Los Angeles": [
+    "Los Angeles, CA": [
       "CA"
     ],
-    "Las Vegas": [
+    "Las Vegas, NV": [
       "NV"
     ],
     "Other": [
