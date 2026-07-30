@@ -51,6 +51,37 @@ export const POST = asyncHandler(async (req) => {
       throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
   }
 
+  // Team Up is a site-wide directory (any player can be browsed regardless of
+  // their own registrations), so check upfront that both sides are actually
+  // registered+approved for this tournament/game -- otherwise the request
+  // would just be a dead end at accept time.
+  const [fromReg, toReg] = await Promise.all([
+    Registration.findOne({
+      user: user._id,
+      tournament: tournamentId,
+      "gameRegistrationDetails.status": "approved",
+      "gameRegistrationDetails.games": gameId,
+    }),
+    Registration.findOne({
+      user: to,
+      tournament: tournamentId,
+      "gameRegistrationDetails.status": "approved",
+      "gameRegistrationDetails.games": gameId,
+    }),
+  ]);
+  if (!fromReg)
+    throw new ApiResponse(
+      400,
+      null,
+      "You must be registered and approved for this tournament/game to send a request"
+    );
+  if (!toReg)
+    throw new ApiResponse(
+      400,
+      null,
+      "That player is not registered and approved for this tournament/game"
+    );
+
   const existRequest = await TeamUp.findOne({
     $or: [
       { from: user._id, to },
