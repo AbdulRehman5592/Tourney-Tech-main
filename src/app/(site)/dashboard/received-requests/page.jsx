@@ -3,6 +3,9 @@ import { useEffect, useState, useRef } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { GENDER_COLORS } from "@/constants/genderColors";
+
+const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
 export default function ReceivedRequests() {
   const [requests, setRequests] = useState([]);
@@ -144,8 +147,16 @@ export default function ReceivedRequests() {
               }}
             >
               <h3 className="font-semibold text-lg mb-2">
-                {req.from?.firstname} {req.from?.lastname} ({req.from?.username})
+                <span style={{ color: GENDER_COLORS[req.from?.gender] || "inherit" }}>
+                  {req.from?.firstname} {req.from?.lastname} ({req.from?.username})
+                </span>
               </h3>
+
+              {req.mode && (
+                <span className="inline-block mb-2 px-2 py-0.5 rounded text-xs font-semibold bg-[var(--secondary-hover)]">
+                  {MODE_LABELS[req.mode] || req.mode}
+                </span>
+              )}
 
               <p className="text-sm mb-1">
                 <strong>Tournament: </strong> {req.tournament?.name || "Unknown"}

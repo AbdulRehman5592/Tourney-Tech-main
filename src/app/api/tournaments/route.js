@@ -5,6 +5,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 import { parseForm } from "@/utils/server/parseForm";
 import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { Tournament } from "@/models/Tournament";
+import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 import "@/models/Game";
 
 
@@ -69,6 +70,8 @@ for (const game of games) {
   ) {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
+
+  validateDoublesConfig(game);
 }
 
 

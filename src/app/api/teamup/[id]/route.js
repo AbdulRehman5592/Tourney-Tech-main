@@ -1,14 +1,13 @@
 // /api/teamup/[id]
 
-// import { getNextSequence } from "@/lib/utils";
 import { Registration } from "@/models/Registration";
-
-// import { Team } from "@/models/Team";
+import { Tournament } from "@/models/Tournament";
 import { TeamUp } from "@/models/TeamUp";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
+import { isMixedDoublesGenderOk } from "@/utils/server/doublesConfig";
 
 export const PATCH = asyncHandler(async (req, context) => {
   const user = await requireAuth();
@@ -21,8 +20,8 @@ export const PATCH = asyncHandler(async (req, context) => {
   }
 
   const request = await TeamUp.findById(id)
-    .populate("from", "firstname lastname username email")
-    .populate("to", "firstname lastname username email");
+    .populate("from", "firstname lastname username email gender")
+    .populate("to", "firstname lastname username email gender");
 
   if (!request) {
     throw new ApiResponse(404, null, "Team-up request not found");
@@ -31,9 +30,6 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (request.to?._id.toString() !== user._id.toString()) {
     throw new ApiResponse(403, null, "Not authorized to update this request");
   }
-
-  request.status = status;
-  await request.save();
 
   if (status === "accepted") {
     const fromReg = await Registration.findOne({
@@ -78,15 +74,32 @@ export const PATCH = asyncHandler(async (req, context) => {
       );
     }
 
-    
+    if (request.mode === "mixed_doubles" && !isMixedDoublesGenderOk(request.from?.gender, request.to?.gender)) {
+      throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
+    }
+
+    // Snapshot the pair's cost at accept time (owed by `from`, the requestor)
+    // and initialize payment tracking. Doubles is a scoring overlay only --
+    // no Team/TeamMember gets created; paired players keep playing their own
+    // solo matches in the bracket untouched.
+    const tournament = await Tournament.findById(request.tournament);
+    const gameConfig = tournament?.games.find((g) => g.game.toString() === commonGame.toString());
+    request.costOwed =
+      request.mode === "mixed_doubles"
+        ? gameConfig?.mixedDoublesCost || 0
+        : gameConfig?.doublesCost || 0;
+    request.payment = { method: "cash", paid: false, approved: false };
   }
+
+  request.status = status;
+  await request.save();
 
   return Response.json(
     new ApiResponse(
       200,
       { request },
       status === "accepted"
-        ? "Team-up request accepted and team updated/created"
+        ? "Team-up request accepted"
         : "Team-up request updated"
     )
   );

@@ -4,6 +4,7 @@ import { requireAuth } from "@/utils/server/auth";
 import { requireTournamentStaff } from "@/utils/server/tournamentPermissions";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
+import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 
 // POST /api/tournaments/:id/games → Add game to tournament
 export const POST = asyncHandler(async (req, context) => {
@@ -30,6 +31,10 @@ export const POST = asyncHandler(async (req, context) => {
     winCriteria = "wins",
     teamBased = true,
     tournamentTeamType,
+    doublesEnabled = false,
+    doublesCost = 0,
+    mixedDoublesEnabled = false,
+    mixedDoublesCost = 0,
   } = body;
 
   // ✅ Required fields
@@ -89,6 +94,14 @@ export const POST = asyncHandler(async (req, context) => {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
 
+  validateDoublesConfig({
+    tournamentTeamType,
+    doublesEnabled,
+    doublesCost,
+    mixedDoublesEnabled,
+    mixedDoublesCost,
+  });
+
   // ✅ Validate game exists
   const gameExists = await Game.exists({ _id: game });
   if (!gameExists) {
@@ -120,6 +133,10 @@ export const POST = asyncHandler(async (req, context) => {
     winCriteria,
     teamBased,
     tournamentTeamType,
+    doublesEnabled,
+    doublesCost: doublesEnabled ? Number(doublesCost) : 0,
+    mixedDoublesEnabled,
+    mixedDoublesCost: mixedDoublesEnabled ? Number(mixedDoublesCost) : 0,
   });
   await tournament.save();
 
