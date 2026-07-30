@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { regionList, stateList, stateCitiesMap, clubList } from "@/constants/RegionData";
+import { stateList, stateCitiesMap } from "@/constants/RegionData";
+import api from "@/utils/axios";
 
 export default function CitySelector({
   stateCode,
@@ -16,11 +17,20 @@ export default function CitySelector({
   const [regions, setRegions] = useState([]);
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
+  const [clubList, setClubList] = useState([]);
 
-  // Load all regions & states once
+  // Load all regions, states & clubs once. Region/club options come from the
+  // admin-managed lists (/api/regions, /api/clubs).
   useEffect(() => {
-    setRegions(regionList);
     setStates(stateList);
+    api
+      .get("/api/regions")
+      .then((res) => setRegions((res.data?.data || []).map((r) => r.name)))
+      .catch(() => setRegions([]));
+    api
+      .get("/api/clubs")
+      .then((res) => setClubList((res.data?.data || []).map((c) => c.name)))
+      .catch(() => setClubList([]));
   }, []);
 
   // 🔥 Load cities when stateCode changes

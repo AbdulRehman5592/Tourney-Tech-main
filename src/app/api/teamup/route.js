@@ -38,8 +38,7 @@ export const POST = asyncHandler(async (req) => {
   if (!tournament) throw new ApiResponse(404, null, "Tournament not found");
 
   const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
-  if (!gameConfig || gameConfig.tournamentTeamType !== "single_player")
-    throw new ApiResponse(400, null, "Doubles is only available for single_player games");
+  if (!gameConfig) throw new ApiResponse(404, null, "Game not found in this tournament");
 
   if (mode === "doubles" && !gameConfig.doublesEnabled)
     throw new ApiResponse(400, null, "Doubles is not enabled for this game");

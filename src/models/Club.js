@@ -20,12 +20,10 @@ const ClubSchema = new Schema(
 
     city: {
       type: String,
-      required: [true, "City is required."],
     },
 
     state: {
       type: String,
-      required: [true, "State is required."],
     },
   },
   { timestamps: true }

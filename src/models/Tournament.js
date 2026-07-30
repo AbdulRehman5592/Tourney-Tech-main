@@ -96,12 +96,16 @@ const TournamentSchema = new Schema(
     isPublic: { type: Boolean, default: true },
     status: {
       type: String,
-      enum: ["upcoming", "ongoing", "completed"],
+      // "draft" = no games added yet; enforced server-side (see
+      // tournaments API routes) whenever games.length === 0, so a tournament
+      // can never be "upcoming"/"ongoing"/"completed" with nothing to play.
+      enum: ["draft", "upcoming", "ongoing", "completed"],
       default: "upcoming",
     },
     games: {
+      // A tournament can be created/saved with zero games as a draft; admins
+      // add games later. Games are only required once status leaves "draft".
       type: [TournamentGameSchema],
-      validate: [(val) => val.length > 0, "At least one game is required"],
     },
     staff: [TournamentStaffSchema],
   },

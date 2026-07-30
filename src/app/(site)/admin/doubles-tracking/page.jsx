@@ -28,6 +28,14 @@ export default function DoublesTracking() {
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState("");
 
+  // Pair standings -- sums each accepted pair's individual scores to rank
+  // who's winning the doubles/mixed-doubles side competition.
+  const [standingsTournamentId, setStandingsTournamentId] = useState("");
+  const [standingsGameId, setStandingsGameId] = useState("");
+  const [standingsMode, setStandingsMode] = useState("");
+  const [standings, setStandings] = useState(null);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+
   const fetchPairs = async () => {
     try {
       setLoading(true);
@@ -75,6 +83,45 @@ export default function DoublesTracking() {
     }
     return Array.from(map.values());
   }, [pairs]);
+
+  // Tournament/game options for the standings picker, derived from the pairs
+  // already fetched (avoids a separate tournaments API call).
+  const tournamentOptions = useMemo(() => {
+    const map = new Map();
+    for (const p of pairs) {
+      if (p.tournament?._id) map.set(p.tournament._id, p.tournament.name);
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [pairs]);
+
+  const gameOptions = useMemo(() => {
+    const map = new Map();
+    for (const p of pairs) {
+      if (p.tournament?._id === standingsTournamentId && p.gameId) {
+        map.set(p.gameId, p.gameName);
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [pairs, standingsTournamentId]);
+
+  const fetchStandings = async () => {
+    if (!standingsTournamentId || !standingsGameId) {
+      toast.error("Select a tournament and game first");
+      return;
+    }
+    setStandingsLoading(true);
+    try {
+      const params = { tournamentId: standingsTournamentId, gameId: standingsGameId };
+      if (standingsMode) params.mode = standingsMode;
+      const res = await api.get("/api/admin/doubles/standings", { params });
+      setStandings(res.data?.data || null);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to fetch standings");
+    } finally {
+      setStandingsLoading(false);
+    }
+  };
 
   const columns = useMemo(
     () => [
@@ -218,6 +265,114 @@ export default function DoublesTracking() {
           </div>
         </div>
       )}
+
+      {/* Pair standings -- sum of each accepted pair's individual scores */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-2">Pair Standings</h2>
+        <div className="flex flex-col sm:flex-row gap-3 mb-3">
+          <select
+            value={standingsTournamentId}
+            onChange={(e) => {
+              setStandingsTournamentId(e.target.value);
+              setStandingsGameId("");
+              setStandings(null);
+            }}
+            className="p-2 rounded bg-[var(--card-background)] border border-[var(--border-color)]"
+          >
+            <option value="">Select Tournament</option>
+            {tournamentOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={standingsGameId}
+            onChange={(e) => {
+              setStandingsGameId(e.target.value);
+              setStandings(null);
+            }}
+            disabled={!standingsTournamentId}
+            className="p-2 rounded bg-[var(--card-background)] border border-[var(--border-color)] disabled:opacity-50"
+          >
+            <option value="">Select Game</option>
+            {gameOptions.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={standingsMode}
+            onChange={(e) => {
+              setStandingsMode(e.target.value);
+              setStandings(null);
+            }}
+            className="p-2 rounded bg-[var(--card-background)] border border-[var(--border-color)]"
+          >
+            <option value="">All Modes</option>
+            <option value="doubles">Doubles</option>
+            <option value="mixed_doubles">Mixed Doubles</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={fetchStandings}
+            disabled={standingsLoading}
+            className="px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
+            style={{ background: "var(--accent-color)", color: "black" }}
+          >
+            {standingsLoading ? "Loading..." : "View Standings"}
+          </button>
+        </div>
+
+        {standings && (
+          <div className="overflow-x-auto scrollbar rounded-lg border border-[var(--border-color)]">
+            {standings.standings.length === 0 ? (
+              <p className="opacity-70 text-center p-6 text-sm">
+                No accepted pairs for this tournament/game/mode
+              </p>
+            ) : (
+              <table className="min-w-full border-collapse">
+                <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
+                  <tr>
+                    <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                      Rank
+                    </th>
+                    <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                      Requestor
+                    </th>
+                    <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                      Requestee
+                    </th>
+                    <th className="py-2 px-4 text-left text-sm font-semibold border-b border-[var(--border-color)]">
+                      Score ({standings.winCriteria})
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
+                  {standings.standings.map((s) => (
+                    <tr key={s.pairId} className="hover:bg-[var(--secondary-hover)] transition-colors">
+                      <td className="py-2 px-4 border-b border-[var(--border-color)]">#{s.rank}</td>
+                      <td className="py-2 px-4 border-b border-[var(--border-color)]">
+                        <GenderName user={s.from} /> ({s.fromScore})
+                      </td>
+                      <td className="py-2 px-4 border-b border-[var(--border-color)]">
+                        <GenderName user={s.to} /> ({s.toScore})
+                      </td>
+                      <td className="py-2 px-4 border-b border-[var(--border-color)] font-semibold">
+                        {s.combinedScore}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
       <input
         type="text"

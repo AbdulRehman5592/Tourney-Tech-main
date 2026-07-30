@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { regionList, stateList, citiesByState } from "@/constants/USLocationsData.json";
+import { stateList, citiesByState } from "@/constants/USLocationsData.json";
+import api from "@/utils/axios";
 
 /**
  * US Location Selector
  * Flow: State → City (cascade), Playing Region (independent), Club
- * Ponytail: Simple JSON-based dropdowns
+ * Region/Club options come from the admin-managed lists (/api/regions,
+ * /api/clubs) so admin-added entries show up here without a redeploy.
  */
 export default function USLocationSelector({
   region,
@@ -19,6 +21,20 @@ export default function USLocationSelector({
   setClub,
 }) {
   const [cities, setCities] = useState([]);
+  const [regionList, setRegionList] = useState([]);
+  const [clubList, setClubList] = useState([]);
+
+  // Load admin-managed region/club options once.
+  useEffect(() => {
+    api
+      .get("/api/regions")
+      .then((res) => setRegionList((res.data?.data || []).map((r) => r.name)))
+      .catch(() => setRegionList([]));
+    api
+      .get("/api/clubs")
+      .then((res) => setClubList((res.data?.data || []).map((c) => c.name)))
+      .catch(() => setClubList([]));
+  }, []);
 
   // Load cities when state changes
   useEffect(() => {
@@ -119,7 +135,7 @@ export default function USLocationSelector({
           }}
         >
           <option value="">Select Club</option>
-          {["7NO PLAYERS", "ALAMO 7NO", "AWC", "BEST OF THE WEST", "Other", "None"].map((c) => (
+          {clubList.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

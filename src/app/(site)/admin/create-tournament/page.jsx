@@ -14,7 +14,7 @@ export default function TournamentsPage() {
 
   const fetchTournaments = async () => {
     try {
-      const res = await api.get("/api/tournaments");
+      const res = await api.get("/api/tournaments?includeDrafts=true");
       setTournaments(res.data.data);
     } catch (err) {
       console.error("Failed to load tournaments", err);

@@ -6,7 +6,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 // import crypto from "crypto";
 import sendEmail from "@/constants/EmailProvider";
 import { parseForm } from "@/utils/server/parseForm";
-import { resolveRegionCode } from "@/constants/regions";
+import { resolveRegionCodeAsync } from "@/utils/server/regionLookup";
 
 function sanitize(input) {
   if (typeof input !== "string") return "";
@@ -38,6 +38,8 @@ export const POST = asyncHandler(async (req) => {
     region,
   } = fields;
 
+  const resolvedRegion = await resolveRegionCodeAsync(region);
+
   const clean = {
     firstname: sanitize(firstname),
     lastname: sanitize(lastname),
@@ -52,7 +54,7 @@ export const POST = asyncHandler(async (req) => {
     avatar: sanitize(avatar),
     club: sanitize(club),
     subCity: sanitize(subCity),
-    region: resolveRegionCode(region),
+    region: resolvedRegion,
   };
 
   // ✅ Required field validation

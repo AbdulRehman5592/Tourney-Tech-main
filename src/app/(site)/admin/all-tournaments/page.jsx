@@ -43,7 +43,7 @@ export default function AdminAllTournamentsPage() {
       setLoading(true);
       try {
         const [tournamentRes, teamRes, registrationRes] = await Promise.all([
-          api.get("/api/tournaments"),
+          api.get("/api/tournaments?includeDrafts=true"),
           api.get("/api/team"),
           api.get("/api/tournamentRegister"),
         ]);

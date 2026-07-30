@@ -34,9 +34,13 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "Missing required fields");
   }
 
-  if (!Array.isArray(games) || games.length === 0) {
-    throw new ApiError(400, "At least one game is required");
+  if (!Array.isArray(games)) {
+    throw new ApiError(400, "games must be an array");
   }
+
+  // No games yet -- save as a draft regardless of the requested status; a
+  // tournament can't be upcoming/ongoing/completed with nothing to play.
+  const finalStatus = games.length === 0 ? "draft" : status;
 
 const validFormats = ["round_robin", "mesh", "standard", "single_elimination", "double_elimination"];
 for (const game of games) {
@@ -101,8 +105,7 @@ for (const game of games) {
     endDate,
     isPublic,
     games,
-    // status: "upcoming",
-    status,
+    status: finalStatus,
     staff,
 
   });
@@ -112,8 +115,16 @@ for (const game of games) {
   );
 });
 
-export const GET = asyncHandler(async () => {
-  const tournaments = await Tournament.find()
+// Draft (0-game) tournaments are excluded by default -- they have nothing to
+// register for/play and would show as broken empty cards to players. Admin
+// management pages that need to find and edit their drafts pass
+// ?includeDrafts=true.
+export const GET = asyncHandler(async (req) => {
+  const { searchParams } = new URL(req.url);
+  const includeDrafts = searchParams.get("includeDrafts") === "true";
+
+  const query = includeDrafts ? {} : { status: { $ne: "draft" } };
+  const tournaments = await Tournament.find(query)
     .populate("games.game", "name icon")
     .populate("staff.user", "username email")
     .sort({ createdAt: -1 })

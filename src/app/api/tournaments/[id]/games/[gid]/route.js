@@ -137,6 +137,12 @@ export const DELETE = asyncHandler(async (req, context) => {
   if (!found) throw new ApiError(404, "Game config not found");
 
   tournament.games.pull(gameConfigId);
+
+  // Removing the last game leaves nothing to play -- fall back to draft.
+  if (tournament.games.length === 0) {
+    tournament.status = "draft";
+  }
+
   await tournament.save();
 
   return Response.json({ success: true, removedGame: gameConfigId });
