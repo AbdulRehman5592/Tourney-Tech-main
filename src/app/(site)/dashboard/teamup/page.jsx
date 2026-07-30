@@ -13,42 +13,31 @@ function isMixedDoublesGenderOk(genderA, genderB) {
 export default function TeamUp() {
   const [search, setSearch] = useState("");
   const [players, setPlayers] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-
-  const [tournamentList, setTournamentList] = useState([]);
-  const [selectedTournament, setSelectedTournament] = useState("all");
+  const [currentUserEligible, setCurrentUserEligible] = useState(true);
 
   // Store per-player tournament + game + mode selections
   const [selectedTournamentIds, setSelectedTournamentIds] = useState({});
 
-  // ✅ Fetch players and tournaments
+  // ✅ Fetch every player on the site + every tournament/game that has
+  // Doubles or Mixed Doubles enabled (site-wide, not scoped to the viewer).
   const fetchPlayers = async () => {
     try {
       const res = await api.get("/api/tournaments/similar-players");
-      const matchedUsers = res.data?.data?.matchedUsers || [];
-      setCurrentUser(res.data?.data?.currentUser || null);
+      const data = res.data?.data || {};
+      setCurrentUser(data.currentUser || null);
+      setCurrentUserEligible(data.currentUserEligible ?? true);
+      setTournaments(data.tournaments || []);
 
-      // Extract unique tournaments from all players
-      const tournamentsMap = new Map();
-      matchedUsers.forEach((u) => {
-        u.tournaments?.forEach((t) => {
-          if (t?._id && !tournamentsMap.has(t._id)) {
-            tournamentsMap.set(t._id, t);
-          }
-        });
-      });
-      setTournamentList(Array.from(tournamentsMap.values()));
-
-      // Format players
-      const formatted = matchedUsers.map((u) => ({
+      const formatted = (data.players || []).map((u) => ({
         id: u._id,
         firstname: u.firstname || "",
         lastname: u.lastname || "",
         username: u.username || "",
         city: u.city || "Unknown",
         gender: u.gender || "Not specified",
-        tournaments: u.tournaments || [],
         requested: false,
       }));
 
@@ -111,16 +100,12 @@ export default function TeamUp() {
     toast("Request cancelled (local only)");
   };
 
-  // ✅ Filter by search and tournament
-  const filteredPlayers = players.filter((p) => {
-    const matchesSearch = `${p.firstname} ${p.lastname} ${p.username}`
+  // ✅ Filter by search only -- every player on the site is browsable
+  const filteredPlayers = players.filter((p) =>
+    `${p.firstname} ${p.lastname} ${p.username}`
       .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchesTournament =
-      selectedTournament === "all" ||
-      p.tournaments.some((t) => t._id === selectedTournament);
-    return matchesSearch && matchesTournament;
-  });
+      .includes(search.toLowerCase())
+  );
 
   return (
     <div
@@ -128,8 +113,29 @@ export default function TeamUp() {
     >
       <h1 className="text-2xl font-bold mb-6">Team Up</h1>
 
-      {/* 🔍 Filters */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-3 items-center">
+      {!loading && tournaments.length === 0 && (
+        <p
+          className="mb-6 p-3 rounded-lg text-sm"
+          style={{ background: "var(--secondary-color)" }}
+        >
+          No tournaments currently have Doubles or Mixed Doubles enabled. Ask
+          an admin to enable it on a tournament's game first.
+        </p>
+      )}
+
+      {!loading && tournaments.length > 0 && !currentUserEligible && (
+        <p
+          className="mb-6 p-3 rounded-lg text-sm"
+          style={{ background: "var(--secondary-color)" }}
+        >
+          You're not registered (or not yet approved) for any tournament/game
+          with Doubles or Mixed Doubles enabled -- you can browse below, but
+          sending a request will fail until you register for one of them.
+        </p>
+      )}
+
+      {/* 🔍 Search */}
+      <div className="mb-6">
         <input
           type="text"
           placeholder="Search players..."
@@ -142,19 +148,6 @@ export default function TeamUp() {
             color: "var(--foreground)",
           }}
         />
-
-        <select
-          value={selectedTournament}
-          onChange={(e) => setSelectedTournament(e.target.value)}
-          className="w-full sm:w-1/4 p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] focus:outline-none"
-        >
-          <option value="all">All Tournaments</option>
-          {tournamentList.map((t) => (
-            <option key={t._id} value={t._id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* 🧍 Players */}
@@ -165,7 +158,7 @@ export default function TeamUp() {
           {filteredPlayers.length > 0 ? (
             filteredPlayers.map((player) => {
               const selected = selectedTournamentIds[player.id] || {};
-              const selectedTournamentData = player.tournaments.find(
+              const selectedTournamentData = tournaments.find(
                 (t) => t._id === selected.tournamentId
               );
               const selectedGameData = (selectedTournamentData?.games || []).find(
@@ -220,7 +213,7 @@ export default function TeamUp() {
                         className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] focus:outline-none"
                       >
                         <option value="">Select Tournament</option>
-                        {player.tournaments.map((t) => (
+                        {tournaments.map((t) => (
                           <option key={t._id} value={t._id}>
                             {t.name}
                           </option>
