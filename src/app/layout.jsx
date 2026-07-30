@@ -2,7 +2,7 @@
 import "./globals.css";
 
 import { Toaster } from "react-hot-toast";
-
+ // abd
 
 // Optional: move this metadata to `app/head.js` if needed in JS-only project
 export const metadata = {
