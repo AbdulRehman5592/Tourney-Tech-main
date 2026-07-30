@@ -446,10 +446,16 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           }
           className="w-full p-3 rounded bg-[var(--card-background)]"
         >
+          <option value="draft">Draft</option>
           <option value="upcoming">Upcoming</option>
           <option value="ongoing">Ongoing</option>
           <option value="completed">Completed</option>
         </select>
+        {gameFields.every((g) => !g.game) && (
+          <p className="text-xs text-gray-400">
+            No games added yet -- this tournament will be saved as Draft regardless of the status picked above.
+          </p>
+        )}
 
         <label className="block text-sm font-semibold text-white">
           Tournament Banner
@@ -676,12 +682,12 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 <option value="single_player">Single Player</option>
               </select>
 
-              {/* Doubles / Mixed Doubles overlay -- single_player games only.
-                  Players still play their own solo matches; accepted TeamUp
-                  pairs get a combined score afterward instead of a real
-                  doubles bracket. */}
-              {field.tournamentTeamType === "single_player" && (
-                <div className="border border-[var(--border-color)] rounded p-3 space-y-3">
+              {/* Doubles / Mixed Doubles overlay -- available for both single
+                  and double player games. Bracket play is untouched; paired
+                  players' scores (their own for single_player, their real
+                  teammate's shared score for double_player) get summed for a
+                  separate doubles/mixed-doubles ranking. */}
+              <div className="border border-[var(--border-color)] rounded p-3 space-y-3">
                   <label className="flex gap-2 items-center">
                     <input
                       type="checkbox"
@@ -729,8 +735,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
                     />
                   )}
-                </div>
-              )}
+              </div>
 
               {field.gameConfigId && (
                 <button

@@ -1,21 +1,18 @@
 import { ApiError } from "@/utils/server/ApiError";
 
-// Doubles/Mixed Doubles are a single_player-only overlay (paired players still
-// play their own solo matches; see TournamentGameSchema.doublesEnabled). Shared
-// by the tournament create/edit/add-game routes so the rule stays consistent.
+// Doubles/Mixed Doubles are a scoring overlay on top of a game's real bracket
+// play -- available for both single_player (bracket "team" = 1 player) and
+// double_player (bracket team = 2 players, both credited with the team's
+// score) games. Paired players are never moved into a new bracket team;
+// pairing is a separate, voluntary combination of two players' existing
+// scores. Shared by the tournament create/edit/add-game routes so the rule
+// stays consistent.
 export function validateDoublesConfig({
-  tournamentTeamType,
   doublesEnabled,
   doublesCost,
   mixedDoublesEnabled,
   mixedDoublesCost,
 }) {
-  if ((doublesEnabled || mixedDoublesEnabled) && tournamentTeamType !== "single_player") {
-    throw new ApiError(
-      400,
-      "Doubles / Mixed Doubles can only be enabled for single_player games"
-    );
-  }
   if (doublesEnabled && !(Number(doublesCost) > 0)) {
     throw new ApiError(400, "doublesCost must be a positive number when doubles is enabled");
   }

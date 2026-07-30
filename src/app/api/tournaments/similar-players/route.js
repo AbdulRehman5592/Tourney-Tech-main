@@ -34,8 +34,8 @@ export const GET = asyncHandler(async () => {
 
   for (const reg of currentUserRegistrations) {
     // ✅ Tournament me check karo ke iske games me se koi doubles/mixed-doubles
-    // ke liye enabled hai ya nahi (single_player overlay, double_player bracket
-    // teams se alag hai)
+    // ke liye enabled hai ya nahi (yeh ek scoring overlay hai jo bracket play
+    // (single_player ya double_player, dono) se alag/independent chalta hai)
     const tournament = reg.tournament;
     if (
       !tournament ||

@@ -63,6 +63,12 @@ export const PATCH = asyncHandler(async (req, context) => {
     tournament.bannerUrl = bannerUpload.secure_url;
   }
 
+  // A tournament with no games can't be upcoming/ongoing/completed -- keep it
+  // a draft regardless of what status was requested.
+  if (tournament.games.length === 0) {
+    tournament.status = "draft";
+  }
+
   await tournament.save();
 
   return Response.json(

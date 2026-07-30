@@ -7,11 +7,18 @@ import CitySelector from "../../signup/CitySelector";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import AdminPassInput from "../../signup/AdminPassInput";
-import { GEOGRAPHIC_REGIONS } from "@/constants/regions";
 
 export default function UserFormModal({ user = null, onSuccess, onClose }) {
   const isEdit = !!user;
   const [loading, setLoading] = useState(false);
+  const [regionOptions, setRegionOptions] = useState([]);
+
+  useEffect(() => {
+    api
+      .get("/api/regions")
+      .then((res) => setRegionOptions(res.data?.data || []))
+      .catch(() => setRegionOptions([]));
+  }, []);
   const [form, setForm] = useState({
     firstname: "",
     lastname: "",
@@ -233,7 +240,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
               onChange={handleChange}
               className="py-2 px-4 rounded-lg bg-[var(--secondary-color)] text-foreground border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
             >
-              {GEOGRAPHIC_REGIONS.map((r) => (
+              {regionOptions.map((r) => (
                 <option key={r.code} value={r.code}>
                   {r.code} — {r.name}
                 </option>

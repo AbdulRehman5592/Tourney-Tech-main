@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Spade,
   Handshake,
+  MapPin,
 } from "lucide-react";
 
 // Change this to adminNavItems if needed
@@ -33,6 +34,7 @@ const adminNavItems = [
   { href: "/admin/register-player", label: "Register Player", icon: UserPlus2 },
   { href: "/admin/add-games", label: "Add Game", icon: Gamepad2 },
   { href: "/admin/game-types", label: "Game Types", icon: Spade },
+  { href: "/admin/signup-options", label: "Signup Options", icon: MapPin },
   {
     href: "/admin/create-tournament",
     label: "Create Tournament",
