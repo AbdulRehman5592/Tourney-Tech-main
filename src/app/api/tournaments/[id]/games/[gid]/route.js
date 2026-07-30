@@ -5,6 +5,7 @@ import { requireAuth } from "@/utils/server/auth";
 import { requireTournamentStaff } from "@/utils/server/tournamentPermissions";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
+import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 
 // PATCH /api/tournaments/:id/games/:gid → Update a tournament game's config
 export const PATCH = asyncHandler(async (req, context) => {
@@ -42,6 +43,10 @@ export const PATCH = asyncHandler(async (req, context) => {
     "winCriteria",
     "teamBased",
     "tournamentTeamType",
+    "doublesEnabled",
+    "doublesCost",
+    "mixedDoublesEnabled",
+    "mixedDoublesCost",
   ];
   allowedFields.forEach((field) => {
     if (field in body) {
@@ -103,6 +108,8 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (effectiveByeType && effectiveByeType !== "none" && effectiveFormat !== "single_elimination") {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
+
+  validateDoublesConfig(game);
 
   // Save tournament
   await tournament.save();

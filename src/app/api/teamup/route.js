@@ -7,9 +7,10 @@ import { parseForm } from "@/utils/server/parseForm";
 // import { ApiError } from "@/utils/server/ApiError";
 import { TeamUp } from "@/models/TeamUp";
 import { Team } from "@/models/Team";
-import "@/models/Tournament";
+import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
-// import { User } from "@/models/User";
+import { User } from "@/models/User";
+import { isMixedDoublesGenderOk } from "@/utils/server/doublesConfig";
 
 export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
@@ -19,6 +20,7 @@ export const POST = asyncHandler(async (req) => {
   const tournamentId = fields.tournamentId?.toString();
   const gameId = fields.gameId?.toString();
   const message = fields.message?.toString();
+  const mode = fields.mode?.toString();
   if (!to || !tournamentId || !gameId)
     throw new ApiResponse(
       400,
@@ -26,8 +28,29 @@ export const POST = asyncHandler(async (req) => {
       "Receiver user (to) tournament and game is required"
     );
 
+  if (!["doubles", "mixed_doubles"].includes(mode))
+    throw new ApiResponse(400, null, "mode must be 'doubles' or 'mixed_doubles'");
+
   if (to.toString() === user._id.toString())
     throw new ApiResponse(400, null, "Cannot send team-up request to yourself");
+
+  const tournament = await Tournament.findById(tournamentId);
+  if (!tournament) throw new ApiResponse(404, null, "Tournament not found");
+
+  const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
+  if (!gameConfig || gameConfig.tournamentTeamType !== "single_player")
+    throw new ApiResponse(400, null, "Doubles is only available for single_player games");
+
+  if (mode === "doubles" && !gameConfig.doublesEnabled)
+    throw new ApiResponse(400, null, "Doubles is not enabled for this game");
+  if (mode === "mixed_doubles" && !gameConfig.mixedDoublesEnabled)
+    throw new ApiResponse(400, null, "Mixed doubles is not enabled for this game");
+
+  if (mode === "mixed_doubles") {
+    const toUser = await User.findById(to).select("gender");
+    if (!isMixedDoublesGenderOk(user.gender, toUser?.gender))
+      throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
+  }
 
   const existRequest = await TeamUp.findOne({
     $or: [
@@ -36,7 +59,8 @@ export const POST = asyncHandler(async (req) => {
     ],
     status: { $in: ["pending", "accepted"] },
     tournament: tournamentId,
-    gameId
+    gameId,
+    mode,
   });
   if (existRequest)
     throw new ApiResponse(400, null, "Team-up request already exists");
@@ -46,7 +70,8 @@ export const POST = asyncHandler(async (req) => {
     to,
     message,
     tournament: tournamentId,
-    gameId
+    gameId,
+    mode,
   });
 
   return Response.json(

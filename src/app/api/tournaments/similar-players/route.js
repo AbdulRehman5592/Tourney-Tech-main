@@ -33,15 +33,31 @@ export const GET = asyncHandler(async () => {
   let allMatchedUsersWithDetails = [];
 
   for (const reg of currentUserRegistrations) {
-    // ✅ Tournament me check karo ke iske games me koi "double_player" type hai ya nahi
+    // ✅ Tournament me check karo ke iske games me se koi doubles/mixed-doubles
+    // ke liye enabled hai ya nahi (single_player overlay, double_player bracket
+    // teams se alag hai)
     const tournament = reg.tournament;
     if (
       !tournament ||
       !Array.isArray(tournament.games) ||
-      !tournament.games.some((g) => g.tournamentTeamType === "double_player")
+      !tournament.games.some((g) => g.doublesEnabled || g.mixedDoublesEnabled)
     ) {
-      continue; // agar double_player game nahi hai to skip
+      continue; // agar doubles/mixed doubles enabled nahi hai to skip
     }
+
+    // gameId -> doubles config, so each matched game object below can be
+    // enriched with whether/what mode + cost applies to it.
+    const doublesConfigByGameId = new Map(
+      tournament.games.map((g) => [
+        (g.game?._id || g.game).toString(),
+        {
+          doublesEnabled: g.doublesEnabled,
+          doublesCost: g.doublesCost,
+          mixedDoublesEnabled: g.mixedDoublesEnabled,
+          mixedDoublesCost: g.mixedDoublesCost,
+        },
+      ])
+    );
 
     const tournamentId = reg.tournament._id;
 
@@ -49,9 +65,16 @@ export const GET = asyncHandler(async () => {
       ? reg.gameRegistrationDetails
       : [reg.gameRegistrationDetails].filter(Boolean);
 
-    const gameIds = gameDetailsArray.flatMap((d) =>
-      (Array.isArray(d.games) ? d.games : [d.games]).map((g) => g._id || g)
-    );
+    const gameIds = gameDetailsArray
+      .flatMap((d) =>
+        (Array.isArray(d.games) ? d.games : [d.games]).map((g) => g._id || g)
+      )
+      .filter((id) => {
+        const cfg = doublesConfigByGameId.get(id.toString());
+        return cfg && (cfg.doublesEnabled || cfg.mixedDoublesEnabled);
+      });
+
+    if (gameIds.length === 0) continue; // none of the user's games here allow doubles
 
     const matchingRegistrations = await Registration.find({
       tournament: tournamentId,
@@ -76,13 +99,24 @@ export const GET = asyncHandler(async () => {
 
     // 👇 har registration ko ek structured object banate hain
     for (const r of matchingRegistrations) {
+      const enrichedGames = r.gameRegistrationDetails.games
+        .flatMap((d) => d)
+        .map((g) => {
+          const plainGame = g.toObject ? g.toObject() : g;
+          const cfg = doublesConfigByGameId.get(plainGame._id.toString());
+          return cfg ? { ...plainGame, ...cfg } : null;
+        })
+        .filter((g) => g && (g.doublesEnabled || g.mixedDoublesEnabled));
+
+      if (enrichedGames.length === 0) continue;
+
       allMatchedUsersWithDetails.push({
         user: r.user,
         tournament: {
           _id: r.tournament._id,
           name: r.tournament.name,
         },
-        games: r.gameRegistrationDetails.games.flatMap((d) => d),
+        games: enrichedGames,
       });
     }
   }
@@ -162,7 +196,7 @@ export const GET = asyncHandler(async () => {
     new ApiResponse(
       200,
       { currentUser: user, matchedUsers: matchedUsersWithFlags },
-      "Fetched users with same tournament and same games (only double_player tournaments)"
+      "Fetched users with same tournament and same games (doubles/mixed doubles enabled only)"
     )
   );
 });

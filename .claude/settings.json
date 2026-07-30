@@ -21,7 +21,14 @@
       "Bash(node -e ' *)",
       "Bash(node scripts/parse-us-locations.js)",
       "Bash(node --input-type=module -e ' *)",
-      "Bash(curl -s -o /dev/null -w \"signup: %{http_code}\\\\n\" http://localhost:3001/auth/signup)"
+      "Bash(curl -s -o /dev/null -w \"signup: %{http_code}\\\\n\" http://localhost:3001/auth/signup)",
+      "Bash(nslookup github.com)",
+      "Bash(ping -n 2 github.com)",
+      "Bash(nslookup google.com)",
+      "Bash(nslookup 8.8.8.8)",
+      "Bash(ping -n 2 8.8.8.8)",
+      "Bash(nslookup github.com 8.8.8.8)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -2,6 +2,65 @@
 import { useEffect, useState } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import { GENDER_COLORS } from "@/constants/genderColors";
+
+const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+
+function PaymentForm({ req, onSubmitted }) {
+  const [method, setMethod] = useState(req.payment?.method || "cash");
+  const [transactionId, setTransactionId] = useState(req.payment?.transactionId || "");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("method", method);
+      if (transactionId) formData.append("transactionId", transactionId);
+      await api.patch(`/api/teamup/${req._id}/payment`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Payment submitted, awaiting admin approval");
+      onSubmitted?.();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to submit payment");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <select
+        value={method}
+        onChange={(e) => setMethod(e.target.value)}
+        className="p-2 rounded bg-[var(--background)] border border-[var(--border-color)]"
+      >
+        <option value="cash">Cash</option>
+        <option value="online">Online</option>
+      </select>
+      {method === "online" && (
+        <input
+          type="text"
+          placeholder="Transaction ID"
+          value={transactionId}
+          onChange={(e) => setTransactionId(e.target.value)}
+          className="p-2 rounded bg-[var(--background)] border border-[var(--border-color)]"
+        />
+      )}
+      <button
+        type="button"
+        disabled={submitting}
+        onClick={handleSubmit}
+        className="py-2 px-4 rounded-lg font-semibold disabled:opacity-50"
+        style={{ background: "var(--accent-color)", color: "black" }}
+      >
+        {req.payment?.paid ? "Resubmit Payment" : "Submit Payment"}
+      </button>
+    </div>
+  );
+}
 
 export default function SentRequests() {
   const [requests, setRequests] = useState([]);
@@ -134,8 +193,17 @@ export default function SentRequests() {
             >
               {/* Recipient */}
               <h3 className="font-semibold text-lg mb-2">
-                To: {req.to?.firstname} {req.to?.lastname} ({req.to?.username})
+                To:{" "}
+                <span style={{ color: GENDER_COLORS[req.to?.gender] || "inherit" }}>
+                  {req.to?.firstname} {req.to?.lastname} ({req.to?.username})
+                </span>
               </h3>
+
+              {req.mode && (
+                <span className="inline-block mb-2 px-2 py-0.5 rounded text-xs font-semibold bg-[var(--secondary-hover)]">
+                  {MODE_LABELS[req.mode] || req.mode}
+                </span>
+              )}
 
               {/* Tournament */}
               <p className="text-sm mb-1">
@@ -173,6 +241,25 @@ export default function SentRequests() {
                 <span className="font-semibold">Status: </span>
                 {req.status || "pending"}
               </p>
+
+              {req.status === "accepted" && req.costOwed > 0 && (
+                <div className="text-sm mb-1 p-2 rounded bg-[var(--secondary-color)]">
+                  <p>
+                    <span className="font-semibold">You owe: </span>${req.costOwed}
+                  </p>
+                  <p className="capitalize">
+                    <span className="font-semibold">Payment: </span>
+                    {req.payment?.approved
+                      ? "Approved"
+                      : req.payment?.paid
+                      ? "Submitted, awaiting approval"
+                      : "Not submitted"}
+                  </p>
+                  {!req.payment?.approved && (
+                    <PaymentForm req={req} onSubmitted={fetchRequests} />
+                  )}
+                </div>
+              )}
 
               {/* Sent time */}
               <p className="text-xs opacity-70 mt-3">

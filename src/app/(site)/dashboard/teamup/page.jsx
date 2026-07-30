@@ -2,16 +2,24 @@
 import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import { GENDER_COLORS } from "@/constants/genderColors";
+
+function isMixedDoublesGenderOk(genderA, genderB) {
+  if (genderA === "male" && genderB === "male") return false;
+  if (genderA === "female" && genderB === "female") return false;
+  return true;
+}
 
 export default function TeamUp() {
   const [search, setSearch] = useState("");
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [tournamentList, setTournamentList] = useState([]);
   const [selectedTournament, setSelectedTournament] = useState("all");
 
-  // Store per-player tournament + game selections
+  // Store per-player tournament + game + mode selections
   const [selectedTournamentIds, setSelectedTournamentIds] = useState({});
 
   // ✅ Fetch players and tournaments
@@ -19,6 +27,7 @@ export default function TeamUp() {
     try {
       const res = await api.get("/api/tournaments/similar-players");
       const matchedUsers = res.data?.data?.matchedUsers || [];
+      setCurrentUser(res.data?.data?.currentUser || null);
 
       // Extract unique tournaments from all players
       const tournamentsMap = new Map();
@@ -60,6 +69,7 @@ export default function TeamUp() {
     const selected = selectedTournamentIds[id];
     const tournamentId = selected?.tournamentId;
     const gameId = selected?.gameId;
+    const mode = selected?.mode;
 
     if (!tournamentId) {
       toast.error("Please select a tournament first!");
@@ -69,9 +79,13 @@ export default function TeamUp() {
       toast.error("Please select a game!");
       return;
     }
+    if (!mode) {
+      toast.error("Please select Doubles or Mixed Doubles!");
+      return;
+    }
 
     try {
-      const payload = { to: id, tournamentId, gameId };
+      const payload = { to: id, tournamentId, gameId, mode };
       await api.post("/api/teamup", payload);
 
       setPlayers((prev) =>
@@ -154,6 +168,12 @@ export default function TeamUp() {
               const selectedTournamentData = player.tournaments.find(
                 (t) => t._id === selected.tournamentId
               );
+              const selectedGameData = (selectedTournamentData?.games || []).find(
+                (g) => g._id === selected.gameId
+              );
+              const genderConflict =
+                selected.mode === "mixed_doubles" &&
+                !isMixedDoublesGenderOk(currentUser?.gender, player.gender);
 
               return (
                 <div
@@ -165,7 +185,9 @@ export default function TeamUp() {
                   }}
                 >
                   <h2 className="text-lg font-semibold mb-2 capitalize">
-                    {player.firstname} {player.lastname}
+                    <span style={{ color: GENDER_COLORS[player.gender] || "inherit" }}>
+                      {player.firstname} {player.lastname}
+                    </span>
                   </h2>
                   <p className="text-sm">
                     <span className="font-semibold">Username:</span>{" "}
@@ -191,6 +213,7 @@ export default function TeamUp() {
                             [player.id]: {
                               tournamentId: e.target.value,
                               gameId: "",
+                              mode: "",
                             },
                           }))
                         }
@@ -214,6 +237,7 @@ export default function TeamUp() {
                               [player.id]: {
                                 ...prev[player.id],
                                 gameId: e.target.value,
+                                mode: "",
                               },
                             }))
                           }
@@ -228,9 +252,45 @@ export default function TeamUp() {
                         </select>
                       )}
 
+                      {/* 🏸 Mode Select -- only the modes enabled for this game */}
+                      {selectedGameData && (
+                        <select
+                          value={selected.mode || ""}
+                          onChange={(e) =>
+                            setSelectedTournamentIds((prev) => ({
+                              ...prev,
+                              [player.id]: {
+                                ...prev[player.id],
+                                mode: e.target.value,
+                              },
+                            }))
+                          }
+                          className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] focus:outline-none"
+                        >
+                          <option value="">Select Doubles Type</option>
+                          {selectedGameData.doublesEnabled && (
+                            <option value="doubles">
+                              Doubles (${selectedGameData.doublesCost}/pair)
+                            </option>
+                          )}
+                          {selectedGameData.mixedDoublesEnabled && (
+                            <option value="mixed_doubles">
+                              Mixed Doubles (${selectedGameData.mixedDoublesCost}/pair)
+                            </option>
+                          )}
+                        </select>
+                      )}
+
+                      {genderConflict && (
+                        <p className="text-xs" style={{ color: "var(--error-color)" }}>
+                          Mixed doubles requires opposite genders.
+                        </p>
+                      )}
+
                       <button
                         type="button"
-                        className="w-full font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200"
+                        disabled={genderConflict}
+                        className="w-full font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200 disabled:opacity-50"
                         style={{
                           background: "var(--accent-color)",
                           color: "black",

@@ -87,6 +87,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           winCriteria: g.winCriteria || "wins",
           teamBased: g.teamBased || false,
           tournamentTeamType: g.tournamentTeamType || "double_player",
+          doublesEnabled: g.doublesEnabled || false,
+          doublesCost: g.doublesCost || "",
+          mixedDoublesEnabled: g.mixedDoublesEnabled || false,
+          mixedDoublesCost: g.mixedDoublesCost || "",
         }))
       );
 
@@ -135,6 +139,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         winCriteria: "wins",
         teamBased: false,
         tournamentTeamType: "double_player",
+        doublesEnabled: false,
+        doublesCost: "",
+        mixedDoublesEnabled: false,
+        mixedDoublesCost: "",
       },
        ...prev,
     ]);
@@ -142,9 +150,11 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
 
   const handleGameFieldChange = (index, name, value) => {
     const updated = [...gameFields];
-    if (name === "teamBased") {
+    if (["teamBased", "doublesEnabled", "mixedDoublesEnabled"].includes(name)) {
       updated[index][name] = value === true || value === "true";
-    } else if (["entryFee", "meshRounds", "standardRounds"].includes(name)) {
+    } else if (
+      ["entryFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost"].includes(name)
+    ) {
       updated[index][name] = value === "" ? "" : Number(value);
     } else {
       updated[index][name] = value;
@@ -249,6 +259,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             winCriteria: g.winCriteria || "wins",
             teamBased: Boolean(g.teamBased),
             tournamentTeamType: g.tournamentTeamType,
+            doublesEnabled: Boolean(g.doublesEnabled),
+            doublesCost: g.doublesEnabled ? Number(g.doublesCost) || 0 : 0,
+            mixedDoublesEnabled: Boolean(g.mixedDoublesEnabled),
+            mixedDoublesCost: g.mixedDoublesEnabled ? Number(g.mixedDoublesCost) || 0 : 0,
           };
           if (g.gameConfigId) {
             // ✅ Update existing game
@@ -662,6 +676,62 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 <option value="single_player">Single Player</option>
               </select>
 
+              {/* Doubles / Mixed Doubles overlay -- single_player games only.
+                  Players still play their own solo matches; accepted TeamUp
+                  pairs get a combined score afterward instead of a real
+                  doubles bracket. */}
+              {field.tournamentTeamType === "single_player" && (
+                <div className="border border-[var(--border-color)] rounded p-3 space-y-3">
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={field.doublesEnabled}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "doublesEnabled", e.target.checked)
+                      }
+                    />
+                    Enable Doubles
+                  </label>
+                  {field.doublesEnabled && (
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="0.01"
+                      placeholder="Doubles pair cost ($)"
+                      value={field.doublesCost}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "doublesCost", e.target.value)
+                      }
+                      className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                    />
+                  )}
+
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={field.mixedDoublesEnabled}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "mixedDoublesEnabled", e.target.checked)
+                      }
+                    />
+                    Enable Mixed Doubles
+                  </label>
+                  {field.mixedDoublesEnabled && (
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="0.01"
+                      placeholder="Mixed doubles pair cost ($)"
+                      value={field.mixedDoublesCost}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "mixedDoublesCost", e.target.value)
+                      }
+                      className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                    />
+                  )}
+                </div>
+              )}
+
               {field.gameConfigId && (
                 <button
                   type="button"
@@ -685,6 +755,12 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       winCriteria: field.winCriteria || "wins",
                       teamBased: field.teamBased,
                       tournamentTeamType: field.tournamentTeamType,
+                      doublesEnabled: field.doublesEnabled,
+                      doublesCost: field.doublesEnabled ? Number(field.doublesCost) || 0 : 0,
+                      mixedDoublesEnabled: field.mixedDoublesEnabled,
+                      mixedDoublesCost: field.mixedDoublesEnabled
+                        ? Number(field.mixedDoublesCost) || 0
+                        : 0,
                     })
                   }
                   className="bg-[var(--accent-color)] px-3 py-1 mt-2 rounded text-black text-sm"

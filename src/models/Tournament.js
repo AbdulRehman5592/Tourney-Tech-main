@@ -63,6 +63,14 @@ const TournamentGameSchema = new Schema({
     enum: ["single_player", "double_player"],
     required: true,
   },
+  // Doubles / Mixed Doubles overlay (single_player games only): players keep
+  // playing their own solo matches, but voluntary pairs formed via TeamUp get
+  // a combined score afterward. Not related to tournamentTeamType/double_player
+  // bracket-team play.
+  doublesEnabled: { type: Boolean, default: false },
+  doublesCost: { type: Number, default: 0 },
+  mixedDoublesEnabled: { type: Boolean, default: false },
+  mixedDoublesCost: { type: Number, default: 0 },
 });
 
 const TournamentStaffSchema = new Schema(
