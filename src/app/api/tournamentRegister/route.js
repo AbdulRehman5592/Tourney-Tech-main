@@ -3,7 +3,6 @@ import { connectDB } from "@/lib/mongoose.js";
 import { Registration } from "@/models/Registration.js";
 import { Tournament } from "@/models/Tournament.js";
 import { User } from "@/models/User.js";
-// import { Team } from "@/models/Team.js";
 import { ApiError } from "@/utils/server/ApiError";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
@@ -13,6 +12,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 import mongoose from "mongoose";
 import "@/models/BankDetails";
 import "@/models/Game";
+import "@/models/Team";
 
 export const POST = asyncHandler(async (req) => {
   await connectDB();
