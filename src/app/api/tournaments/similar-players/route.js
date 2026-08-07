@@ -1,4 +1,3 @@
-import { Registration } from "@/models/Registration";
 import { Tournament } from "@/models/Tournament";
 import { User } from "@/models/User";
 import { ApiResponse } from "@/utils/server/ApiResponse";
@@ -8,10 +7,10 @@ import "@/models/Game";
 
 // Team Up directory: every tournament+game where Doubles/Mixed Doubles is
 // enabled, site-wide (not scoped to the viewer's own registrations), plus
-// every other player on the site as a potential pairing candidate. Sending a
-// request still requires both sides to actually be registered+approved for
-// the chosen tournament/game (enforced in POST /api/teamup) -- this endpoint
-// is deliberately just a browse/discovery list.
+// every other player on the site as a potential pairing candidate. Sending or
+// accepting a request no longer requires either side to be registered for
+// the tournament/game -- this endpoint is deliberately just a browse/
+// discovery list.
 export const GET = asyncHandler(async () => {
   const user = await requireAuth();
 
@@ -41,37 +40,17 @@ export const GET = asyncHandler(async () => {
 
   // Every other player on the site -- Team Up is a site-wide directory, not
   // limited to people who happen to already share a registration with you.
+  // Sending/accepting a request no longer requires either side to be
+  // registered for the tournament/game (see POST /api/teamup) -- pairing up
+  // first is meant to encourage registration, not gate on it.
   const players = await User.find({ _id: { $ne: user._id }, role: "player" })
     .select("firstname lastname username city gender")
     .lean();
 
-  // Whether the viewer themselves is registered+approved for at least one of
-  // the doubles-enabled tournament/games above -- surfaced so the frontend
-  // can explain upfront why a send might fail, rather than the player
-  // discovering it only after picking someone.
-  let currentUserEligible = false;
-  if (tournaments.length > 0) {
-    const myRegs = await Registration.find({
-      user: user._id,
-      tournament: { $in: tournaments.map((t) => t._id) },
-      "gameRegistrationDetails.status": "approved",
-    })
-      .select("tournament gameRegistrationDetails.games")
-      .lean();
-
-    currentUserEligible = myRegs.some((reg) => {
-      const tournament = tournaments.find(
-        (t) => t._id.toString() === reg.tournament.toString()
-      );
-      const myGameIds = (reg.gameRegistrationDetails?.games || []).map((g) => g.toString());
-      return tournament?.games.some((g) => myGameIds.includes(g._id.toString()));
-    });
-  }
-
   return Response.json(
     new ApiResponse(
       200,
-      { currentUser: user, tournaments, players, currentUserEligible },
+      { currentUser: user, tournaments, players },
       "Fetched doubles/mixed-doubles directory"
     )
   );

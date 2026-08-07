@@ -1,10 +1,8 @@
-// import { Registration } from "@/models/Registration";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import "@/models/Game";
 import { parseForm } from "@/utils/server/parseForm";
-// import { ApiError } from "@/utils/server/ApiError";
 import { TeamUp } from "@/models/TeamUp";
 import { Team } from "@/models/Team";
 import { Tournament } from "@/models/Tournament";
@@ -51,37 +49,11 @@ export const POST = asyncHandler(async (req) => {
       throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
   }
 
-  // Team Up is a site-wide directory (any player can be browsed regardless of
-  // their own registrations), so check upfront that both sides are actually
-  // registered+approved for this tournament/game -- otherwise the request
-  // would just be a dead end at accept time.
-  const [fromReg, toReg] = await Promise.all([
-    Registration.findOne({
-      user: user._id,
-      tournament: tournamentId,
-      "gameRegistrationDetails.status": "approved",
-      "gameRegistrationDetails.games": gameId,
-    }),
-    Registration.findOne({
-      user: to,
-      tournament: tournamentId,
-      "gameRegistrationDetails.status": "approved",
-      "gameRegistrationDetails.games": gameId,
-    }),
-  ]);
-  if (!fromReg)
-    throw new ApiResponse(
-      400,
-      null,
-      "You must be registered and approved for this tournament/game to send a request"
-    );
-  if (!toReg)
-    throw new ApiResponse(
-      400,
-      null,
-      "That player is not registered and approved for this tournament/game"
-    );
-
+  // Team Up is a site-wide directory: any user can propose pairing with any
+  // other user for any tournament/game that has doubles enabled, whether or
+  // not either side has registered yet. This is deliberate -- someone unsure
+  // they can find a partner may not register at all, so letting them line up
+  // a partner first is meant to drive registrations, not gate on them.
   const existRequest = await TeamUp.findOne({
     $or: [
       { from: user._id, to },
@@ -119,10 +91,19 @@ export const GET = asyncHandler(async () => {
   })
     .populate("from", "firstname lastname username email")
     .populate("to", "firstname lastname username email")
-    .populate("tournament")
-    .populate("gameId")
+    .populate({ path: "tournament", populate: { path: "games.game", select: "name platform" } })
     .sort({ createdAt: -1 })
     .lean();
+
+  // `gameId` is stored as a plain string (not a ref), so resolve the actual
+  // game name/platform for the request straight off the tournament's game
+  // config -- this works whether or not either side has ever registered.
+  const requestsWithGame = requests.map((req) => {
+    const gameConfig = req.tournament?.games?.find(
+      (g) => g.game?._id?.toString() === req.gameId
+    );
+    return { ...req, game: gameConfig?.game || null };
+  });
 
   const userIds = [
     ...new Set([
@@ -149,7 +130,7 @@ export const GET = asyncHandler(async () => {
     .lean();
 
   // Merge games into requests only if BOTH from & to are registered in same tournament
-  const requestsWithGames = requests.map((req) => {
+  const requestsWithGames = requestsWithGame.map((req) => {
     const fromReg = registrations.find(
       (r) =>
         r.user.toString() === req.from._id.toString() &&

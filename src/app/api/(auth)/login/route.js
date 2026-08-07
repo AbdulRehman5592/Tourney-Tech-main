@@ -50,9 +50,14 @@ export const POST = asyncHandler(async (req) => {
   }
 
   // ✅ Find user by email or username
-  const user = await User.findOne({
-    $or: [{ email: clean.email }, { username: clean.username }],
-  });
+  // Only include a field in the $or when it was actually provided —
+  // an empty string here would match any document where that field is
+  // literally "" and let unrelated accounts be matched/logged into.
+  const orConditions = [];
+  if (clean.email) orConditions.push({ email: clean.email });
+  if (clean.username) orConditions.push({ username: clean.username });
+
+  const user = await User.findOne({ $or: orConditions });
 
   if (!user) {
     throw new ApiError(404, "User not found");

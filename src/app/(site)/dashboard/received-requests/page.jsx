@@ -57,6 +57,18 @@ export default function ReceivedRequests() {
     }
   };
 
+  const dropPartner = async (id) => {
+    if (!window.confirm("Drop this partner? This cannot be undone.")) return;
+    try {
+      await api.delete(`/api/teamup/${id}`);
+      toast.success("Partner dropped");
+      setRequests((prev) => prev.filter((req) => req._id !== id));
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to drop partner");
+    }
+  };
+
   const formatDate = (isoString) => new Date(isoString).toLocaleString();
 
   if (loading) return <p className="p-6 text-center">Loading requests...</p>;
@@ -69,20 +81,17 @@ export default function ReceivedRequests() {
     ...new Set(receivedRequests.map((r) => r.tournament?.name || "Unknown")),
   ];
   const games = [
-    ...new Set(
-      receivedRequests.flatMap((r) => (r.games || []).map((g) => g.name))
-    ),
+    ...new Set(receivedRequests.map((r) => r.game?.name).filter(Boolean)),
   ];
 
   // Apply filters
   const filteredRequests = receivedRequests.filter((req) => {
     const tournamentName = req.tournament?.name || "Unknown";
-    const gameNames = (req.games || []).map((g) => g.name);
 
     const matchesTournament =
       selectedTournament === "all" || selectedTournament === tournamentName;
     const matchesGame =
-      selectedGame === "all" || gameNames.includes(selectedGame);
+      selectedGame === "all" || req.game?.name === selectedGame;
     const matchesSearch =
       req.from?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -163,17 +172,13 @@ export default function ReceivedRequests() {
               </p>
 
               <div className="text-sm mb-2">
-                <strong>Games: </strong>
-                {req.fromGames?.length > 0 ? (
-                  <ul className="list-disc list-inside">
-                    {req.fromGames.map((g) => (
-                      <li key={g._id} className="text-[var(--info-color)]">
-                        {g.name} ({g.platform})
-                      </li>
-                    ))}
-                  </ul>
+                <strong>Game: </strong>
+                {req.game?.name ? (
+                  <span className="text-[var(--info-color)]">
+                    {req.game.name} ({req.game.platform})
+                  </span>
                 ) : (
-                  <span className="opacity-70">No games</span>
+                  <span className="opacity-70">Unknown game</span>
                 )}
               </div>
 
@@ -203,6 +208,21 @@ export default function ReceivedRequests() {
                     onClick={() => updateRequest(req._id, "rejected")}
                   >
                     Reject
+                  </button>
+                </div>
+              )}
+
+              {req.status === "accepted" && (
+                <div className="mt-2">
+                  <p className="text-sm mb-2" style={{ color: "var(--success-color)" }}>
+                    ✅ You are partnered for this game
+                  </p>
+                  <button
+                    className="w-full py-2 px-4 rounded-lg font-semibold"
+                    style={{ background: "var(--error-color)", color: "white" }}
+                    onClick={() => dropPartner(req._id)}
+                  >
+                    Drop Partner
                   </button>
                 </div>
               )}

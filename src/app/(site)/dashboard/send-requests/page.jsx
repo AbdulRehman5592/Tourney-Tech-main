@@ -97,6 +97,18 @@ export default function SentRequests() {
     return () => clearInterval(interval);
   }, []);
 
+  const dropPartner = async (id) => {
+    if (!window.confirm("Drop this partner? This cannot be undone.")) return;
+    try {
+      await api.delete(`/api/teamup/${id}`);
+      toast.success("Partner dropped");
+      setRequests((prev) => prev.filter((req) => req._id !== id));
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to drop partner");
+    }
+  };
+
   if (loading || !userId)
     return <p className="p-6 text-center">Loading requests...</p>;
 
@@ -110,21 +122,18 @@ export default function SentRequests() {
 
   // Unique games
   const games = [
-    ...new Set(
-      sentRequests.flatMap((r) => (r.games || []).map((g) => g.name))
-    ),
+    ...new Set(sentRequests.map((r) => r.game?.name).filter(Boolean)),
   ];
 
   // Apply filters + search
   const filteredRequests = sentRequests.filter((req) => {
     const tournamentName = req.tournament?.name || "Unknown";
-    const gameNames = (req.games || []).map((g) => g.name);
 
     const matchesTournament =
       selectedTournament === "all" || selectedTournament === tournamentName;
 
     const matchesGame =
-      selectedGame === "all" || gameNames.includes(selectedGame);
+      selectedGame === "all" || req.game?.name === selectedGame;
 
     const matchesSearch =
       req.to?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,6 +268,16 @@ export default function SentRequests() {
                     <PaymentForm req={req} onSubmitted={fetchRequests} />
                   )}
                 </div>
+              )}
+
+              {req.status === "accepted" && (
+                <button
+                  className="w-full mt-2 py-2 px-4 rounded-lg font-semibold"
+                  style={{ background: "var(--error-color)", color: "white" }}
+                  onClick={() => dropPartner(req._id)}
+                >
+                  Drop Partner
+                </button>
               )}
 
               {/* Sent time */}

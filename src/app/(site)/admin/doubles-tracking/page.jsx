@@ -15,9 +15,38 @@ import { GENDER_COLORS } from "@/constants/genderColors";
 
 const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
+// Player-facing views (Team Up browse/received/sent requests) color names by
+// gender so users can tell each other apart. For admin, that's less useful
+// than seeing payment status at a glance, so this page colors names by
+// paid/approved status instead and surfaces gender as its own column.
 function GenderName({ user }) {
   return (
     <span style={{ color: GENDER_COLORS[user?.gender] || "inherit" }}>
+      {user?.firstname} {user?.lastname} ({user?.username})
+    </span>
+  );
+}
+
+function GenderBadge({ gender }) {
+  if (!gender) return <span className="opacity-50">-</span>;
+  return (
+    <span
+      className="capitalize font-semibold"
+      style={{ color: GENDER_COLORS[gender] || "inherit" }}
+    >
+      {gender}
+    </span>
+  );
+}
+
+// Colors a pair's names by their payment status: green once the admin has
+// approved payment, red while it's still pending/unpaid.
+function PaymentStatusName({ user, approved }) {
+  return (
+    <span
+      className="font-semibold"
+      style={{ color: approved ? "var(--success-color)" : "var(--error-color)" }}
+    >
       {user?.firstname} {user?.lastname} ({user?.username})
     </span>
   );
@@ -130,13 +159,29 @@ export default function DoublesTracking() {
         header: "Requestor",
         id: "from",
         accessorFn: (row) => `${row.from?.firstname || ""} ${row.from?.lastname || ""}`.trim(),
-        cell: ({ row }) => <GenderName user={row.original.from} />,
+        cell: ({ row }) => (
+          <PaymentStatusName user={row.original.from} approved={row.original.payment?.approved} />
+        ),
+      },
+      {
+        header: "Requestor Gender",
+        id: "fromGender",
+        accessorFn: (row) => row.from?.gender || "",
+        cell: ({ row }) => <GenderBadge gender={row.original.from?.gender} />,
       },
       {
         header: "Requestee",
         id: "to",
         accessorFn: (row) => `${row.to?.firstname || ""} ${row.to?.lastname || ""}`.trim(),
-        cell: ({ row }) => <GenderName user={row.original.to} />,
+        cell: ({ row }) => (
+          <PaymentStatusName user={row.original.to} approved={row.original.payment?.approved} />
+        ),
+      },
+      {
+        header: "Requestee Gender",
+        id: "toGender",
+        accessorFn: (row) => row.to?.gender || "",
+        cell: ({ row }) => <GenderBadge gender={row.original.to?.gender} />,
       },
       {
         header: "Tournament",
