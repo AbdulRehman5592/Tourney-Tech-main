@@ -133,21 +133,21 @@ export default function AdminRegistrationsTable() {
         >
           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
             <tr>
-              <th className="py-2 px-4 text-left">Sr No.</th>
-              <th className="py-2 px-4 text-left">User</th>
+              <th className="py-2 px-4 text-left sticky left-0 z-20 bg-[var(--secondary-color)] w-14">Sr No.</th>
+              <th className="py-2 px-4 text-left sticky left-14 z-20 bg-[var(--secondary-color)]">User</th>
               <th className="py-2 px-4 text-left">User Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
               <th className="py-2 px-4 text-left">Game</th>
               <th className="py-2 px-4 text-left">Entry Fee</th>
+              <th className="py-2 px-4 text-left">Current Status</th>
+              <th className="py-2 px-4 text-left">Actions</th>
               <th className="py-2 px-4 text-left">Players</th>
               <th className="py-2 px-4 text-left">Paid</th>
               <th className="py-2 px-4 text-left">Payment Method</th>
+              <th className="py-2 px-4 text-left">Registered At</th>
               <th className="py-2 px-4 text-left">Bank Name</th>
               <th className="py-2 px-4 text-left">Player Account Name</th>
               <th className="py-2 px-4 text-left">Player Transaction ID</th>
-              <th className="py-2 px-4 text-left">Registered At</th>
-              <th className="py-2 px-4 text-left">Current Status</th>
-              <th className="py-2 px-4 text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
@@ -156,8 +156,20 @@ export default function AdminRegistrationsTable() {
                 key={r._id}
                 className="border-b border-[var(--border-color)] hover:bg-[var(--secondary-hover)]"
               >
-                <td className="py-2 px-4">{indexOfFirst + i + 1}</td>
-                <td className="py-2 px-4">{r.user?.username}</td>
+                <td className="py-2 px-4 sticky left-0 z-10 bg-[var(--card-background)] w-14">
+                  {indexOfFirst + i + 1}
+                </td>
+                <td
+                  className={`py-2 px-4 sticky left-14 z-10 bg-[var(--card-background)] font-semibold ${
+                    r.gameRegistrationDetails?.status === "approved"
+                      ? "text-[var(--success-color)]"
+                      : r.gameRegistrationDetails?.status === "rejected"
+                      ? "text-[var(--warning-color)]"
+                      : "text-[var(--error-color)]"
+                  }`}
+                >
+                  {r.user?.username}
+                </td>
                 <td className="py-2 px-4">{r.user?.email}</td>
                 <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
                 <td className="py-2 px-4">
@@ -175,6 +187,30 @@ export default function AdminRegistrationsTable() {
                     },
                     0
                   )}
+                </td>
+
+                <td
+                  className={`text-center capitalize ${
+                    r.gameRegistrationDetails?.status === "approved"
+                      ? "text-[var(--success-color)]"
+                      : r.gameRegistrationDetails?.status === "rejected"
+                      ? "text-[var(--warning-color)]"
+                      : "text-white"
+                  }`}
+                >
+                  {r.gameRegistrationDetails?.status}
+                </td>
+
+                <td className="py-2 px-4">
+                  <select
+                    value={r.gameRegistrationDetails?.status || "pending"}
+                    onChange={(e) => handleStatusUpdate(r._id, e.target.value)}
+                    className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
                 </td>
 
                 <td className="py-2 px-4">
@@ -210,6 +246,11 @@ export default function AdminRegistrationsTable() {
                 <td className="py-2 px-4">
                   {r.gameRegistrationDetails?.paymentMethod}
                 </td>
+
+                <td className="py-2 px-4 whitespace-nowrap">
+                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
+                </td>
+
                 <td className="py-2 px-4">
                   {r.gameRegistrationDetails?.paymentDetails?.bankId
                     ?.bankName || "-"}
@@ -221,34 +262,6 @@ export default function AdminRegistrationsTable() {
                 <td className="py-2 px-4">
                   {r.gameRegistrationDetails?.paymentDetails?.transactionId ||
                     "-"}
-                </td>
-
-                <td className="py-2 px-4 whitespace-nowrap">
-                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
-                </td>
-
-                <td
-                  className={`text-center capitalize ${
-                    r.gameRegistrationDetails?.status === "approved"
-                      ? "text-[var(--success-color)]"
-                      : r.gameRegistrationDetails?.status === "rejected"
-                      ? "text-[var(--error-color)]"
-                      : "text-white"
-                  }`}
-                >
-                  {r.gameRegistrationDetails?.status}
-                </td>
-
-                <td className="py-2 px-4">
-                  <select
-                    value={r.gameRegistrationDetails?.status || "pending"}
-                    onChange={(e) => handleStatusUpdate(r._id, e.target.value)}
-                    className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
                 </td>
               </tr>
             ))}

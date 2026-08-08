@@ -4,6 +4,8 @@ import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { GENDER_COLORS } from "@/constants/genderColors";
 
+const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+
 function isMixedDoublesGenderOk(genderA, genderB) {
   if (genderA === "male" && genderB === "male") return false;
   if (genderA === "female" && genderB === "female") return false;
@@ -16,7 +18,10 @@ export default function TeamUp() {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [currentUserEligible, setCurrentUserEligible] = useState(true);
+  // All pending/accepted requests involving the current user, keyed by the
+  // *other* player's id -- this is the source of truth for what a card shows,
+  // instead of local-only state that used to reset on every page refresh.
+  const [requestsByPlayer, setRequestsByPlayer] = useState({});
 
   // Store per-player tournament + game + mode selections
   const [selectedTournamentIds, setSelectedTournamentIds] = useState({});
@@ -25,10 +30,13 @@ export default function TeamUp() {
   // Doubles or Mixed Doubles enabled (site-wide, not scoped to the viewer).
   const fetchPlayers = async () => {
     try {
-      const res = await api.get("/api/tournaments/similar-players");
-      const data = res.data?.data || {};
-      setCurrentUser(data.currentUser || null);
-      setCurrentUserEligible(data.currentUserEligible ?? true);
+      const [similarRes, teamupRes] = await Promise.all([
+        api.get("/api/tournaments/similar-players"),
+        api.get("/api/teamup"),
+      ]);
+      const data = similarRes.data?.data || {};
+      const me = data.currentUser || null;
+      setCurrentUser(me);
       setTournaments(data.tournaments || []);
 
       const formatted = (data.players || []).map((u) => ({
@@ -38,10 +46,19 @@ export default function TeamUp() {
         username: u.username || "",
         city: u.city || "Unknown",
         gender: u.gender || "Not specified",
-        requested: false,
       }));
-
       setPlayers(formatted);
+
+      const myRequests = teamupRes.data?.data?.requests || [];
+      const byPlayer = {};
+      myRequests.forEach((r) => {
+        if (!me) return;
+        const otherId = r.from?._id === me._id ? r.to?._id : r.from?._id;
+        if (!otherId) return;
+        if (!byPlayer[otherId]) byPlayer[otherId] = [];
+        byPlayer[otherId].push(r);
+      });
+      setRequestsByPlayer(byPlayer);
     } catch (err) {
       console.error("❌ Failed to fetch players:", err);
     } finally {
@@ -76,12 +93,8 @@ export default function TeamUp() {
     try {
       const payload = { to: id, tournamentId, gameId, mode };
       await api.post("/api/teamup", payload);
-
-      setPlayers((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, requested: true } : p))
-      );
-
       toast.success("Team-up request sent!");
+      fetchPlayers();
     } catch (err) {
       console.error("❌ Failed to send request:", err);
       const msg = err.response?.data?.message;
@@ -93,11 +106,27 @@ export default function TeamUp() {
     }
   };
 
-  const handleCancel = (id) => {
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, requested: false } : p))
-    );
-    toast("Request cancelled (local only)");
+  const handleCancel = async (requestId) => {
+    try {
+      await api.delete(`/api/teamup/${requestId}`);
+      toast.success("Request cancelled");
+      fetchPlayers();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to cancel request");
+    }
+  };
+
+  const handleDropPartner = async (requestId) => {
+    if (!window.confirm("Drop this partner? This cannot be undone.")) return;
+    try {
+      await api.delete(`/api/teamup/${requestId}`);
+      toast.success("Partner dropped");
+      fetchPlayers();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to drop partner");
+    }
   };
 
   // ✅ Filter by search only -- every player on the site is browsable
@@ -120,17 +149,6 @@ export default function TeamUp() {
         >
           No tournaments currently have Doubles or Mixed Doubles enabled. Ask
           an admin to enable it on a tournament's game first.
-        </p>
-      )}
-
-      {!loading && tournaments.length > 0 && !currentUserEligible && (
-        <p
-          className="mb-6 p-3 rounded-lg text-sm"
-          style={{ background: "var(--secondary-color)" }}
-        >
-          You're not registered (or not yet approved) for any tournament/game
-          with Doubles or Mixed Doubles enabled -- you can browse below, but
-          sending a request will fail until you register for one of them.
         </p>
       )}
 
@@ -168,6 +186,14 @@ export default function TeamUp() {
                 selected.mode === "mixed_doubles" &&
                 !isMixedDoublesGenderOk(currentUser?.gender, player.gender);
 
+              const existingRequests = requestsByPlayer[player.id] || [];
+              const acceptedRequests = existingRequests.filter(
+                (r) => r.status === "accepted"
+              );
+              const pendingRequests = existingRequests.filter(
+                (r) => r.status === "pending"
+              );
+
               return (
                 <div
                   key={player.id}
@@ -195,8 +221,71 @@ export default function TeamUp() {
                     {player.gender}
                   </p>
 
-                  {!player.requested ? (
-                    <div className="pt-4 flex flex-col gap-2">
+                  {/* ✅ Confirmed partnerships -- reflects real server state,
+                      so this survives page refresh and shows up for both
+                      sides of the pairing. */}
+                  {acceptedRequests.length > 0 && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {acceptedRequests.map((r) => (
+                        <div
+                          key={r._id}
+                          className="p-3 rounded-lg border"
+                          style={{ borderColor: "var(--success-color)" }}
+                        >
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "var(--success-color)" }}
+                          >
+                            ✅ Partnered — {r.tournament?.name || "Tournament"}
+                          </p>
+                          <p className="text-xs opacity-80">
+                            {MODE_LABELS[r.mode] || r.mode}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-2 w-full py-1.5 px-3 rounded-lg text-sm font-semibold"
+                            style={{ background: "var(--error-color)", color: "white" }}
+                            onClick={() => handleDropPartner(r._id)}
+                          >
+                            Drop Partner
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {pendingRequests.length > 0 && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {pendingRequests.map((r) => {
+                        const sentByMe = r.from?._id === currentUser?._id;
+                        return (
+                          <div
+                            key={r._id}
+                            className="p-3 rounded-lg border"
+                            style={{ borderColor: "var(--border-color)" }}
+                          >
+                            <p className="text-xs">
+                              {sentByMe
+                                ? `Request pending — ${r.tournament?.name || "Tournament"}`
+                                : `They want to team up with you — see Received Requests`}
+                            </p>
+                            {sentByMe && (
+                              <button
+                                type="button"
+                                className="mt-2 w-full py-1.5 px-3 rounded-lg text-sm font-semibold"
+                                style={{ background: "var(--error-color)", color: "white" }}
+                                onClick={() => handleCancel(r._id)}
+                              >
+                                Cancel Request
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex flex-col gap-2">
                       {/* 🎯 Tournament Select */}
                       <select
                         value={selected.tournamentId || ""}
@@ -293,31 +382,6 @@ export default function TeamUp() {
                         Send Request
                       </button>
                     </div>
-                  ) : (
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        type="button"
-                        className="flex-1 font-semibold py-2 px-4 rounded-lg shadow-md cursor-default"
-                        style={{
-                          background: "var(--success-color)",
-                          color: "white",
-                        }}
-                      >
-                        Requested
-                      </button>
-                      <button
-                        type="button"
-                        className="px-4 py-2 rounded-lg shadow-md font-semibold transition duration-200"
-                        style={{
-                          background: "var(--error-color)",
-                          color: "white",
-                        }}
-                        onClick={() => handleCancel(player.id)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })

@@ -20,6 +20,7 @@ async function cleanupOrphanRegistrations() {
     (await Tournament.find({ _id: { $in: tournamentIds } }, { _id: 1 }).lean()).map((t) => t._id.toString())
   );
 
+  // abd
   const orphanIds = registrations
     .filter(
       (r) =>

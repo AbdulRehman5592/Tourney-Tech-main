@@ -42,6 +42,20 @@ export default function AllRegisteredPlayers() {
         header: "User",
         id: "user",
         accessorFn: (row) => `${row.user?.firstname || ""} ${row.user?.lastname || ""}`.trim(),
+        cell: ({ getValue, row }) => {
+          const status = row.original.gameRegistrationDetails?.status;
+          const color =
+            status === "approved"
+              ? "var(--success-color)"
+              : status === "rejected"
+              ? "var(--warning-color)"
+              : "var(--error-color)";
+          return (
+            <span className="font-semibold" style={{ color }}>
+              {getValue()}
+            </span>
+          );
+        },
       },
       {
         header: "Email",

@@ -76,8 +76,14 @@ export const POST = asyncHandler(async (req) => {
   }
 
   // ✅ Check for existing user
+  // Only include a field in the $or when it was actually provided —
+  // an empty string here would match any document where that field is
+  // literally "" and produce a false "already in use" conflict.
+  const dupConditions = [{ email: clean.email }];
+  if (clean.username) dupConditions.push({ username: clean.username });
+
   const existingUser = await User.findOne({
-    $or: [{ email: clean.email }, { username: clean.username }],
+    $or: dupConditions,
   }).select("-refreshToken -password");
 
   if (existingUser) {

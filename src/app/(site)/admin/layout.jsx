@@ -24,6 +24,7 @@ import {
   Spade,
   Handshake,
   MapPin,
+  FileUp,
 } from "lucide-react";
 
 // Change this to adminNavItems if needed
@@ -32,6 +33,7 @@ const adminNavItems = [
   { href: "/dashboard", label: "Switch To User", icon: ArrowLeftRight },
   { href: "/admin/users", label: "Manage Users", icon: Users },
   { href: "/admin/register-player", label: "Register Player", icon: UserPlus2 },
+  { href: "/admin/import-users", label: "Import Users (Excel)", icon: FileUp },
   { href: "/admin/add-games", label: "Add Game", icon: Gamepad2 },
   { href: "/admin/game-types", label: "Game Types", icon: Spade },
   { href: "/admin/signup-options", label: "Signup Options", icon: MapPin },

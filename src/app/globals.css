@@ -26,6 +26,7 @@
   --error-color: #EF4444;          /* Red-500 */
   --success-color: #10B981;        /* Green-500 */
   --info-color: #3B82F6;           /* Blue-500 */
+  --warning-color: #F97316;        /* Orange-500 */
 
   /* 🧱 Borders & Cards */
   --border-color: #364153;
@@ -56,6 +57,7 @@
     --error-color: #EF4444;
     --success-color: #10B981;
     --info-color: #3B82F6;
+    --warning-color: #F97316;
 
     --border-color: #364153;
     --card-background: #101828;
