@@ -5,6 +5,10 @@ const { Schema, model, models } = mongoose;
 const TournamentGameSchema = new Schema({
   game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
   entryFee: { type: Number, default: 0 },
+  // When this specific game is played (date + time). Optional so tournaments
+  // created before scheduling existed -- and drafts still being planned -- stay
+  // valid; the UI shows "Schedule TBA" when it's unset.
+  scheduledAt: { type: Date },
   format: {
     type: String,
     enum: [
@@ -33,6 +37,14 @@ const TournamentGameSchema = new Schema({
     enum: ["wins", "hands", "points"],
     default: "wins",
   },
+  // Pre-set intent, chosen at tournament setup, for round_robin/mesh/standard
+  // games only: whether Round 1 should be followed by a single-elimination
+  // playoff. This doesn't automate anything by itself -- the actual go/no-go
+  // call (and final qualifier count, once real registration numbers are
+  // known) is still made live by the admin on the "Round 1 complete" decision
+  // panel; this just pre-fills that panel and lets players see the plan.
+  playoffEnabled: { type: Boolean, default: false },
+  playoffQualifiersCount: { type: Number, min: 2 },
   round1Status: {
     type: String,
     enum: [

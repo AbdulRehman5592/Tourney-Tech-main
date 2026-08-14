@@ -13,9 +13,19 @@ import {
 import { Pencil, Trash2 } from "lucide-react";
 import api from "@/utils/axios";
 
+const ACCOUNT_STATUSES = ["active", "suspended", "inactive", "deceased"];
+
+const STATUS_STYLES = {
+  active: "bg-green-500/15 text-green-500 border-green-500/30",
+  suspended: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
+  inactive: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+  deceased: "bg-red-500/15 text-red-500 border-red-500/30",
+};
+
 export default function UserTable({ onEditUser, refreshKey }) {
   const [data, setData] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -42,6 +52,25 @@ export default function UserTable({ onEditUser, refreshKey }) {
     }
   };
 
+  const handleStatusChange = async (id, accountStatus) => {
+    setUpdatingStatusId(id);
+    try {
+      const res = await api.patch(
+        `/api/user/${id}`,
+        { accountStatus },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      toast.success(res.data.message || "Status updated");
+      setData((prev) =>
+        prev.map((u) => (u._id === id ? { ...u, accountStatus } : u))
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update status");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   const columns = useMemo(
     () => [
       { header: "#", cell: ({ row }) => row.index + 1 },
@@ -59,9 +88,34 @@ export default function UserTable({ onEditUser, refreshKey }) {
       { header: "Club", accessorKey: "club" },
       { header: "Role", accessorKey: "role" },
       {
+        header: "Status",
+        accessorKey: "accountStatus",
+        cell: ({ row }) => {
+          const user = row.original;
+          const currentStatus = user.accountStatus || "active";
+          return (
+            <select
+              value={currentStatus}
+              disabled={updatingStatusId === user._id}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => handleStatusChange(user._id, e.target.value)}
+              className={`text-xs font-medium px-2 py-1 rounded-full border capitalize cursor-pointer disabled:opacity-50 ${
+                STATUS_STYLES[currentStatus] || STATUS_STYLES.active
+              }`}
+            >
+              {ACCOUNT_STATUSES.map((s) => (
+                <option key={s} value={s} className="text-black">
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </option>
+              ))}
+            </select>
+          );
+        },
+      },
+      {
         header: "DOB",
         accessorKey: "dob",
-      
+
       },
       {
         header: "Created At",
@@ -92,7 +146,7 @@ export default function UserTable({ onEditUser, refreshKey }) {
         },
       },
     ],
-    [onEditUser]
+    [onEditUser, updatingStatusId]
   );
 
   const table = useReactTable({

@@ -32,3 +32,21 @@ export function isMixedDoublesGenderOk(genderA, genderB) {
   if (genderA === "female" && genderB === "female") return false;
   return true;
 }
+
+// Resolves & validates a tournament's game config for a doubles/mixed_doubles
+// request -- shared by any flow that proposes a pairing (direct TeamUp
+// requests and invite-link creation) before it's known who the partner is,
+// since the gender check can only run once both sides are known (accept time).
+export function getEnabledGameConfig(tournament, gameId, mode) {
+  if (!tournament) throw new ApiError(404, "Tournament not found");
+
+  const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
+  if (!gameConfig) throw new ApiError(404, "Game not found in this tournament");
+
+  if (mode === "doubles" && !gameConfig.doublesEnabled)
+    throw new ApiError(400, "Doubles is not enabled for this game");
+  if (mode === "mixed_doubles" && !gameConfig.mixedDoublesEnabled)
+    throw new ApiError(400, "Mixed doubles is not enabled for this game");
+
+  return gameConfig;
+}

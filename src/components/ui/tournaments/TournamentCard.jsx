@@ -18,6 +18,10 @@ export default function TournamentCard({
   userRole, // New prop to indicate if user is organizer/owner/admin
 }) {
   const isSelected = selectedId === _id;
+  // Completed tournaments are archived/view-only: greyed out and fully
+  // non-interactive for everyone, regardless of role -- pointer-events-none
+  // belt-and-braces on top of not rendering any of the action buttons below.
+  const isCompleted = status === "completed";
 
   const getStatusColor = () => {
     switch (status) {
@@ -44,7 +48,11 @@ export default function TournamentCard({
 
   return (
     <div
-      className=" flex flex-col sm:flex-row rounded-xl overflow-hidden shadow-lg hover:scale-[1.01] transition-transform border border-gray-700"
+      className={`flex flex-col sm:flex-row rounded-xl overflow-hidden shadow-lg transition-transform border border-gray-700 ${
+        isCompleted
+          ? "opacity-60 grayscale pointer-events-none select-none"
+          : "hover:scale-[1.01]"
+      }`}
       style={{ backgroundColor: "var(--card-background)" }}
     >
       {/* Image */}
@@ -94,7 +102,17 @@ export default function TournamentCard({
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
-          {userRole && userRole !== "player" ? (
+          {isCompleted ? (
+            <div
+              className="w-full py-2 rounded-lg font-semibold text-center"
+              style={{
+                backgroundColor: "var(--border-color)",
+                color: "var(--foreground)",
+              }}
+            >
+              🏁 Tournament Completed
+            </div>
+          ) : userRole && userRole !== "player" ? (
             // ✅ Show View Details for organizers/admins/staff
             <>
               <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">

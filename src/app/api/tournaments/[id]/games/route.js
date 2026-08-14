@@ -5,6 +5,7 @@ import { requireTournamentStaff } from "@/utils/server/tournamentPermissions";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
+import { parseScheduledAt } from "@/utils/server/gameSchedule";
 
 // POST /api/tournaments/:id/games → Add game to tournament
 export const POST = asyncHandler(async (req, context) => {
@@ -23,12 +24,15 @@ export const POST = asyncHandler(async (req, context) => {
   const {
     game,
     entryFee = 0,
+    scheduledAt,
     format,
     meshRounds,
     standardRounds,
     standardDirection = "up",
     rewardByeType = "none",
     winCriteria = "wins",
+    playoffEnabled = false,
+    playoffQualifiersCount,
     teamBased = true,
     tournamentTeamType,
     doublesEnabled = false,
@@ -94,6 +98,13 @@ export const POST = asyncHandler(async (req, context) => {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
   }
 
+  if (playoffEnabled && !["round_robin", "mesh", "standard"].includes(format)) {
+    throw new ApiError(400, "Playoff plan is only supported for round_robin, mesh, or standard formats");
+  }
+  if (playoffQualifiersCount !== undefined && playoffQualifiersCount !== "" && Number(playoffQualifiersCount) < 2) {
+    throw new ApiError(400, "playoffQualifiersCount must be at least 2");
+  }
+
   validateDoublesConfig({
     tournamentTeamType,
     doublesEnabled,
@@ -124,6 +135,7 @@ export const POST = asyncHandler(async (req, context) => {
   tournament.games.push({
     game,
     entryFee,
+    scheduledAt: parseScheduledAt(scheduledAt),
     format,
     meshRounds: format === "mesh" ? Number(meshRounds) : undefined,
     standardDirection: format === "standard" ? standardDirection : undefined,
@@ -131,6 +143,9 @@ export const POST = asyncHandler(async (req, context) => {
       format === "standard" && standardRounds ? Number(standardRounds) : undefined,
     rewardByeType,
     winCriteria,
+    playoffEnabled,
+    playoffQualifiersCount:
+      playoffEnabled && playoffQualifiersCount ? Number(playoffQualifiersCount) : undefined,
     teamBased,
     tournamentTeamType,
     doublesEnabled,

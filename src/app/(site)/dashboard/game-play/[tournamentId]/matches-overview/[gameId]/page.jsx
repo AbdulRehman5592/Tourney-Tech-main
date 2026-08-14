@@ -129,6 +129,19 @@ export default function TournamentPage() {
     return () => clearInterval(intervalRef.current);
   }, [tournamentId, gameId]);
 
+  // 🔹 Pre-fill the qualifiers count from the plan set at tournament setup
+  // (gameConfig.playoffQualifiersCount) once the decision panel appears --
+  // only while the admin hasn't typed anything in themselves.
+  useEffect(() => {
+    if (
+      gameConfig?.round1Status === "awaiting_playoff_decision" &&
+      gameConfig?.playoffQualifiersCount &&
+      qualifiersCount === ""
+    ) {
+      setQualifiersCount(String(gameConfig.playoffQualifiersCount));
+    }
+  }, [gameConfig, qualifiersCount]);
+
   // 🔹 Round 1 update -- the score/agree/disagree PATCH already happened inside
   // EditMatchModal itself; this just applies the fresh match data it returned
   // and re-syncs from the server (a completed match may have advanced others).

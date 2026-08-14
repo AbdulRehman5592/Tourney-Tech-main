@@ -1,8 +1,9 @@
 "use client";
 
 import api from "@/utils/axios";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Loader from "@/components/Loader";
 
 import PasswordInput from "@/components/ui/signup/PasswordInput";
@@ -10,6 +11,16 @@ import PasswordInput from "@/components/ui/signup/PasswordInput";
 import { toast } from "react-hot-toast";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<Loader />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -59,8 +70,14 @@ export default function LoginPage() {
         console.log("Checking cookies before redirect...");
         console.log("document.cookie:", document.cookie);
 
-        // ✅ Redirect based on role
-        if (user.role === "admin") {
+        // ✅ Honor a same-site ?redirect= (e.g. back to an invite link) if
+        // present -- only allow a relative path, never an absolute/external
+        // URL, to avoid this becoming an open redirect.
+        const isSafeRedirect = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
+
+        if (isSafeRedirect) {
+          window.location.href = redirect;
+        } else if (user.role === "admin") {
           window.location.href = "/admin";
         } else {
           window.location.href = "/dashboard";
@@ -223,7 +240,13 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-sm" style={{ color: "#9CA3AF" }}>
             Don’t have an account?{" "}
-            <Link href="/auth/signup">
+            <Link
+              href={
+                redirect
+                  ? `/auth/signup?redirect=${encodeURIComponent(redirect)}`
+                  : "/auth/signup"
+              }
+            >
               <span
                 className="hover:underline"
                 style={{ color: "var(--accent-color)" }}

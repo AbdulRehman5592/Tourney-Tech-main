@@ -5,6 +5,7 @@ import api from "@/utils/axios";
 
 import TournamentCard from "@/components/ui/tournaments/TournamentCard";
 import TournamentFilters from "@/components/ui/tournaments/TournamentFilters";
+import { sortTournamentsCompletedLast } from "@/utils/tournamentSort";
 
 export default function TournamentListing() {
   const [tournaments, setTournaments] = useState([]);
@@ -62,10 +63,7 @@ export default function TournamentListing() {
     setCurrentPage(1);
   };
 
-  const sortedTournaments = [...tournaments].sort((a, b) => {
-    const order = { upcoming: 0, ongoing: 1, completed: 2 };
-    return order[a.status] - order[b.status];
-  });
+  const sortedTournaments = sortTournamentsCompletedLast(tournaments);
 
   const filteredTournaments = sortedTournaments.filter((t) => {
     const matchesSearch =

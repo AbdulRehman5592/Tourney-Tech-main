@@ -1,5 +1,6 @@
 import { Trash2, Pencil } from "lucide-react";
 import { useState, useMemo } from "react";
+import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 
 export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,7 +55,7 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
               <th className="p-3">Location</th>
               <th className="p-3">Dates</th>
               <th className="p-3">Status</th>
-              <th className="p-3">Games</th>
+              <th className="p-3">Games &amp; Schedule</th>
               <th className="p-3">Entry Fee</th>
               <th className="p-3">Created At</th>
               <th className="p-3">Actions</th>
@@ -94,31 +95,39 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                   </td>
                   <td className="p-3 capitalize text-yellow-300">{t.status}</td>
                 
-                  <td className="p-3">
+                  <td className="p-3 align-top">
                     {Array.isArray(t.games) && t.games.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-col gap-1.5">
                         {t.games.map((g, i) => (
-                          <span
+                          <div
                             key={i}
-                            className="bg-gray-700 text-xs px-2 py-1 rounded"
+                            className="flex min-h-[46px] flex-col gap-1"
                           >
-                            {g.game?.name || g.name || "Unnamed"}
-                          </span>
+                            <span className="bg-gray-700 text-xs px-2 py-1 rounded self-start">
+                              {g.game?.name || g.name || "Unnamed"}
+                            </span>
+                            <GameScheduleBadge
+                              value={g.scheduledAt}
+                              variant="inline"
+                            />
+                          </div>
                         ))}
                       </div>
                     ) : (
                       <span className="text-gray-400 text-xs">No games</span>
                     )}
                   </td>
-                   <td className="p-3">
+                   <td className="p-3 align-top">
                     {Array.isArray(t.games) && t.games.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-col gap-1.5">
                         {t.games.map((g, i) => (
+                          // min-height keeps each fee lined up with its
+                          // two-line game + schedule block in the column before
                           <span
                             key={i}
-                            className="text-xs px-2 py-1 rounded"
+                            className="flex min-h-[46px] items-start text-xs whitespace-nowrap"
                           >
-                            {g.entryFee?.entryFee || g.entryFee || "Unnamed"}
+                            ${g.entryFee ?? 0}
                           </span>
                         ))}
                       </div>

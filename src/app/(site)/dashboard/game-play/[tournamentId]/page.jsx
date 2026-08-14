@@ -5,10 +5,15 @@ import { useParams } from "next/navigation";
 import api from "@/utils/axios";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
+import { compareByScheduledAt } from "@/utils/gameSchedule";
 
 export default function GamePlay() {
   const { tournamentId } = useParams();
   const [games, setGames] = useState([]);
+  // gameId -> scheduledAt; the registration payload carries plain Game docs,
+  // so the per-tournament schedule has to be looked up separately.
+  const [scheduleByGame, setScheduleByGame] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +21,22 @@ export default function GamePlay() {
 
     const fetchGames = async () => {
       try {
+        // Per-game schedule for this tournament
+        try {
+          const tournamentRes = await api.get(
+            `/api/tournaments/${tournamentId}`
+          );
+          const scheduleMap = {};
+          (tournamentRes.data?.games || []).forEach((g) => {
+            const id = g.game?._id || g.game;
+            if (id) scheduleMap[id.toString()] = g.scheduledAt || null;
+          });
+          setScheduleByGame(scheduleMap);
+        } catch (scheduleErr) {
+          // A missing schedule shouldn't block playing -- cards fall back to TBA.
+          console.error("Error fetching game schedule:", scheduleErr);
+        }
+
         // Get current user
         const meRes = await api.get("/api/me");
         const userId = meRes.data?.user?._id || meRes.data?.data?.user?._id;
@@ -81,9 +102,16 @@ export default function GamePlay() {
     );
   }
 
+  const orderedGames = [...games].sort((a, b) =>
+    compareByScheduledAt(
+      { scheduledAt: scheduleByGame[a?._id] },
+      { scheduledAt: scheduleByGame[b?._id] }
+    )
+  );
+
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {games.map((game) => (
+      {orderedGames.map((game) => (
         <div
           key={game._id}
           className="rounded-2xl shadow-lg border overflow-hidden 
@@ -110,6 +138,12 @@ export default function GamePlay() {
               >
                 {game.name}
               </h2>
+
+              {/* When this game is played */}
+              <GameScheduleBadge
+                value={scheduleByGame[game._id]}
+                variant="stacked"
+              />
 
               {/* Description */}
               <p className="text-sm line-clamp-3">

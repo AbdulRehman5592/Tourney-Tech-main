@@ -6,7 +6,7 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
-import { isMixedDoublesGenderOk } from "@/utils/server/doublesConfig";
+import { validateAcceptedPairing } from "@/utils/server/teamup";
 
 export const PATCH = asyncHandler(async (req, context) => {
   const user = await requireAuth();
@@ -38,60 +38,21 @@ export const PATCH = asyncHandler(async (req, context) => {
     if (!tournament) {
       throw new ApiResponse(400, null, "Tournament not found");
     }
-    const gameConfig = tournament.games.find(
-      (g) => g.game.toString() === request.gameId
-    );
-    if (!gameConfig) {
-      throw new ApiResponse(400, null, "Game not found in this tournament");
-    }
-
-    if (request.mode === "mixed_doubles" && !isMixedDoublesGenderOk(request.from?.gender, request.to?.gender)) {
-      throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
-    }
-
-    // A player can hold at most one *accepted* partner per tournament/game/mode
-    // at a time (they can still have any number of other pending requests).
-    // Accepting a second one here would silently orphan the first pairing, so
-    // block it -- either side must drop their existing partner first.
-    const conflictQuery = (userId) => ({
-      _id: { $ne: request._id },
-      tournament: request.tournament,
-      gameId: request.gameId,
-      mode: request.mode,
-      status: "accepted",
-      $or: [{ from: userId }, { to: userId }],
-    });
-
-    const [fromConflict, toConflict] = await Promise.all([
-      TeamUp.findOne(conflictQuery(request.from?._id)),
-      TeamUp.findOne(conflictQuery(request.to?._id)),
-    ]);
-
-    if (toConflict) {
-      throw new ApiResponse(
-        400,
-        null,
-        "You already have an accepted partner for this game. Drop your current partner before accepting a new one."
-      );
-    }
-
-    if (fromConflict) {
-      throw new ApiResponse(
-        400,
-        null,
-        `${request.from?.firstname || "This player"} already has an accepted partner for this game and can't be paired again until they drop it.`
-      );
-    }
 
     // Snapshot the pair's cost at accept time (owed by `from`, the requestor)
     // and initialize payment tracking. Doubles is a scoring overlay only --
     // no Team/TeamMember gets created; paired players keep playing their own
     // solo matches in the bracket untouched.
-    request.costOwed =
-      request.mode === "mixed_doubles"
-        ? gameConfig?.mixedDoublesCost || 0
-        : gameConfig?.doublesCost || 0;
-    request.payment = { method: "cash", paid: false, approved: false };
+    const { costOwed, payment } = await validateAcceptedPairing({
+      tournament,
+      gameId: request.gameId,
+      mode: request.mode,
+      fromUser: request.from,
+      toUser: request.to,
+      excludeRequestId: request._id,
+    });
+    request.costOwed = costOwed;
+    request.payment = payment;
   }
 
   request.status = status;

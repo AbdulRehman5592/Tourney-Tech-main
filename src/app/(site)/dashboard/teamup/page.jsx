@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { GENDER_COLORS } from "@/constants/genderColors";
+import InviteFriendModal from "@/components/ui/dashboard/team/InviteFriendModal";
 
 const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
@@ -25,6 +26,7 @@ export default function TeamUp() {
 
   // Store per-player tournament + game + mode selections
   const [selectedTournamentIds, setSelectedTournamentIds] = useState({});
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // ✅ Fetch every player on the site + every tournament/game that has
   // Doubles or Mixed Doubles enabled (site-wide, not scoped to the viewer).
@@ -152,8 +154,8 @@ export default function TeamUp() {
         </p>
       )}
 
-      {/* 🔍 Search */}
-      <div className="mb-6">
+      {/* 🔍 Search + Invite */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <input
           type="text"
           placeholder="Search players..."
@@ -166,7 +168,23 @@ export default function TeamUp() {
             color: "var(--foreground)",
           }}
         />
+        <button
+          type="button"
+          onClick={() => setShowInviteModal(true)}
+          disabled={tournaments.length === 0}
+          className="whitespace-nowrap font-semibold py-2 px-4 rounded-lg disabled:opacity-50"
+          style={{ background: "var(--accent-color)", color: "black" }}
+        >
+          Invite a Friend to Sign Up
+        </button>
       </div>
+
+      {showInviteModal && (
+        <InviteFriendModal
+          tournaments={tournaments}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
 
       {/* 🧍 Players */}
       {loading ? (
