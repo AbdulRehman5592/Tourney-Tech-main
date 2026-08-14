@@ -40,6 +40,11 @@ export const POST = asyncHandler(async () => {
     throw new ApiError(401, "Refresh token mismatch.");
   }
 
+  // ✅ Revoke session if the account was suspended/deactivated after login
+  if (user.accountStatus && user.accountStatus !== "active") {
+    throw new ApiError(403, "Your account is no longer active. Please contact support.");
+  }
+
   // ✅ Generate new tokens
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);

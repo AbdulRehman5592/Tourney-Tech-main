@@ -1,8 +1,9 @@
 "use client";
 
 import api from "@/utils/axios";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Loader from "@/components/Loader";
 
 import { toast } from "react-hot-toast";
@@ -15,6 +16,16 @@ import "react-datepicker/dist/react-datepicker.css";
 import PasswordInput from "@/components/ui/signup/PasswordInput";
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={<Loader />}>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
@@ -101,7 +112,12 @@ export default function SignUpPage() {
       });
 
       toast.success(res?.data?.message || "Registration successful!");
-      window.location.href = "/auth/login";
+      // Registration doesn't auto-login (no cookies are set here), so carry
+      // the redirect (e.g. back to an invite link) through the login hop.
+      const isSafeRedirect = redirect && redirect.startsWith("/") && !redirect.startsWith("//");
+      window.location.href = isSafeRedirect
+        ? `/auth/login?redirect=${encodeURIComponent(redirect)}`
+        : "/auth/login";
     } catch (error) {
       const errorMessage =
         error?.response?.data?.message || "Something went wrong";
@@ -289,7 +305,7 @@ export default function SignUpPage() {
           <p className="mt-6 text-center text-sm" style={{ color: "#9CA3AF" }}>
             Already have an account?{" "}
             <Link
-              href="login"
+              href={redirect ? `login?redirect=${encodeURIComponent(redirect)}` : "login"}
               className="hover:underline"
               style={{ color: "var(--accent-color)" }}
             >

@@ -33,6 +33,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
     dob: "",
     role: "player",
     region: "00",
+    accountStatus: "active",
     password: "",
   });
 
@@ -53,6 +54,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
         dob: user.dob || "",
         role: user.role || "player",
         region: user.region || "00",
+        accountStatus: user.accountStatus || "active",
         password: "",
       });
     }
@@ -228,6 +230,24 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
               <option value="admin">Admin</option>
             </select>
           </div>
+
+          {/* Account Status */}
+          {isEdit && (
+            <div className="flex flex-col">
+              <label className="text-sm text-muted-foreground mb-1">Status</label>
+              <select
+                name="accountStatus"
+                value={form.accountStatus}
+                onChange={handleChange}
+                className="py-2 px-4 rounded-lg bg-[var(--secondary-color)] text-foreground border border-[var(--border-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
+              >
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+                <option value="inactive">Inactive</option>
+                <option value="deceased">Deceased</option>
+              </select>
+            </div>
+          )}
 
           {/* Region */}
           <div className="flex flex-col">

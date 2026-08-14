@@ -4,6 +4,7 @@ import { Tournament } from "../src/models/Tournament.js";
 import { User } from "../src/models/User.js";
 
 const isDryRun = process.argv.includes("--dry-run");
+// changes done 
 
 async function cleanupOrphanRegistrations() {
   await connectDB();

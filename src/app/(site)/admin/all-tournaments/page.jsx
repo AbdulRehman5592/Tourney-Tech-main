@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 import { ClipboardList, Search } from "lucide-react";
+import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
+import { compareByScheduledAt } from "@/utils/gameSchedule";
 
 export default function AdminAllTournamentsPage() {
   const [tournaments, setTournaments] = useState([]);
@@ -192,6 +194,44 @@ export default function AdminAllTournamentsPage() {
                       <option value="completed">Completed</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-lg font-medium text-foreground">
+                    Games &amp; Schedule
+                  </h3>
+
+                  {tournament.games?.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[...tournament.games]
+                        .sort(compareByScheduledAt)
+                        .map((game, index) => (
+                          <div
+                            key={game._id || index}
+                            className="rounded-2xl border border-[var(--border-color)] bg-[var(--background)] p-4"
+                          >
+                            <p className="font-semibold text-[var(--foreground)]">
+                              {game.game?.name || `Game ${index + 1}`}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              ${game.entryFee ?? 0} •{" "}
+                              {game.tournamentTeamType === "double_player"
+                                ? "Double player"
+                                : "Single player"}
+                            </p>
+                            <GameScheduleBadge
+                              value={game.scheduledAt}
+                              variant="stacked"
+                              className="mt-3"
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
+                      No games have been added to this tournament yet.
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-6 space-y-4">

@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { ArrowLeft, Calendar, MapPin, Users, Trophy } from "lucide-react";
+import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
+import { compareByScheduledAt } from "@/utils/gameSchedule";
 
 export default function TournamentDetailsPage() {
   const params = useParams();
@@ -160,7 +162,9 @@ export default function TournamentDetailsPage() {
                 Games & Competitions
               </h2>
               <div className="space-y-4">
-                {tournament.games.map((game, index) => (
+                {[...tournament.games]
+                  .sort(compareByScheduledAt)
+                  .map((game, index) => (
                   <div
                     key={index}
                     className="p-4 rounded-lg border border-gray-700 hover:border-[var(--accent-color)] transition"
@@ -180,6 +184,14 @@ export default function TournamentDetailsPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* When this game is played */}
+                    <GameScheduleBadge
+                      value={game.scheduledAt}
+                      variant="stacked"
+                      className="mb-3"
+                    />
+
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-gray-400">Format:</span>{" "}

@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
+import { compareByScheduledAt } from "@/utils/gameSchedule";
 
 export default function GameRegistrationPage() {
   const params = useParams();
@@ -31,12 +33,15 @@ export default function GameRegistrationPage() {
         const fetchBankDetails = await api.get("/api/bankDetails");
         const registrationData = res.data;
 
-        // Registered games
-        const registeredGames = registrationData?.games || [];
+        // Registered games -- earliest scheduled first, TBA last
+        const registeredGames = [...(registrationData?.games || [])].sort(
+          compareByScheduledAt
+        );
         setGames(
           registeredGames.map((g) => ({
             _id: g?.game?._id,
             name: g?.game?.name,
+            scheduledAt: g?.scheduledAt,
           }))
         );
 
@@ -45,6 +50,7 @@ export default function GameRegistrationPage() {
           registeredGames.map((g) => ({
             _id: g.game?._id,
             entryFee: g.entryFee,
+            scheduledAt: g.scheduledAt,
             format: g.format,
             teamBased: g.teamBased, // keep original boolean if needed
             tournamentTeamType: g.tournamentTeamType, // preserve actual type string
@@ -138,8 +144,11 @@ export default function GameRegistrationPage() {
             {games.map((g) => (
               <label
                 key={g._id}
-                className="flex items-center space-x-2 cursor-pointer"
-                style={{ color: "var(--foreground)" }}
+                className="flex flex-wrap items-center gap-2 cursor-pointer rounded-lg border px-3 py-2"
+                style={{
+                  color: "var(--foreground)",
+                  borderColor: "var(--border-color)",
+                }}
               >
                 <input
                   type="checkbox"
@@ -157,6 +166,7 @@ export default function GameRegistrationPage() {
                   className="w-4 h-4 accent-[var(--accent-color)]"
                 />
                 <span>{g.name}</span>
+                <GameScheduleBadge value={g.scheduledAt} className="ml-auto" />
               </label>
             ))}
           </div>
@@ -182,7 +192,13 @@ export default function GameRegistrationPage() {
                 <p>
                   <strong>Entry Fee:</strong> {game.entryFee}
                 </p>
-               
+
+                <GameScheduleBadge
+                  value={game.scheduledAt}
+                  variant="stacked"
+                  className="my-2"
+                />
+
                 <p>
                   <strong>Players Required:</strong>{" "}
                   {game.tournamentTeamType === "double_player"

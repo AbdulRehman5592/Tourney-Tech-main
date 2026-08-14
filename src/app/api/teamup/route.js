@@ -8,7 +8,7 @@ import { Team } from "@/models/Team";
 import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
 import { User } from "@/models/User";
-import { isMixedDoublesGenderOk } from "@/utils/server/doublesConfig";
+import { isMixedDoublesGenderOk, getEnabledGameConfig } from "@/utils/server/doublesConfig";
 
 export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
@@ -33,15 +33,7 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiResponse(400, null, "Cannot send team-up request to yourself");
 
   const tournament = await Tournament.findById(tournamentId);
-  if (!tournament) throw new ApiResponse(404, null, "Tournament not found");
-
-  const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
-  if (!gameConfig) throw new ApiResponse(404, null, "Game not found in this tournament");
-
-  if (mode === "doubles" && !gameConfig.doublesEnabled)
-    throw new ApiResponse(400, null, "Doubles is not enabled for this game");
-  if (mode === "mixed_doubles" && !gameConfig.mixedDoublesEnabled)
-    throw new ApiResponse(400, null, "Mixed doubles is not enabled for this game");
+  getEnabledGameConfig(tournament, gameId, mode);
 
   if (mode === "mixed_doubles") {
     const toUser = await User.findById(to).select("gender");

@@ -65,9 +65,22 @@ export const POST = asyncHandler(async (req) => {
 
   // ✅ Check password
   const isPasswordValid = await user.isPasswordCorrect(clean.password);
-  
+
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid credentials");
+  }
+
+  // ✅ Block login for non-active accounts (suspended/inactive/deceased)
+  if (user.accountStatus && user.accountStatus !== "active") {
+    const messages = {
+      suspended: "Your account has been suspended. Please contact support.",
+      inactive: "Your account is inactive. Please contact support.",
+      deceased: "This account is no longer active.",
+    };
+    throw new ApiError(
+      403,
+      messages[user.accountStatus] || "Your account cannot log in at this time."
+    );
   }
 
   // ✅ Generate tokens

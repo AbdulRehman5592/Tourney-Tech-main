@@ -6,6 +6,7 @@ import { parseForm } from "@/utils/server/parseForm";
 import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { Tournament } from "@/models/Tournament";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
+import { parseScheduledAt } from "@/utils/server/gameSchedule";
 import "@/models/Game";
 
 
@@ -57,6 +58,9 @@ for (const game of games) {
     throw new ApiError(400, "Invalid tournament format");
   }
 
+  // Per-game date/time -- optional, but rejected outright if unparseable.
+  game.scheduledAt = parseScheduledAt(game.scheduledAt);
+
   // Mesh (table-movement) format has no default round count -- it must be
   // set explicitly so it's never silently skipped at setup.
   if (game.format === "mesh" && (!game.meshRounds || Number(game.meshRounds) < 1)) {
@@ -73,6 +77,13 @@ for (const game of games) {
     game.format !== "single_elimination"
   ) {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
+  }
+
+  if (game.playoffEnabled && !["round_robin", "mesh", "standard"].includes(game.format)) {
+    throw new ApiError(400, "Playoff plan is only supported for round_robin, mesh, or standard formats");
+  }
+  if (game.playoffQualifiersCount !== undefined && game.playoffQualifiersCount !== "" && Number(game.playoffQualifiersCount) < 2) {
+    throw new ApiError(400, "playoffQualifiersCount must be at least 2");
   }
 
   validateDoublesConfig(game);

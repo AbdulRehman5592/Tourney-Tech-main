@@ -6,6 +6,7 @@ import { requireTournamentStaff } from "@/utils/server/tournamentPermissions";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
+import { parseScheduledAt } from "@/utils/server/gameSchedule";
 
 // PATCH /api/tournaments/:id/games/:gid → Update a tournament game's config
 export const PATCH = asyncHandler(async (req, context) => {
@@ -41,6 +42,8 @@ export const PATCH = asyncHandler(async (req, context) => {
     "standardDirection",
     "rewardByeType",
     "winCriteria",
+    "playoffEnabled",
+    "playoffQualifiersCount",
     "teamBased",
     "tournamentTeamType",
     "doublesEnabled",
@@ -53,6 +56,11 @@ export const PATCH = asyncHandler(async (req, context) => {
       game[field] = body[field];
     }
   });
+
+  // Date/time needs parsing (and null must clear it) rather than a raw assign.
+  if ("scheduledAt" in body) {
+    game.scheduledAt = parseScheduledAt(body.scheduledAt);
+  }
 
   // Validate enums manually if needed
   const validFormats = [
@@ -107,6 +115,20 @@ export const PATCH = asyncHandler(async (req, context) => {
   }
   if (effectiveByeType && effectiveByeType !== "none" && effectiveFormat !== "single_elimination") {
     throw new ApiError(400, "Reward bye is only supported for the single_elimination format");
+  }
+
+  const effectivePlayoffEnabled =
+    "playoffEnabled" in body ? body.playoffEnabled : game.playoffEnabled;
+  if (effectivePlayoffEnabled && !["round_robin", "mesh", "standard"].includes(effectiveFormat)) {
+    throw new ApiError(400, "Playoff plan is only supported for round_robin, mesh, or standard formats");
+  }
+  if (
+    "playoffQualifiersCount" in body &&
+    body.playoffQualifiersCount !== undefined &&
+    body.playoffQualifiersCount !== "" &&
+    Number(body.playoffQualifiersCount) < 2
+  ) {
+    throw new ApiError(400, "playoffQualifiersCount must be at least 2");
   }
 
   validateDoublesConfig(game);

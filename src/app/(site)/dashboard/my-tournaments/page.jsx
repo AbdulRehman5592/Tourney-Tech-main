@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import api from "@/utils/axios";
 
 import TournamentCard from "@/components/ui/tournaments/TournamentCard";
+import { sortTournamentsCompletedLast } from "@/utils/tournamentSort";
 
 export default function MyTournaments() {
   const [tournaments, setTournaments] = useState([]);
@@ -56,7 +57,7 @@ export default function MyTournaments() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {tournaments.map((tournament) => (
+          {sortTournamentsCompletedLast(tournaments).map((tournament) => (
             <TournamentCard
               key={tournament._id}
               {...tournament}

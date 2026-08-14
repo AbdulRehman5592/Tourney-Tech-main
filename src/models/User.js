@@ -103,6 +103,14 @@ const UserSchema = new Schema(
       default: "offline",
     },
 
+    // Administrative account status, distinct from the presence `status` above.
+    // Controls whether the account can log in; history/data is kept regardless.
+    accountStatus: {
+      type: String,
+      enum: ["active", "suspended", "inactive", "deceased"],
+      default: "active",
+    },
+
     role: {
       type: String,
       enum: ["player", "admin"],

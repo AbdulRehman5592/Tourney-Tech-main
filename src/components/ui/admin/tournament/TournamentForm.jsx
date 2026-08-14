@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, X } from "lucide-react";
+import { CalendarClock, Upload, X } from "lucide-react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import { toDateTimeLocalInput } from "@/utils/gameSchedule";
 
 export default function TournamentForm({ initialData, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -79,12 +80,15 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           gameConfigId: g._id || "",
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
+          scheduledAt: toDateTimeLocalInput(g.scheduledAt),
           format: g.format || "",
           meshRounds: g.meshRounds || "",
           standardRounds: g.standardRounds || "",
           standardDirection: g.standardDirection || "up",
           rewardByeType: g.rewardByeType || "none",
           winCriteria: g.winCriteria || "wins",
+          playoffEnabled: g.playoffEnabled || false,
+          playoffQualifiersCount: g.playoffQualifiersCount || "",
           teamBased: g.teamBased || false,
           tournamentTeamType: g.tournamentTeamType || "double_player",
           doublesEnabled: g.doublesEnabled || false,
@@ -131,12 +135,15 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
       {
         game: "",
         entryFee: "",
+        scheduledAt: "",
         format: "",
         meshRounds: "",
         standardRounds: "",
         standardDirection: "up",
         rewardByeType: "none",
         winCriteria: "wins",
+        playoffEnabled: false,
+        playoffQualifiersCount: "",
         teamBased: false,
         tournamentTeamType: "double_player",
         doublesEnabled: false,
@@ -148,12 +155,21 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     ]);
   };
 
+  // The <input type="datetime-local"> value is a local wall-clock string with
+  // no offset -- resolve it against the admin's timezone here so the server
+  // never has to guess. Empty stays null so "no schedule yet" is preserved.
+  const scheduledAtPayload = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+
   const handleGameFieldChange = (index, name, value) => {
     const updated = [...gameFields];
-    if (["teamBased", "doublesEnabled", "mixedDoublesEnabled"].includes(name)) {
+    if (["teamBased", "doublesEnabled", "mixedDoublesEnabled", "playoffEnabled"].includes(name)) {
       updated[index][name] = value === true || value === "true";
     } else if (
-      ["entryFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost"].includes(name)
+      ["entryFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost", "playoffQualifiersCount"].includes(name)
     ) {
       updated[index][name] = value === "" ? "" : Number(value);
     } else {
@@ -225,14 +241,23 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         bannerUrl = uploadRes.data.bannerUrl;
       }
 
-      const validGames = gameFields.filter(
-        (g) =>
-          g.game &&
-          g.format &&
-          (g.entryFee === "" || !isNaN(g.entryFee)) &&
-          g.tournamentTeamType &&
-          (g.format !== "mesh" || (g.meshRounds && Number(g.meshRounds) >= 1))
-      );
+      const validGames = gameFields
+        .filter(
+          (g) =>
+            g.game &&
+            g.format &&
+            (g.entryFee === "" || !isNaN(g.entryFee)) &&
+            g.tournamentTeamType &&
+            (g.format !== "mesh" || (g.meshRounds && Number(g.meshRounds) >= 1))
+        )
+        .map((g) => ({
+          ...g,
+          scheduledAt: scheduledAtPayload(g.scheduledAt),
+          playoffQualifiersCount:
+            g.playoffEnabled && g.playoffQualifiersCount
+              ? Number(g.playoffQualifiersCount)
+              : undefined,
+        }));
 
       const jsonPayload = {
         ...formData,
@@ -249,6 +274,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           const gameData = {
             game: g.game,
             entryFee: Number(g.entryFee),
+            scheduledAt: scheduledAtPayload(g.scheduledAt),
             format: g.format,
             meshRounds: g.format === "mesh" ? Number(g.meshRounds) : undefined,
             standardRounds:
@@ -257,6 +283,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             rewardByeType:
               g.format === "single_elimination" ? g.rewardByeType || "none" : "none",
             winCriteria: g.winCriteria || "wins",
+            playoffEnabled:
+              ["round_robin", "mesh", "standard"].includes(g.format) && Boolean(g.playoffEnabled),
+            playoffQualifiersCount:
+              g.playoffEnabled && g.playoffQualifiersCount ? Number(g.playoffQualifiersCount) : undefined,
             teamBased: Boolean(g.teamBased),
             tournamentTeamType: g.tournamentTeamType,
             doublesEnabled: Boolean(g.doublesEnabled),
@@ -416,22 +446,34 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input
-            type="date"
-            name="startDate"
-            value={formData.startDate}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded bg-[var(--card-background)] outline-none"
-          />
-          <input
-            type="date"
-            name="endDate"
-            value={formData.endDate}
-            onChange={handleChange}
-            required
-            className="w-full p-3 rounded bg-[var(--card-background)] outline-none"
-          />
+          <div>
+            <label htmlFor="startDate" className="block mb-1 text-sm font-medium">
+              Start Date
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded bg-[var(--card-background)] outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="endDate" className="block mb-1 text-sm font-medium">
+              End Date
+            </label>
+            <input
+              id="endDate"
+              type="date"
+              name="endDate"
+              value={formData.endDate}
+              onChange={handleChange}
+              required
+              className="w-full p-3 rounded bg-[var(--card-background)] outline-none"
+            />
+          </div>
         </div>
 
         <label htmlFor="status" className="block text-sm font-medium">
@@ -537,6 +579,29 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 }
                 className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
               />
+
+              {/* When this game is played -- optional, shown as "Schedule TBA"
+                  everywhere until it's set. */}
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <CalendarClock size={15} className="text-[var(--accent-color)]" />
+                  Game date &amp; time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={field.scheduledAt || ""}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "scheduledAt", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none [color-scheme:dark]"
+                />
+                {!field.scheduledAt && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    Optional -- players will see "Schedule TBA" until a date and
+                    time is set.
+                  </p>
+                )}
+              </div>
 
               {/* Format */}
               <select
@@ -654,6 +719,41 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 </select>
               )}
 
+              {/* Playoff plan -- round_robin/mesh/standard only. This is a
+                  preset for planning/display; the admin still makes the real
+                  go/no-go call live once Round 1 actually finishes. */}
+              {["round_robin", "mesh", "standard"].includes(field.format) && (
+                <div>
+                  <label className="flex gap-2 items-center">
+                    <input
+                      type="checkbox"
+                      checked={field.playoffEnabled}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "playoffEnabled", e.target.checked)
+                      }
+                    />
+                    Have a Playoff after Round 1?
+                  </label>
+                  {field.playoffEnabled && (
+                    <input
+                      type="number"
+                      min={2}
+                      placeholder="Planned qualifiers (optional, e.g. top 4)"
+                      value={field.playoffQualifiersCount}
+                      onChange={(e) =>
+                        handleGameFieldChange(index, "playoffQualifiersCount", e.target.value)
+                      }
+                      className="w-full mt-2 p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                    />
+                  )}
+                  {!field.playoffEnabled && (
+                    <p className="mt-1 text-xs text-gray-400">
+                      Round 1 standings crown the winner outright, no playoff bracket.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Team Based */}
               <label className="flex gap-2 items-center">
                 <input
@@ -703,7 +803,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       type="number"
                       min={0.01}
                       step="0.01"
-                      placeholder="Doubles pair cost ($)"
+                      placeholder="Doubles team cost ($)"
                       value={field.doublesCost}
                       onChange={(e) =>
                         handleGameFieldChange(index, "doublesCost", e.target.value)
@@ -727,7 +827,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       type="number"
                       min={0.01}
                       step="0.01"
-                      placeholder="Mixed doubles pair cost ($)"
+                      placeholder="Mixed doubles team cost ($)"
                       value={field.mixedDoublesCost}
                       onChange={(e) =>
                         handleGameFieldChange(index, "mixedDoublesCost", e.target.value)
@@ -744,6 +844,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                     updateTournamentGame(field.gameConfigId, {
                       game: field.game,
                       entryFee: field.entryFee,
+                      scheduledAt: scheduledAtPayload(field.scheduledAt),
                       format: field.format,
                       meshRounds:
                         field.format === "mesh" ? Number(field.meshRounds) : undefined,
@@ -758,6 +859,13 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                           ? field.rewardByeType || "none"
                           : "none",
                       winCriteria: field.winCriteria || "wins",
+                      playoffEnabled:
+                        ["round_robin", "mesh", "standard"].includes(field.format) &&
+                        Boolean(field.playoffEnabled),
+                      playoffQualifiersCount:
+                        field.playoffEnabled && field.playoffQualifiersCount
+                          ? Number(field.playoffQualifiersCount)
+                          : undefined,
                       teamBased: field.teamBased,
                       tournamentTeamType: field.tournamentTeamType,
                       doublesEnabled: field.doublesEnabled,
