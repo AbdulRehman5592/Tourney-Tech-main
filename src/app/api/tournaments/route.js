@@ -7,7 +7,8 @@ import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { Tournament } from "@/models/Tournament";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 import { parseScheduledAt } from "@/utils/server/gameSchedule";
-import "@/models/Game";
+import { findSchedulingConflict } from "@/utils/server/tournamentGames";
+import { Game } from "@/models/Game";
 
 
 export const POST = asyncHandler(async (req) => {
@@ -44,6 +45,7 @@ export const POST = asyncHandler(async (req) => {
   const finalStatus = games.length === 0 ? "draft" : status;
 
 const validFormats = ["round_robin", "mesh", "standard", "single_elimination", "double_elimination"];
+const acceptedGames = [];
 for (const game of games) {
   if (
     !game.game ||
@@ -85,6 +87,22 @@ for (const game of games) {
   if (game.playoffQualifiersCount !== undefined && game.playoffQualifiersCount !== "" && Number(game.playoffQualifiersCount) < 2) {
     throw new ApiError(400, "playoffQualifiersCount must be at least 2");
   }
+  if (game.playoffFormat && !["single_elimination", "double_elimination"].includes(game.playoffFormat)) {
+    throw new ApiError(400, "Invalid playoffFormat");
+  }
+
+  // Same rule as adding a game to an existing tournament: the same game can
+  // appear more than once in this tournament only when each entry has its
+  // own distinct, explicitly scheduled time.
+  const conflict = findSchedulingConflict(acceptedGames, game.game, game.scheduledAt);
+  if (conflict) {
+    const gameDoc = await Game.findById(game.game).select("name");
+    throw new ApiError(
+      409,
+      `"${gameDoc?.name || "This game"}" is added twice to this tournament at the same time. Give each entry its own date/time.`
+    );
+  }
+  acceptedGames.push(game);
 
   validateDoublesConfig(game);
 }

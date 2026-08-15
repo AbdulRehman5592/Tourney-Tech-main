@@ -1,12 +1,14 @@
 // src\app\api\tournaments\[id]\games\[gid]\route.js
 
 import { Tournament } from "@/models/Tournament";
+import { Game } from "@/models/Game";
 import { requireAuth } from "@/utils/server/auth";
 import { requireTournamentStaff } from "@/utils/server/tournamentPermissions";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 import { parseScheduledAt } from "@/utils/server/gameSchedule";
+import { findSchedulingConflict } from "@/utils/server/tournamentGames";
 
 // PATCH /api/tournaments/:id/games/:gid → Update a tournament game's config
 export const PATCH = asyncHandler(async (req, context) => {
@@ -44,6 +46,7 @@ export const PATCH = asyncHandler(async (req, context) => {
     "winCriteria",
     "playoffEnabled",
     "playoffQualifiersCount",
+    "playoffFormat",
     "teamBased",
     "tournamentTeamType",
     "doublesEnabled",
@@ -129,6 +132,22 @@ export const PATCH = asyncHandler(async (req, context) => {
     Number(body.playoffQualifiersCount) < 2
   ) {
     throw new ApiError(400, "playoffQualifiersCount must be at least 2");
+  }
+  if (body.playoffFormat && !["single_elimination", "double_elimination"].includes(body.playoffFormat)) {
+    throw new ApiError(400, "Invalid playoffFormat");
+  }
+
+  // Prevent duplicate games -- same rule as adding a new game: the same
+  // game can appear more than once only when each entry has its own
+  // distinct, explicitly scheduled time.
+  const otherGames = tournament.games.filter((g) => g._id.toString() !== gameConfigId);
+  const conflict = findSchedulingConflict(otherGames, game.game, game.scheduledAt);
+  if (conflict) {
+    const gameDoc = await Game.findById(game.game).select("name");
+    throw new ApiError(
+      409,
+      `"${gameDoc?.name || "This game"}" is already added to this tournament at this time. Give it a different date/time.`
+    );
   }
 
   validateDoublesConfig(game);

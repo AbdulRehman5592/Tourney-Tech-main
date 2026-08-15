@@ -7,6 +7,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import sendEmail from "@/constants/EmailProvider";
 import { parseForm } from "@/utils/server/parseForm";
 import { resolveRegionCodeAsync } from "@/utils/server/regionLookup";
+import { slugify } from "@/utils/userImport";
 
 function sanitize(input) {
   if (typeof input !== "string") return "";
@@ -90,13 +91,28 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(409, "Email or username already in use");
   }
 
+  // A player-typed nickname is used as-is (a clash was rejected above); the
+  // "firstname lastname" fallback for a blank nickname gets a numeric suffix
+  // so two same-named players signing up both without a nickname don't
+  // collide on the unique username index.
+  let finalUsername = clean.username.toLowerCase();
+  if (!finalUsername) {
+    const base = slugify(`${clean.firstname}${clean.lastname}`) || "player";
+    finalUsername = base;
+    let suffix = 1;
+    // eslint-disable-next-line no-await-in-loop
+    while (await User.exists({ username: finalUsername })) {
+      suffix += 1;
+      finalUsername = `${base}${suffix}`;
+    }
+  }
+
   // ✅ Create user
   const user = new User({
     firstname: clean.firstname,
     lastname: clean.lastname,
     email: clean.email,
-    username:
-      clean.username.toLowerCase() || `${clean?.firstname} ${clean?.lastname}`,
+    username: finalUsername,
     password: clean.password,
     city: clean.city,
     stateCode: clean.stateCode,

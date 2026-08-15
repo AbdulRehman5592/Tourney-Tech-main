@@ -28,7 +28,7 @@ export default function TournamentFilters({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-10">
       {/* Search bar */}
       <input
         type="text"
@@ -96,6 +96,16 @@ export default function TournamentFilters({
           </option>
         ))}
       </select> */}
+
+      {/* Start date filter -- show tournaments starting on or after this date */}
+      <input
+        type="date"
+        name="startDate"
+        value={filters.startDate}
+        onChange={onChange}
+        title="Show tournaments starting on or after this date"
+        className={`${selectClass} [color-scheme:dark]`}
+      />
 
       {/* Team Type filter */}
       <select

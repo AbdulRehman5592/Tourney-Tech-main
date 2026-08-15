@@ -470,13 +470,16 @@ export function buildSingleEliminationWithProtectedSeed(
   return [...groupDocs, ...finalDocs];
 }
 
-export function buildDoubleElimination(teams) {
+export function buildDoubleElimination(teams, { seeded = false } = {}) {
   if (teams.length < 4) {
     throw new ApiError(400, "Double elimination needs at least 4 teams");
   }
+  // Playoff brackets keep their standings seed (best team faces the weakest
+  // qualifier); an initial round-1 bracket is shuffled and region-spread instead,
+  // same as buildSingleElimination.
   const regionMap = regionMapOf(teams);
-  const shuffled = spreadByRegion(shuffleArray(teams), regionMap);
-  const raw = DoubleElimination(paddedIds(shuffled), 1, true);
+  const ordered = seeded ? teams : spreadByRegion(shuffleArray(teams), regionMap);
+  const raw = DoubleElimination(paddedIds(ordered), 1, true);
   const sideByRound = classifyBracketSides(raw);
   const { analyze } = analyzeBracket(raw);
 
@@ -509,7 +512,7 @@ export function buildDoubleElimination(teams) {
     })
     .filter(Boolean);
 
-  return fixRound1RegionClashes(docs, regionMap);
+  return seeded ? docs : fixRound1RegionClashes(docs, regionMap);
 }
 
 export function buildRoundRobin(teams) {

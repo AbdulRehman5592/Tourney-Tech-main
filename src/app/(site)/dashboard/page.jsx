@@ -19,6 +19,7 @@ export default function TournamentListing() {
     format: "",
     teamType: "",
     game: "",
+    startDate: "",
   });
 
   const itemsPerPage = 6;
@@ -75,6 +76,11 @@ export default function TournamentListing() {
       ? t.location === filters.location
       : true;
 
+    // ✅ Only tournaments starting on or after the picked date
+    const matchesStartDate = filters.startDate
+      ? t.startDate && new Date(t.startDate) >= new Date(filters.startDate)
+      : true;
+
     // ✅ Check by format inside games[]
     const matchesFormat = filters.format
       ? t.games?.some((g) => g?.format === filters.format)
@@ -96,6 +102,7 @@ export default function TournamentListing() {
       matchesSearch &&
       matchesStatus &&
       matchesLocation &&
+      matchesStartDate &&
       matchesFormat &&
       matchesTeamType &&
       matchesGame

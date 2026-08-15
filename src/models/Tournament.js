@@ -45,6 +45,14 @@ const TournamentGameSchema = new Schema({
   // panel; this just pre-fills that panel and lets players see the plan.
   playoffEnabled: { type: Boolean, default: false },
   playoffQualifiersCount: { type: Number, min: 2 },
+  // Bracket shape for the playoff itself once it's actually built. Reward
+  // bye / protected seed only applies to single_elimination -- double_elimination's
+  // winners/losers structure doesn't support that mechanic (see buildDoubleElimination).
+  playoffFormat: {
+    type: String,
+    enum: ["single_elimination", "double_elimination"],
+    default: "single_elimination",
+  },
   round1Status: {
     type: String,
     enum: [

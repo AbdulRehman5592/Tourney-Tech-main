@@ -89,6 +89,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           winCriteria: g.winCriteria || "wins",
           playoffEnabled: g.playoffEnabled || false,
           playoffQualifiersCount: g.playoffQualifiersCount || "",
+          playoffFormat: g.playoffFormat || "single_elimination",
           teamBased: g.teamBased || false,
           tournamentTeamType: g.tournamentTeamType || "double_player",
           doublesEnabled: g.doublesEnabled || false,
@@ -144,6 +145,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         winCriteria: "wins",
         playoffEnabled: false,
         playoffQualifiersCount: "",
+        playoffFormat: "single_elimination",
         teamBased: false,
         tournamentTeamType: "double_player",
         doublesEnabled: false,
@@ -287,6 +289,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               ["round_robin", "mesh", "standard"].includes(g.format) && Boolean(g.playoffEnabled),
             playoffQualifiersCount:
               g.playoffEnabled && g.playoffQualifiersCount ? Number(g.playoffQualifiersCount) : undefined,
+            playoffFormat: g.playoffFormat || "single_elimination",
             teamBased: Boolean(g.teamBased),
             tournamentTeamType: g.tournamentTeamType,
             doublesEnabled: Boolean(g.doublesEnabled),
@@ -540,7 +543,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             </button>
           </div>
 
-          {gameFields.map((field, index) => (
+          {gameFields.map((field, index) => {
+            const selectedGameName = gamesList.find((g) => g._id === field.game)?.name;
+            return (
             <div
               key={index}
               className="bg-[var(--card-background)] p-4 rounded-md space-y-3 relative"
@@ -553,13 +558,41 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 <X size={24} />
               </button>
 
+              {/* Numbering -- which game this is in the list, plus its
+                  scheduled date/time (if set) so admins can tell games apart
+                  at a glance without hunting through each card. */}
+              <div className="flex flex-wrap items-center gap-2 mt-5 pr-8">
+                <span
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                  style={{ backgroundColor: "var(--accent-color)", color: "var(--background)" }}
+                >
+                  {index + 1}
+                </span>
+                <h4 className="font-semibold">
+                  Game {index + 1}
+                  {selectedGameName ? ` — ${selectedGameName}` : ""}
+                </h4>
+                {field.scheduledAt && (
+                  <span className="ml-auto text-xs text-gray-400">
+                    {new Date(field.scheduledAt).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </div>
+
               {/* Select Game */}
               <select
                 value={field.game}
                 onChange={(e) =>
                   handleGameFieldChange(index, "game", e.target.value)
                 }
-                className="w-full mt-5 p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
               >
                 <option value="">Select Game</option>
                 {gamesList.map((game) => (
@@ -732,23 +765,40 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                         handleGameFieldChange(index, "playoffEnabled", e.target.checked)
                       }
                     />
-                    Have a Playoff after Round 1?
+                    Will there be a Playoff?
                   </label>
                   {field.playoffEnabled && (
-                    <input
-                      type="number"
-                      min={2}
-                      placeholder="Planned qualifiers (optional, e.g. top 4)"
-                      value={field.playoffQualifiersCount}
-                      onChange={(e) =>
-                        handleGameFieldChange(index, "playoffQualifiersCount", e.target.value)
-                      }
-                      className="w-full mt-2 p-2 rounded bg-[var(--background)] text-white focus:outline-none"
-                    />
+                    <>
+                      <select
+                        value={field.playoffFormat || "single_elimination"}
+                        onChange={(e) =>
+                          handleGameFieldChange(index, "playoffFormat", e.target.value)
+                        }
+                        className="w-full mt-2 p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                      >
+                        <option value="single_elimination">Single Elimination</option>
+                        <option value="double_elimination">Double Elimination</option>
+                      </select>
+                      <input
+                        type="number"
+                        min={2}
+                        placeholder="Teams advancing to the playoff bracket (e.g. 32, 16, 15 with a bye, 8)"
+                        value={field.playoffQualifiersCount}
+                        onChange={(e) =>
+                          handleGameFieldChange(index, "playoffQualifiersCount", e.target.value)
+                        }
+                        className="w-full mt-2 p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                      />
+                      <p className="mt-1 text-xs text-gray-400">
+                        This is the plan -- the admin can still change the format and
+                        qualifier count live once qualifying rounds finish and the
+                        playoff is actually started.
+                      </p>
+                    </>
                   )}
                   {!field.playoffEnabled && (
                     <p className="mt-1 text-xs text-gray-400">
-                      Round 1 standings crown the winner outright, no playoff bracket.
+                      Qualifying round standings crown the winner outright, no playoff bracket.
                     </p>
                   )}
                 </div>
@@ -866,6 +916,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                         field.playoffEnabled && field.playoffQualifiersCount
                           ? Number(field.playoffQualifiersCount)
                           : undefined,
+                      playoffFormat: field.playoffFormat || "single_elimination",
                       teamBased: field.teamBased,
                       tournamentTeamType: field.tournamentTeamType,
                       doublesEnabled: field.doublesEnabled,
@@ -882,7 +933,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* add staff */}

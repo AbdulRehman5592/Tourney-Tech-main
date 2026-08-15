@@ -39,7 +39,7 @@ const adminNavItems = [
   { href: "/admin/signup-options", label: "Signup Options", icon: MapPin },
   {
     href: "/admin/create-tournament",
-    label: "Create Tournament",
+    label: "Create and Edit Tournament",
     icon: BadgePlus,
   },
   { href: "/admin/add-bank-details", label: "Add Bank Details", icon: Banknote },
