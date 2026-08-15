@@ -211,7 +211,8 @@ export default function AdminAllTournamentsPage() {
                             className="rounded-2xl border border-[var(--border-color)] bg-[var(--background)] p-4"
                           >
                             <p className="font-semibold text-[var(--foreground)]">
-                              {game.game?.name || `Game ${index + 1}`}
+                              <span className="text-muted-foreground">Game {index + 1}:</span>{" "}
+                              {game.game?.name || "Unnamed Game"}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                               ${game.entryFee ?? 0} •{" "}

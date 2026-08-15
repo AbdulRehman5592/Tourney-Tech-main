@@ -22,6 +22,7 @@ export default function TournamentPage() {
   const [teams, setTeams] = useState([]);
   const [protectedSeedTeamId, setProtectedSeedTeamId] = useState("");
   const [playoffByeType, setPlayoffByeType] = useState("none");
+  const [playoffFormat, setPlayoffFormat] = useState("single_elimination");
   const [generatingBracket, setGeneratingBracket] = useState(false);
   const [showSeatingChart, setShowSeatingChart] = useState(false);
   const intervalRef = useRef(null);
@@ -129,9 +130,11 @@ export default function TournamentPage() {
     return () => clearInterval(intervalRef.current);
   }, [tournamentId, gameId]);
 
-  // 🔹 Pre-fill the qualifiers count from the plan set at tournament setup
-  // (gameConfig.playoffQualifiersCount) once the decision panel appears --
-  // only while the admin hasn't typed anything in themselves.
+  // 🔹 Pre-fill the qualifiers count and playoff format from the plan set at
+  // tournament setup (gameConfig.playoffQualifiersCount / playoffFormat) once
+  // the decision panel appears -- only while the admin hasn't typed/picked
+  // anything in themselves (qualifiersCount === "" is the "not yet
+  // initialized" signal for both fields).
   useEffect(() => {
     if (
       gameConfig?.round1Status === "awaiting_playoff_decision" &&
@@ -139,6 +142,7 @@ export default function TournamentPage() {
       qualifiersCount === ""
     ) {
       setQualifiersCount(String(gameConfig.playoffQualifiersCount));
+      setPlayoffFormat(gameConfig.playoffFormat || "single_elimination");
     }
   }, [gameConfig, qualifiersCount]);
 
@@ -182,7 +186,9 @@ export default function TournamentPage() {
           ? {
               playoff: true,
               qualifiersCount: Number(qualifiersCount),
-              ...(protectedSeedTeamId && playoffByeType !== "none"
+              playoffFormat,
+              // Reward bye / protected seed only applies to single elimination.
+              ...(playoffFormat === "single_elimination" && protectedSeedTeamId && playoffByeType !== "none"
                 ? { protectedSeedTeamId, rewardByeType: playoffByeType }
                 : {}),
             }
@@ -371,9 +377,17 @@ export default function TournamentPage() {
         gameConfig?.round1Status === "awaiting_playoff_decision" && (
           <section className="p-4 rounded-lg border border-yellow-500 bg-gray-900 space-y-3">
             <h3 className="text-xl font-bold text-yellow-400">
-              Round 1 complete — start a playoff?
+              Qualifying rounds complete — start a playoff?
             </h3>
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+              <select
+                value={playoffFormat}
+                onChange={(e) => setPlayoffFormat(e.target.value)}
+                className="p-2 rounded bg-[var(--background)] text-white"
+              >
+                <option value="single_elimination">Single Elimination</option>
+                <option value="double_elimination">Double Elimination</option>
+              </select>
               <input
                 type="number"
                 min={2}
@@ -382,19 +396,21 @@ export default function TournamentPage() {
                 onChange={(e) => setQualifiersCount(e.target.value)}
                 className="p-2 rounded bg-[var(--background)] text-white w-48"
               />
-              <select
-                value={playoffByeType}
-                onChange={(e) => setPlayoffByeType(e.target.value)}
-                className="p-2 rounded bg-[var(--background)] text-white"
-              >
-                <option value="none">Reward Bye: None</option>
-                <option value="first_round">Reward Bye: First Round</option>
-                <option value="quarterfinal">Reward Bye: Quarterfinal</option>
-                <option value="semifinal">Reward Bye: Semifinal</option>
-                <option value="final_four">Reward Bye: Final Four</option>
-                <option value="championship">Reward Bye: Championship</option>
-              </select>
-              {playoffByeType !== "none" && (
+              {playoffFormat === "single_elimination" && (
+                <select
+                  value={playoffByeType}
+                  onChange={(e) => setPlayoffByeType(e.target.value)}
+                  className="p-2 rounded bg-[var(--background)] text-white"
+                >
+                  <option value="none">Reward Bye: None</option>
+                  <option value="first_round">Reward Bye: First Round</option>
+                  <option value="quarterfinal">Reward Bye: Quarterfinal</option>
+                  <option value="semifinal">Reward Bye: Semifinal</option>
+                  <option value="final_four">Reward Bye: Final Four</option>
+                  <option value="championship">Reward Bye: Championship</option>
+                </select>
+              )}
+              {playoffFormat === "single_elimination" && playoffByeType !== "none" && (
                 <select
                   value={protectedSeedTeamId}
                   onChange={(e) => setProtectedSeedTeamId(e.target.value)}

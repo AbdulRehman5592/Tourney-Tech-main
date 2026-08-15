@@ -199,6 +199,12 @@ export const PATCH = asyncHandler(async (req, context) => {
     const isElimination =
       match.stage === "playoff" ||
       ["single_elimination", "double_elimination"].includes(gameConfig?.format);
+    // Double elimination has a losers bracket to route into -- true either for
+    // a game whose base format is double_elimination, or for a round_robin/
+    // mesh/standard game whose playoff was built as double_elimination.
+    const isDoubleElim =
+      gameConfig?.format === "double_elimination" ||
+      (match.stage === "playoff" && gameConfig?.playoffFormat === "double_elimination");
     // Mesh routes both winner and loser to their next-round table, same as
     // double elimination -- but (unlike a bracket) there's no single "final"
     // match; the champion is decided by standings once every round is played,
@@ -207,7 +213,7 @@ export const PATCH = asyncHandler(async (req, context) => {
 
     if (isElimination) {
       await routeIntoTarget(match, match.winner, match.winTarget);
-      if (gameConfig?.format === "double_elimination") {
+      if (isDoubleElim) {
         await routeIntoTarget(match, match.loser, match.lossTarget);
       }
 

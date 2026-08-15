@@ -6,6 +6,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
 import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 import { parseScheduledAt } from "@/utils/server/gameSchedule";
+import { findSchedulingConflict } from "@/utils/server/tournamentGames";
 
 // POST /api/tournaments/:id/games → Add game to tournament
 export const POST = asyncHandler(async (req, context) => {
@@ -33,6 +34,7 @@ export const POST = asyncHandler(async (req, context) => {
     winCriteria = "wins",
     playoffEnabled = false,
     playoffQualifiersCount,
+    playoffFormat = "single_elimination",
     teamBased = true,
     tournamentTeamType,
     doublesEnabled = false,
@@ -104,6 +106,9 @@ export const POST = asyncHandler(async (req, context) => {
   if (playoffQualifiersCount !== undefined && playoffQualifiersCount !== "" && Number(playoffQualifiersCount) < 2) {
     throw new ApiError(400, "playoffQualifiersCount must be at least 2");
   }
+  if (!["single_elimination", "double_elimination"].includes(playoffFormat)) {
+    throw new ApiError(400, "Invalid playoffFormat");
+  }
 
   validateDoublesConfig({
     tournamentTeamType,
@@ -114,8 +119,8 @@ export const POST = asyncHandler(async (req, context) => {
   });
 
   // ✅ Validate game exists
-  const gameExists = await Game.exists({ _id: game });
-  if (!gameExists) {
+  const gameDoc = await Game.findById(game).select("name");
+  if (!gameDoc) {
     throw new ApiError(404, "Game not found");
   }
 
@@ -123,19 +128,22 @@ export const POST = asyncHandler(async (req, context) => {
   const tournament = await Tournament.findById(tournamentId);
   if (!tournament) throw new ApiError(404, "Tournament not found");
 
-  // ✅ Prevent duplicate games
-  const alreadyExists = tournament.games.some(
-    (g) => g.game.toString() === game
-  );
-  if (alreadyExists) {
-    throw new ApiError(409, "Game already added to this tournament");
+  // ✅ Prevent duplicate games -- the same game can be added more than once
+  // only when each entry has its own distinct, explicitly scheduled time.
+  const parsedScheduledAt = parseScheduledAt(scheduledAt);
+  const conflict = findSchedulingConflict(tournament.games, game, parsedScheduledAt);
+  if (conflict) {
+    throw new ApiError(
+      409,
+      `"${gameDoc.name}" is already added to this tournament at this time. Give it a different date/time to add it again.`
+    );
   }
 
   // ✅ Push new game config
   tournament.games.push({
     game,
     entryFee,
-    scheduledAt: parseScheduledAt(scheduledAt),
+    scheduledAt: parsedScheduledAt,
     format,
     meshRounds: format === "mesh" ? Number(meshRounds) : undefined,
     standardDirection: format === "standard" ? standardDirection : undefined,
@@ -146,6 +154,7 @@ export const POST = asyncHandler(async (req, context) => {
     playoffEnabled,
     playoffQualifiersCount:
       playoffEnabled && playoffQualifiersCount ? Number(playoffQualifiersCount) : undefined,
+    playoffFormat,
     teamBased,
     tournamentTeamType,
     doublesEnabled,

@@ -11,6 +11,7 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import {
   buildSingleElimination,
   buildSingleEliminationWithProtectedSeed,
+  buildDoubleElimination,
   computeStandingsRoundRobin,
   computeStandingsMesh,
   assignTableNumbers,
@@ -51,7 +52,7 @@ export const POST = asyncHandler(async (req, context) => {
   }
 
   const body = await req.json();
-  const { playoff, qualifiersCount, protectedSeedTeamId, rewardByeType } = body;
+  const { playoff, qualifiersCount, protectedSeedTeamId, rewardByeType, playoffFormat } = body;
 
   const round1Matches = await Match.find({
     tournament: tournamentId,
@@ -101,17 +102,29 @@ export const POST = asyncHandler(async (req, context) => {
     .map((s) => teamById.get(s.teamId))
     .filter(Boolean);
 
-  const byeDepth = rewardByeType || "none";
+  const format = playoffFormat || gameConfig.playoffFormat || "single_elimination";
+  if (!["single_elimination", "double_elimination"].includes(format)) {
+    throw new ApiError(400, "Invalid playoffFormat");
+  }
+
+  // Reward bye / protected seed is a single-elimination-only mechanic --
+  // double elimination's winners/losers structure doesn't support it (see
+  // buildDoubleElimination); a double-elim playoff just gets automatic byes
+  // for non-power-of-two qualifier counts, same as single elimination does.
+  const byeDepth = format === "single_elimination" ? rewardByeType || "none" : "none";
   const matchDocs =
-    byeDepth !== "none" && protectedSeedTeamId
-      ? buildSingleEliminationWithProtectedSeed(qualifierTeams, {
-          protectedTeamId: protectedSeedTeamId,
-          byeDepth,
-          seeded: true,
-        })
-      : buildSingleElimination(qualifierTeams, { seeded: true });
+    format === "double_elimination"
+      ? buildDoubleElimination(qualifierTeams, { seeded: true })
+      : byeDepth !== "none" && protectedSeedTeamId
+        ? buildSingleEliminationWithProtectedSeed(qualifierTeams, {
+            protectedTeamId: protectedSeedTeamId,
+            byeDepth,
+            seeded: true,
+          })
+        : buildSingleElimination(qualifierTeams, { seeded: true });
   assignTableNumbers(matchDocs);
 
+  gameConfig.playoffFormat = format;
   if (byeDepth !== "none" && protectedSeedTeamId) {
     gameConfig.rewardByeType = byeDepth;
     gameConfig.protectedSeedTeam = protectedSeedTeamId;
