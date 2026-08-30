@@ -11,10 +11,6 @@ import { Team } from "@/models/Team";
 import { Registration } from "@/models/Registration";
 import { TeamUp } from "@/models/TeamUp";
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 export const PATCH = asyncHandler(async (req, context) => {
   await requireAdmin(); // Only global admin can update tournaments
 
@@ -48,6 +44,14 @@ export const PATCH = asyncHandler(async (req, context) => {
           tournament[field] = fields[field].toString();
       }
     }
+  }
+
+  if (
+    tournament.startDate &&
+    tournament.endDate &&
+    tournament.endDate <= tournament.startDate
+  ) {
+    throw new ApiError(400, "End date must be after the start date");
   }
 
   // Optional: banner update

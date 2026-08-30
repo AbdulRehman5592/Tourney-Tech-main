@@ -48,6 +48,13 @@ export default function AdminRegisterPlayerPage() {
   const [fetching, setFetching] = useState(true);
   const [createdPlayer, setCreatedPlayer] = useState(null);
 
+  // Bulk registration -- only applies to "existing" mode: register the same
+  // tournament/games/payment for many players in one submit instead of one.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [bulkResult, setBulkResult] = useState(null);
+
   const fetchPlayers = async () => {
     const playersRes = await api.get("/api/users");
     const allPlayers = playersRes?.data?.data || [];
@@ -121,6 +128,32 @@ export default function AdminRegisterPlayerPage() {
   const setNewPlayerField = (name) => (value) =>
     setNewPlayer((prev) => ({ ...prev, [name]: value }));
 
+  const togglePlayerSelection = (playerId) => {
+    setSelectedPlayerIds((prev) =>
+      prev.includes(playerId)
+        ? prev.filter((id) => id !== playerId)
+        : [...prev, playerId]
+    );
+  };
+
+  const filteredPlayers = players.filter((player) => {
+    if (!playerSearch.trim()) return true;
+    const q = playerSearch.trim().toLowerCase();
+    return (
+      `${player.firstname || ""} ${player.lastname || ""}`.toLowerCase().includes(q) ||
+      player.email?.toLowerCase().includes(q) ||
+      player.username?.toLowerCase().includes(q)
+    );
+  });
+
+  const selectAllFiltered = () => {
+    setSelectedPlayerIds((prev) => [
+      ...new Set([...prev, ...filteredPlayers.map((p) => p._id)]),
+    ]);
+  };
+
+  const clearSelectedPlayers = () => setSelectedPlayerIds([]);
+
   const toggleGame = (gameId) => {
     setFormData((prev) => ({
       ...prev,
@@ -134,10 +167,16 @@ export default function AdminRegisterPlayerPage() {
     if (nextMode === mode) return;
     setMode(nextMode);
     setCreatedPlayer(null);
+    setBulkResult(null);
     // Clear whichever player selection doesn't apply to the new mode, so a
     // leftover value can't be submitted invisibly.
-    if (nextMode === "new") setFormData((prev) => ({ ...prev, userId: "" }));
-    else setNewPlayer(initialNewPlayer);
+    if (nextMode === "new") {
+      setFormData((prev) => ({ ...prev, userId: "" }));
+      setBulkMode(false);
+      setSelectedPlayerIds([]);
+    } else {
+      setNewPlayer(initialNewPlayer);
+    }
   };
 
   // Everything the two modes share: tournament, games and payment.
@@ -217,8 +256,14 @@ export default function AdminRegisterPlayerPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setCreatedPlayer(null);
+    setBulkResult(null);
 
-    if (mode === "existing" && !formData.userId) {
+    if (mode === "existing" && bulkMode && !selectedPlayerIds.length) {
+      toast.error("Select at least one player");
+      return;
+    }
+
+    if (mode === "existing" && !bulkMode && !formData.userId) {
       toast.error("Please select a player");
       return;
     }
@@ -248,6 +293,49 @@ export default function AdminRegisterPlayerPage() {
         setNewPlayer(initialNewPlayer);
         // Pull the new account into the existing-player dropdown.
         fetchPlayers().catch(() => {});
+      } else if (bulkMode) {
+        const payload = buildPaymentPayload();
+        const results = await Promise.allSettled(
+          selectedPlayerIds.map((userId) =>
+            api.post(
+              "/api/tournamentRegister",
+              { ...payload, userId },
+              { headers: { "Content-Type": "application/json" } }
+            )
+          )
+        );
+
+        const succeeded = [];
+        const failed = [];
+        results.forEach((result, i) => {
+          const player = players.find((p) => p._id === selectedPlayerIds[i]);
+          const label = player
+            ? `${player.firstname} ${player.lastname}`.trim() || player.email
+            : selectedPlayerIds[i];
+          if (result.status === "fulfilled") {
+            succeeded.push(label);
+          } else {
+            failed.push({
+              label,
+              message: result.reason?.response?.data?.message || "Registration failed",
+            });
+          }
+        });
+
+        setBulkResult({ succeeded, failed });
+
+        if (failed.length === 0) {
+          toast.success(`Registered ${succeeded.length} player(s) successfully`);
+        } else if (succeeded.length === 0) {
+          toast.error(`Failed to register ${failed.length} player(s)`);
+        } else {
+          toast(
+            `${succeeded.length} registered, ${failed.length} failed — see details below`,
+            { icon: "⚠️" }
+          );
+        }
+
+        setSelectedPlayerIds([]);
       } else {
         await api.post(
           "/api/tournamentRegister",
@@ -330,41 +418,112 @@ export default function AdminRegisterPlayerPage() {
         className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-background)] p-6 shadow-sm space-y-6"
       >
         {mode === "existing" ? (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">Player</label>
-              <select
-                name="userId"
-                value={formData.userId}
-                onChange={handleChange}
-                required
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--secondary-color)] px-3 py-2 text-[var(--foreground)]"
-              >
-                <option value="">Select player</option>
-                {players.map((player) => (
-                  <option key={player._id} value={player._id}>
-                    {player.firstname} {player.lastname} ({player.email})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-4">
+            <label className="flex w-fit items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+              <input
+                type="checkbox"
+                checked={bulkMode}
+                onChange={(e) => {
+                  setBulkMode(e.target.checked);
+                  setBulkResult(null);
+                  setFormData((prev) => ({ ...prev, userId: "" }));
+                  setSelectedPlayerIds([]);
+                }}
+                className="h-4 w-4 accent-[var(--accent-color)]"
+              />
+              Register multiple players at once
+            </label>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">Tournament</label>
-              <select
-                name="tournamentId"
-                value={formData.tournamentId}
-                onChange={handleChange}
-                required
-                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--secondary-color)] px-3 py-2 text-[var(--foreground)]"
-              >
-                <option value="">Select tournament</option>
-                {tournaments.map((tournament) => (
-                  <option key={tournament._id} value={tournament._id}>
-                    {tournament.name}
-                  </option>
-                ))}
-              </select>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">
+                  {bulkMode ? `Players (${selectedPlayerIds.length} selected)` : "Player"}
+                </label>
+
+                {bulkMode ? (
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--secondary-color)] p-2">
+                    <input
+                      type="text"
+                      value={playerSearch}
+                      onChange={(e) => setPlayerSearch(e.target.value)}
+                      placeholder="Search by name, email, or nickname"
+                      className="mb-2 w-full rounded-md border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-2 text-sm text-[var(--foreground)]"
+                    />
+                    <div className="mb-2 flex gap-3 text-xs">
+                      <button
+                        type="button"
+                        onClick={selectAllFiltered}
+                        className="font-semibold text-[var(--accent-color)] hover:underline"
+                      >
+                        Select all{playerSearch.trim() ? " (filtered)" : ""}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearSelectedPlayers}
+                        className="font-semibold text-[var(--muted-foreground)] hover:underline"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto rounded-md border border-[var(--border-color)]">
+                      {filteredPlayers.map((player) => (
+                        <label
+                          key={player._id}
+                          className="flex items-center gap-2 border-b border-[var(--border-color)] px-3 py-2 text-sm text-[var(--foreground)] last:border-b-0"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPlayerIds.includes(player._id)}
+                            onChange={() => togglePlayerSelection(player._id)}
+                            className="h-4 w-4 accent-[var(--accent-color)]"
+                          />
+                          <span>
+                            {player.firstname} {player.lastname} ({player.email})
+                          </span>
+                        </label>
+                      ))}
+                      {filteredPlayers.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-[var(--muted-foreground)]">
+                          No players match your search.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    name="userId"
+                    value={formData.userId}
+                    onChange={handleChange}
+                    required
+                    className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--secondary-color)] px-3 py-2 text-[var(--foreground)]"
+                  >
+                    <option value="">Select player</option>
+                    {players.map((player) => (
+                      <option key={player._id} value={player._id}>
+                        {player.firstname} {player.lastname} ({player.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">Tournament</label>
+                <select
+                  name="tournamentId"
+                  value={formData.tournamentId}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--secondary-color)] px-3 py-2 text-[var(--foreground)]"
+                >
+                  <option value="">Select tournament</option>
+                  {tournaments.map((tournament) => (
+                    <option key={tournament._id} value={tournament._id}>
+                      {tournament.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         ) : (
@@ -589,12 +748,48 @@ export default function AdminRegisterPlayerPage() {
           {loading
             ? mode === "new"
               ? "Creating & Registering..."
-              : "Registering..."
+              : bulkMode
+                ? `Registering ${selectedPlayerIds.length} player(s)...`
+                : "Registering..."
             : mode === "new"
               ? "Create & Register Player"
-              : "Register Player"}
+              : bulkMode
+                ? `Register ${selectedPlayerIds.length || ""} Player(s)`
+                : "Register Player"}
         </button>
       </form>
+
+      {bulkResult && (
+        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--card-background)] p-6 shadow-sm space-y-3">
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">Bulk Registration Results</h2>
+
+          {bulkResult.succeeded.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "var(--success-color)" }}>
+                Registered ({bulkResult.succeeded.length})
+              </p>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {bulkResult.succeeded.join(", ")}
+              </p>
+            </div>
+          )}
+
+          {bulkResult.failed.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-red-500">
+                Failed ({bulkResult.failed.length})
+              </p>
+              <ul className="mt-1 space-y-1 text-sm text-[var(--muted-foreground)]">
+                {bulkResult.failed.map((item, i) => (
+                  <li key={i}>
+                    <strong className="text-[var(--foreground)]">{item.label}</strong>: {item.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

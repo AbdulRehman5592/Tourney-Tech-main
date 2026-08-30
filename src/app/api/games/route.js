@@ -9,10 +9,6 @@ import { ApiError } from "@/utils/server/ApiError";
 import { requireAdmin } from "@/utils/server/roleGuards";
 import { GameType } from "@/models/GameType";
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 // POST /api/games
 export const POST = asyncHandler(async (req) => {
   await requireAdmin(); // Only admins can create games

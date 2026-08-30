@@ -33,8 +33,12 @@
   --card-background: #101828;
   --card-hover: #0a111d;
 
+  /* 🌫️ Muted / secondary text -- replaces the many one-off #9CA3AF,
+     #6B7280 etc. hex values that used to be scattered across pages */
+  --muted-foreground: color-mix(in srgb, var(--foreground) 60%, transparent);
+
   /* ✍️ Typography */
-  --font-sans: var(--font-geist-sans, "Inter", sans-serif);
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono, monospace);
 
 }
@@ -68,7 +72,10 @@
 /* ========= BASE RESET ========= */
 * {
   box-sizing: border-box;
-  font-family: sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
 }
 
 body {

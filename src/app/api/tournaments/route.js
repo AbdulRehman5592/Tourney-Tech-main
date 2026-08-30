@@ -36,6 +36,10 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "Missing required fields");
   }
 
+  if (endDate <= startDate) {
+    throw new ApiError(400, "End date must be after the start date");
+  }
+
   if (!Array.isArray(games)) {
     throw new ApiError(400, "games must be an array");
   }

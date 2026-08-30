@@ -20,17 +20,7 @@ export default function CallToAction() {
         </p>
         <Link
           href="/auth/login"
-          className="px-6 py-3 rounded-lg font-semibold transition"
-          style={{
-            backgroundColor: 'var(--secondary-color)',
-            color: 'var(--foreground)',
-          }}
-          onMouseOver={(e) =>
-            (e.currentTarget.style.backgroundColor = '#000000')
-          }
-          onMouseOut={(e) =>
-            (e.currentTarget.style.backgroundColor = 'var(--secondary-color)')
-          }
+          className="inline-block px-6 py-3 rounded-xl font-semibold transition bg-[var(--secondary-color)] text-[var(--foreground)] hover:bg-[var(--secondary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--secondary-color)] focus:ring-offset-2"
         >
           Join Tournament
         </Link>

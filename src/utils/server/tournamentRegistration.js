@@ -65,22 +65,29 @@ export async function createOrUpdateRegistration({
       existingRegistration.gameRegistrationDetails?.games || []
     ).map((game) => game.toString());
     const requestedGames = validGameIds.map((gameId) => gameId.toString());
-    const sameGamesAlreadyRegistered =
-      existingGames.length === requestedGames.length &&
-      requestedGames.every((gameId) => existingGames.includes(gameId));
+    const allRequestedAlreadyRegistered = requestedGames.every((gameId) =>
+      existingGames.includes(gameId)
+    );
 
-    if (sameGamesAlreadyRegistered) {
+    if (allRequestedAlreadyRegistered) {
       throw new ApiError(
         409,
         "You have already registered for this game in this tournament."
       );
     }
 
+    // Merge with previously registered games instead of overwriting them,
+    // so registering for game 2 doesn't drop the earlier game 1 record.
+    const mergedGameIds = [
+      ...existingRegistration.gameRegistrationDetails.games,
+      ...validGameIds.filter((gameId) => !existingGames.includes(gameId.toString())),
+    ];
+
     const registration = await Registration.findByIdAndUpdate(
       existingRegistration._id,
       {
         gameRegistrationDetails: {
-          games: validGameIds,
+          games: mergedGameIds,
           status: "pending",
           paid: false,
           paymentMethod: paymentMethod || "cash",

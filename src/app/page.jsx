@@ -18,14 +18,15 @@ export default function Home() {
   return (
     <>
       <Header />
-      <Hero />
-      <Features />
-      <CallToAction />
-      <HowItWorks />
-      <UpcomingTournaments />
-      <FAQ/>
+      <main>
+        <Hero />
+        <Features />
+        <CallToAction />
+        <HowItWorks />
+        <UpcomingTournaments />
+        <FAQ />
+      </main>
       <Footer />
-
     </>
   );
 }

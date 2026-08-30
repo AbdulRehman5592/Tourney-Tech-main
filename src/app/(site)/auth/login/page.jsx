@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import Loader from "@/components/Loader";
 
 import PasswordInput from "@/components/ui/signup/PasswordInput";
+import Button from "@/components/ui/Button";
 
 import { toast } from "react-hot-toast";
 
@@ -34,16 +35,12 @@ function LoginForm() {
     setError("");
 
     if (!email || !password) {
-      const errorMsg = "Please enter both email and password.";
-      setError(errorMsg);
-      toast.error(errorMsg);
+      setError("Please enter both email and password.");
       return;
     }
 
     try {
       setLoading(true);
-
-      console.log("Attempting login with email:", email);
 
       const res = await api.post("/api/login", {
         email,
@@ -51,10 +48,6 @@ function LoginForm() {
       });
 
       const { user } = res.data.data;
-
-      console.log("Login successful, user:", user);
-      console.log("Response headers:", res.headers);
-      console.log("Response cookies:", res.headers['set-cookie']);
 
       // Tokens are automatically set as HTTP-only cookies by the server
       // No need to store them in localStorage
@@ -66,10 +59,6 @@ function LoginForm() {
 
       // ✅ Wait a moment for cookies to be set before redirecting
       setTimeout(() => {
-        // Debug: Check if cookies are set in the browser
-        console.log("Checking cookies before redirect...");
-        console.log("document.cookie:", document.cookie);
-
         // ✅ Honor a same-site ?redirect= (e.g. back to an invite link) if
         // present -- only allow a relative path, never an absolute/external
         // URL, to avoid this becoming an open redirect.
@@ -85,7 +74,6 @@ function LoginForm() {
       }, 500); // Wait 500ms
     } catch (error) {
       console.error("Login error:", error);
-      console.error("Error response:", error?.response);
 
       // Handle different types of errors
       let errorMessage = "Login failed. Please try again.";
@@ -113,7 +101,6 @@ function LoginForm() {
       }
 
       setError(errorMessage);
-      toast.error(errorMessage);
     } finally {
       setLoading(false); // ✅ ensures it hides in both success & error
     }
@@ -121,7 +108,6 @@ function LoginForm() {
 
   return (
     <>
-      {loading && <Loader />} {/* ✅ Show loader during request */}
       <main
         className="min-h-screen flex items-center justify-center"
         style={{
@@ -146,7 +132,13 @@ function LoginForm() {
           {/* Error Message Display */}
           {error && (
             <div
-              className="mb-4 p-3 rounded-lg text-sm bg-red-500/10 border border-red-500/50 text-red-500"
+              role="alert"
+              className="mb-4 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--error-color) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--error-color) 45%, transparent)",
+                color: "var(--error-color)",
+              }}
             >
               <p className="font-medium">{error}</p>
             </div>
@@ -166,11 +158,11 @@ function LoginForm() {
                   setEmail(e.target.value);
                   if (error) setError(""); // Clear error when user starts typing
                 }}
-                className="w-full px-4 py-2 rounded-md border focus:outline-none focus:ring-2"
+                className="w-full px-4 py-2 rounded-md border focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
                 style={{
                   backgroundColor: "var(--secondary-color)",
                   color: "var(--foreground)",
-                  borderColor: error ? "red" : "var(--border-color)",
+                  borderColor: error ? "var(--error-color)" : "var(--border-color)",
                   caretColor: "var(--accent-color)",
                 }}
               />
@@ -218,24 +210,9 @@ function LoginForm() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="w-full py-2 rounded-md font-semibold transition"
-              style={{
-                backgroundColor: "var(--accent-color)",
-                color: "var(--secondary-color)",
-              }}
-              onMouseOver={(e) =>
-                (e.currentTarget.style.backgroundColor = "var(--accent-hover)")
-              }
-              onMouseOut={(e) =>
-                (e.currentTarget.style.backgroundColor = "var(--accent-color)")
-              }
-              disabled={loading} // 🟡 Optional: disable button while loading
-            >
-              {loading ? "Signing in..." : "Sign In"}{" "}
-              {/* 🟡 Optional text change */}
-            </button>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
           </form>
 
           <p className="mt-6 text-center text-sm" style={{ color: "#9CA3AF" }}>

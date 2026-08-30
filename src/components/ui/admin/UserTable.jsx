@@ -15,11 +15,15 @@ import api from "@/utils/axios";
 
 const ACCOUNT_STATUSES = ["active", "suspended", "inactive", "deceased"];
 
-const STATUS_STYLES = {
-  active: "bg-green-500/15 text-green-500 border-green-500/30",
-  suspended: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30",
-  inactive: "bg-gray-500/15 text-gray-400 border-gray-500/30",
-  deceased: "bg-red-500/15 text-red-500 border-red-500/30",
+// Uses the same CSS-variable theme tokens as the rest of the admin console
+// (Registration Requests, Doubles Tracking) instead of a separate set of
+// raw Tailwind colors, so "active"/"suspended"/etc. always look the same
+// no matter which screen shows them.
+const STATUS_COLOR_VAR = {
+  active: "var(--success-color)",
+  suspended: "var(--warning-color)",
+  inactive: "var(--border-color)",
+  deceased: "var(--error-color)",
 };
 
 export default function UserTable({ onEditUser, refreshKey }) {
@@ -93,15 +97,19 @@ export default function UserTable({ onEditUser, refreshKey }) {
         cell: ({ row }) => {
           const user = row.original;
           const currentStatus = user.accountStatus || "active";
+          const colorVar = STATUS_COLOR_VAR[currentStatus] || STATUS_COLOR_VAR.active;
           return (
             <select
               value={currentStatus}
               disabled={updatingStatusId === user._id}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => handleStatusChange(user._id, e.target.value)}
-              className={`text-xs font-medium px-2 py-1 rounded-full border capitalize cursor-pointer disabled:opacity-50 ${
-                STATUS_STYLES[currentStatus] || STATUS_STYLES.active
-              }`}
+              className="text-xs font-medium px-2 py-1 rounded-full border capitalize cursor-pointer disabled:opacity-50"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${colorVar} 15%, transparent)`,
+                borderColor: `color-mix(in srgb, ${colorVar} 40%, transparent)`,
+                color: colorVar,
+              }}
             >
               {ACCOUNT_STATUSES.map((s) => (
                 <option key={s} value={s} className="text-black">
@@ -131,12 +139,14 @@ export default function UserTable({ onEditUser, refreshKey }) {
             <div className="flex gap-3">
               <button
                 onClick={() => onEditUser(user)}
+                aria-label={`Edit ${user.firstname} ${user.lastname}`}
                 className="text-blue-500 hover:text-blue-700"
               >
                 <Pencil size={18} />
               </button>
               <button
                 onClick={() => handleDelete(user._id)}
+                aria-label={`Delete ${user.firstname} ${user.lastname}`}
                 className="text-red-500 hover:text-red-700"
               >
                 <Trash2 size={18} />

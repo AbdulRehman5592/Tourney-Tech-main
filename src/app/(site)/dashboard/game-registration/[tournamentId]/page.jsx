@@ -14,6 +14,7 @@ export default function GameRegistrationPage() {
   const [games, setGames] = useState([]);
   const [tournamentGames, setTournamentGames] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [registeredGameIds, setRegisteredGameIds] = useState([]);
   const [formData, setFormData] = useState({
     game: [], // array for multi-select
     paymentType: "",
@@ -31,7 +32,16 @@ export default function GameRegistrationPage() {
       try {
         const res = await api.get(`/api/tournaments/${tournamentId}`);
         const fetchBankDetails = await api.get("/api/bankDetails");
+        const myRegistration = await api.get(
+          `/api/tournamentRegister?tournamentId=${tournamentId}`
+        );
         const registrationData = res.data;
+
+        const myRegisteredGames =
+          myRegistration?.data?.data?.gameRegistrationDetails?.games || [];
+        setRegisteredGameIds(
+          myRegisteredGames.map((g) => (g?._id ? g._id : g).toString())
+        );
 
         // Registered games -- earliest scheduled first, TBA last
         const registeredGames = [...(registrationData?.games || [])].sort(
@@ -98,6 +108,9 @@ export default function GameRegistrationPage() {
       });
 
       toast.success("Registration successful!");
+      setRegisteredGameIds((prev) => [
+        ...new Set([...prev, ...formData.game]),
+      ]);
       setFormData({
         game: [],
         paymentType: "",
@@ -117,7 +130,7 @@ export default function GameRegistrationPage() {
 
   return (
     <div
-      className="max-w-lg mx-auto rounded-2xl p-8 shadow-lg border"
+      className="max-w-xl mx-auto rounded-2xl p-8 shadow-lg border"
       style={{
         background: "var(--card-background)",
         borderColor: "var(--border-color)",
@@ -144,29 +157,45 @@ export default function GameRegistrationPage() {
             {games.map((g) => (
               <label
                 key={g._id}
-                className="flex flex-wrap items-center gap-2 cursor-pointer rounded-lg border px-3 py-2"
+                className="flex flex-col gap-2 cursor-pointer rounded-lg border px-3 py-2"
                 style={{
                   color: "var(--foreground)",
                   borderColor: "var(--border-color)",
                 }}
               >
-                <input
-                  type="checkbox"
-                  value={g._id}
-                  checked={formData.game.includes(g._id)}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData((prev) => ({
-                      ...prev,
-                      game: prev.game.includes(value)
-                        ? prev.game.filter((id) => id !== value)
-                        : [...prev.game, value],
-                    }));
-                  }}
-                  className="w-4 h-4 accent-[var(--accent-color)]"
+                <span className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="checkbox"
+                    value={g._id}
+                    checked={formData.game.includes(g._id)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        game: prev.game.includes(value)
+                          ? prev.game.filter((id) => id !== value)
+                          : [...prev.game, value],
+                      }));
+                    }}
+                    className="w-4 h-4 shrink-0 accent-[var(--accent-color)]"
+                  />
+                  <span>{g.name}</span>
+                  {registeredGameIds.includes(g._id) && (
+                    <span
+                      className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                      style={{
+                        background: "var(--accent-color)",
+                        color: "var(--background)",
+                      }}
+                    >
+                      Registered
+                    </span>
+                  )}
+                </span>
+                <GameScheduleBadge
+                  value={g.scheduledAt}
+                  className="self-end"
                 />
-                <span>{g.name}</span>
-                <GameScheduleBadge value={g.scheduledAt} className="ml-auto" />
               </label>
             ))}
           </div>
