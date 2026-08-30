@@ -1,4 +1,5 @@
 {
+  "enabledMcpjsonServers": ["playwright"],
   "permissions": {
     "allow": [
       "Bash(xargs grep -l \"allow-scripts\")",

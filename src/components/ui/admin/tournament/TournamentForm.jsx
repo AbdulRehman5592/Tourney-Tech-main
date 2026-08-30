@@ -5,6 +5,7 @@ import { CalendarClock, Upload, X } from "lucide-react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { toDateTimeLocalInput } from "@/utils/gameSchedule";
+import GameForm from "@/components/ui/admin/games/GameForm";
 
 export default function TournamentForm({ initialData, onClose, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -22,6 +23,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [gamesList, setGamesList] = useState([]);
   const [gameFields, setGameFields] = useState([]);
+  // Index of the game field that opened the "new game" modal, so the newly
+  // created game can be auto-selected back into that specific field.
+  const [newGameFieldIndex, setNewGameFieldIndex] = useState(null);
 
   // staff
   const [usersList, setUsersList] = useState([]);
@@ -105,18 +109,38 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     }
   }, [initialData]);
 
+  const fetchGames = async () => {
+    try {
+      const res = await api.get("/api/games");
+      setGamesList(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to load games", err);
+      setGamesList([]);
+    }
+  };
+
   useEffect(() => {
-    const fetchGames = async () => {
-      try {
-        const res = await api.get("/api/games");
-        setGamesList(res.data.data || []);
-      } catch (err) {
-        console.error("Failed to load games", err);
-        setGamesList([]);
-      }
-    };
     fetchGames();
   }, []);
+
+  const handleCreateGame = async (data) => {
+    try {
+      const res = await api.post("/api/games", data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const createdGame = res.data?.data;
+      toast.success("Game created!");
+      await fetchGames();
+
+      if (createdGame?._id && newGameFieldIndex !== null) {
+        handleGameFieldChange(newGameFieldIndex, "game", createdGame._id);
+      }
+      setNewGameFieldIndex(null);
+    } catch (err) {
+      console.error("Failed to create game", err);
+      toast.error(err.response?.data?.message || "Failed to create game.");
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -133,6 +157,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
 
   const handleAddGameFields = () => {
     setGameFields((prev) => [
+      ...prev,
       {
         game: "",
         entryFee: "",
@@ -153,7 +178,6 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         mixedDoublesEnabled: false,
         mixedDoublesCost: "",
       },
-       ...prev,
     ]);
   };
 
@@ -227,6 +251,16 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (
+      formData.startDate &&
+      formData.endDate &&
+      new Date(formData.endDate) <= new Date(formData.startDate)
+    ) {
+      toast.error("End date must be after the start date.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -474,6 +508,15 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               value={formData.endDate}
               onChange={handleChange}
               required
+              min={
+                formData.startDate
+                  ? new Date(
+                      new Date(formData.startDate).getTime() + 86400000
+                    )
+                      .toISOString()
+                      .slice(0, 10)
+                  : undefined
+              }
               className="w-full p-3 rounded bg-[var(--card-background)] outline-none"
             />
           </div>
@@ -587,20 +630,29 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               </div>
 
               {/* Select Game */}
-              <select
-                value={field.game}
-                onChange={(e) =>
-                  handleGameFieldChange(index, "game", e.target.value)
-                }
-                className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
-              >
-                <option value="">Select Game</option>
-                {gamesList.map((game) => (
-                  <option key={game._id} value={game._id}>
-                    {game.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={field.game}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "game", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                >
+                  <option value="">Select Game</option>
+                  {gamesList.map((game) => (
+                    <option key={game._id} value={game._id}>
+                      {game.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setNewGameFieldIndex(index)}
+                  className="shrink-0 text-sm px-3 py-1 rounded bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                >
+                  + New Game
+                </button>
+              </div>
 
               {/* Entry Fee */}
               <input
@@ -935,6 +987,16 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             </div>
             );
           })}
+
+          {gameFields.length > 0 && (
+            <button
+              type="button"
+              onClick={handleAddGameFields}
+              className="text-sm px-3 py-1 bg-green-600 rounded hover:bg-green-700"
+            >
+              Add Game
+            </button>
+          )}
         </div>
 
         {/* add staff */}
@@ -1005,6 +1067,18 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               : "Create Tournament"}
         </button>
       </form>
+
+      {newGameFieldIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8">
+            <GameForm
+              onSubmit={handleCreateGame}
+              initialData={null}
+              onClose={() => setNewGameFieldIndex(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

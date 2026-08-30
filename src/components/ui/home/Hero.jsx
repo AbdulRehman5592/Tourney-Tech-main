@@ -2,52 +2,41 @@
 
 // components/Hero.js
 import Image from "next/image";
-
-import Link from "next/link";
+import Button from "@/components/ui/Button";
 
 const heroImg = "/img/hero-right-img.png";
 
 export default function Hero() {
   return (
-    <section className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white py-20">
-      {/* <section className="bg-gradient-to-r from-gray-900 via-black to-gray-900 text-white py-20"> */}
-      <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between">
+    <section
+      className="py-14 md:py-16"
+      style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+    >
+      <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center gap-10 lg:gap-16 justify-between">
         {/* Left Content */}
-        <div className="w-full lg:w-2/3 text-center lg:text-left">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Manage Tournaments Effortlessly 🏆
+        <div className="w-full lg:w-3/5 text-center lg:text-left">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
+            Manage Tournaments Effortlessly <span aria-hidden="true">🏆</span>
           </h1>
-          <p className="text-lg mb-8 text-gray-300">
+          <p
+            className="text-base mb-6"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             Create, schedule, and track tournaments like a pro. Brackets, teams,
             live updates — all in one powerful dashboard.
           </p>
 
-          <Link
-            href="/auth/login"
-            className="font-semibold py-3 px-6 rounded-lg transition duration-300 inline-block"
-            style={{
-              backgroundColor: "var(--accent-color)",
-              color: "var(--secondary-color)",
-            }}
-            onMouseOver={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--accent-hover)")
-            }
-            onMouseOut={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--accent-color)")
-            }
-          >
-            Lets Play Tournament
-          </Link>
+          <Button href="/auth/login" size="lg">Lets Play Tournament</Button>
         </div>
 
         {/* Right Image or Illustration */}
-        <div className="w-full lg:w-1/2 mb-10 lg:mb-0 hidden lg:block">
+        <div className="w-full lg:w-2/5 hidden lg:block">
           <Image
             src={heroImg}
             alt="Tournament Bracket"
             width={400}
             height={300}
-            className="mx-auto rounded-xl shadow-lg"
+            className="mx-auto rounded-xl shadow-lg w-full h-auto max-w-sm"
             priority
           />
         </div>

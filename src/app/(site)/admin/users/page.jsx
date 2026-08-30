@@ -1,71 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import UserTable from "@/components/ui/admin/UserTable";
 import CreateUserForm from "@/components/ui/admin/User/CreateUserForm";
-import api from "@/utils/axios";
-import { toast } from "react-hot-toast";
+import Button from "@/components/ui/Button";
 
 export default function ManageUsers() {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // UserTable owns and fetches its own row data internally; bumping this
+  // key is what tells it to refetch, since it re-runs its fetch effect
+  // whenever `refreshKey` changes.
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // ✅ Centralized fetch
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get("/api/users");
-      setUsers(res.data.data);
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to fetch users");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  // ✅ Called after create/edit
-  const handleFormSuccess = (userData) => {
+  // ✅ Called after create/edit -- triggers UserTable to refetch so the
+  // visible list updates immediately instead of requiring a page reload.
+  const handleFormSuccess = () => {
     setShowForm(false);
     setEditingUser(null);
-    if (userData) {
-      setUsers(prev => {
-        const exists = prev.find(u => u._id === userData._id);
-        if (exists) {
-          return prev.map(u => u._id === userData._id ? userData : u);
-        }
-        return [...prev, userData];
-      });
-    } else {
-      fetchUsers();
-    }
-  };
-
-  // ✅ Called after delete
-  const handleDeleteSuccess = () => {
-    fetchUsers();
+    setRefreshKey((k) => k + 1);
   };
 
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">All Users</h1>
-        <button
+        <Button
           onClick={() => {
             setEditingUser(null);
             setShowForm((prev) => !prev);
           }}
-          className="px-4 py-2 rounded-lg font-semibold 
-          bg-[var(--primary-color)] hover:bg-[var(--primary-hover)] 
-          text-white transition-all duration-200"
         >
           {showForm ? "Close Form" : "Create User"}
-        </button>
+        </Button>
       </div>
 
       {/* Form for Create or Edit */}
@@ -81,13 +48,11 @@ export default function ManageUsers() {
 
       {/* User Table */}
       <UserTable
-        data={users}
-        loading={loading}
+        refreshKey={refreshKey}
         onEditUser={(user) => {
           setEditingUser(user);
           setShowForm(true);
         }}
-        onDeleteSuccess={handleDeleteSuccess} // ✅ refresh after delete
       />
     </div>
   );

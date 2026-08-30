@@ -57,14 +57,13 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
               <th className="p-3">Status</th>
               <th className="p-3">Games &amp; Schedule</th>
               <th className="p-3">Entry Fee</th>
-              <th className="p-3">Created At</th>
               <th className="p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {currentTournaments.length === 0 ? (
               <tr>
-                <td colSpan="10" className="p-4 text-center text-gray-400">
+                <td colSpan="9" className="p-4 text-center text-gray-400">
                   No tournaments found.
                 </td>
               </tr>
@@ -134,11 +133,6 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                     ) : (
                       <span className="text-gray-400 text-xs">No entryFee</span>
                     )}
-                  </td>
-                  <td className="p-3 whitespace-nowrap">
-                    {t.createdAt
-                      ? new Date(t.createdAt).toLocaleString()
-                      : "-"}
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">

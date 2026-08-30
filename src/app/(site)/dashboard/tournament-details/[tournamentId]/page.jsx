@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import { ArrowLeft, Calendar, MapPin, Users, Trophy } from "lucide-react";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
+import Button from "@/components/ui/Button";
 
 export default function TournamentDetailsPage() {
   const params = useParams();
@@ -44,7 +45,7 @@ export default function TournamentDetailsPage() {
   if (!tournament) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400 text-lg">Tournament not found</p>
+        <p className="text-[var(--muted-foreground)] text-lg">Tournament not found</p>
       </div>
     );
   }
@@ -144,14 +145,15 @@ export default function TournamentDetailsPage() {
               >
                 About Tournament
               </h2>
-              <p className="text-gray-300">{tournament.description}</p>
+              <p className="text-[var(--muted-foreground)]">{tournament.description}</p>
             </div>
           )}
 
           {/* Games Section */}
           {tournament.games && tournament.games.length > 0 && (
             <div
-              className="p-6 rounded-xl"
+              id="games-schedule"
+              className="p-6 rounded-xl scroll-mt-6"
               style={{ backgroundColor: "var(--card-background)" }}
             >
               <h2
@@ -174,7 +176,7 @@ export default function TournamentDetailsPage() {
                         <h3 className="text-lg font-semibold">
                           {game.game?.name || `Game ${index + 1}`}
                         </h3>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-sm text-[var(--muted-foreground)]">
                           {game.game?.icon || "No icon"}
                         </p>
                       </div>
@@ -194,7 +196,7 @@ export default function TournamentDetailsPage() {
 
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-gray-400">Format:</span>{" "}
+                        <span className="text-[var(--muted-foreground)]">Format:</span>{" "}
                         <span className="font-semibold">
                           {game.format
                             ? game.format
@@ -206,7 +208,7 @@ export default function TournamentDetailsPage() {
                       </div>
                       {game.format === "mesh" && (
                         <div>
-                          <span className="text-gray-400">Rounds:</span>{" "}
+                          <span className="text-[var(--muted-foreground)]">Rounds:</span>{" "}
                           <span className="font-semibold">
                             {game.meshRounds || "N/A"}
                           </span>
@@ -215,13 +217,13 @@ export default function TournamentDetailsPage() {
                       {game.format === "standard" && (
                         <>
                           <div>
-                            <span className="text-gray-400">Rounds:</span>{" "}
+                            <span className="text-[var(--muted-foreground)]">Rounds:</span>{" "}
                             <span className="font-semibold">
                               {game.standardRounds || "Indefinite"}
                             </span>
                           </div>
                           <div>
-                            <span className="text-gray-400">Away moves:</span>{" "}
+                            <span className="text-[var(--muted-foreground)]">Away moves:</span>{" "}
                             <span className="font-semibold">
                               {game.standardDirection === "down" ? "Down" : "Up"}
                             </span>
@@ -230,7 +232,7 @@ export default function TournamentDetailsPage() {
                       )}
                       {["round_robin", "mesh", "standard"].includes(game.format) && (
                         <div>
-                          <span className="text-gray-400">Ranked by:</span>{" "}
+                          <span className="text-[var(--muted-foreground)]">Ranked by:</span>{" "}
                           <span className="font-semibold">
                             {game.winCriteria === "hands"
                               ? "Most Hands"
@@ -244,7 +246,7 @@ export default function TournamentDetailsPage() {
                         game.rewardByeType &&
                         game.rewardByeType !== "none" && (
                           <div>
-                            <span className="text-gray-400">Reward Bye:</span>{" "}
+                            <span className="text-[var(--muted-foreground)]">Reward Bye:</span>{" "}
                             <span className="font-semibold">
                               {game.rewardByeType
                                 .split("_")
@@ -254,13 +256,13 @@ export default function TournamentDetailsPage() {
                           </div>
                         )}
                       <div>
-                        <span className="text-gray-400">Team Based:</span>{" "}
+                        <span className="text-[var(--muted-foreground)]">Team Based:</span>{" "}
                         <span className="font-semibold">
                           {game.teamBased ? "Yes" : "No"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-400">Status:</span>{" "}
+                        <span className="text-[var(--muted-foreground)]">Status:</span>{" "}
                         <span className="font-semibold">
                           {game.status || "Active"}
                         </span>
@@ -297,7 +299,7 @@ export default function TournamentDetailsPage() {
                       </div>
                       <div>
                         <h4 className="font-semibold">{member.user?.name || "Unknown"}</h4>
-                        <p className="text-sm text-gray-400">{member.user?.email || ""}</p>
+                        <p className="text-sm text-[var(--muted-foreground)]">{member.user?.email || ""}</p>
                       </div>
                     </div>
                     <span
@@ -331,30 +333,30 @@ export default function TournamentDetailsPage() {
               <div className="flex items-start gap-3">
                 <MapPin size={20} className="text-[var(--accent-color)] mt-1" />
                 <div>
-                  <p className="text-sm text-gray-400">Location</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">Location</p>
                   <p className="font-semibold">{tournament.location || "N/A"}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Calendar size={20} className="text-[var(--accent-color)] mt-1" />
                 <div>
-                  <p className="text-sm text-gray-400">Start Date</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">Start Date</p>
                   <p className="font-semibold">{formatDate(tournament.startDate)}</p>
-                  <p className="text-sm text-gray-500">{formatTime(tournament.startDate)}</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">{formatTime(tournament.startDate)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Calendar size={20} className="text-[var(--accent-color)] mt-1" />
                 <div>
-                  <p className="text-sm text-gray-400">End Date</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">End Date</p>
                   <p className="font-semibold">{formatDate(tournament.endDate)}</p>
-                  <p className="text-sm text-gray-500">{formatTime(tournament.endDate)}</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">{formatTime(tournament.endDate)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Users size={20} className="text-[var(--accent-color)] mt-1" />
                 <div>
-                  <p className="text-sm text-gray-400">Visibility</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">Visibility</p>
                   <p className="font-semibold">
                     {tournament.isPublic ? "Public" : "Private"}
                   </p>
@@ -365,20 +367,27 @@ export default function TournamentDetailsPage() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            <button
-              className="w-full py-3 rounded-lg font-semibold transition hover:scale-[1.01]"
-              style={{
-                backgroundColor: "var(--accent-color)",
-                color: "var(--background)",
-              }}
+            <Button
+              href={`mailto:support@tourneytech.app?subject=${encodeURIComponent(
+                `Question about ${tournament.name}`
+              )}`}
+              className="w-full"
             >
               Contact Support
-            </button>
-            <button
-              className="w-full py-3 rounded-lg font-semibold border border-[var(--accent-color)] text-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-[var(--background)] transition"
-            >
-              View Schedule
-            </button>
+            </Button>
+            {tournament.games && tournament.games.length > 0 && (
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() =>
+                  document
+                    .getElementById("games-schedule")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                View Schedule
+              </Button>
+            )}
           </div>
         </div>
       </div>

@@ -53,8 +53,30 @@ export const POST = asyncHandler(async (req) => {
   );
 });
 
-export const GET = asyncHandler(async () => {
+export const GET = asyncHandler(async (req) => {
   await connectDB();
+
+  const tournamentId = new URL(req.url).searchParams.get("tournamentId");
+
+  // Self-serve lookup: "am I already registered, and for which games?"
+  if (tournamentId) {
+    const requester = await requireAuth();
+
+    const registration = await Registration.findOne({
+      tournament: tournamentId,
+      user: requester._id,
+    })
+      .populate({
+        path: "gameRegistrationDetails.games",
+        model: "Game",
+      })
+      .lean();
+
+    return Response.json(
+      new ApiResponse(200, registration, "Registration fetched successfully")
+    );
+  }
+
   const registrations = await Registration.find()
     .populate("tournament")
     .populate("user", "username email")

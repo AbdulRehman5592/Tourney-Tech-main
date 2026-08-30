@@ -16,7 +16,7 @@ export default function PasswordInput({ label = "Password", value, onChange, req
           onChange={(e) => onChange(e.target.value)}
           required={required}
           placeholder={`Enter ${label.toLowerCase()}`}
-          className="w-full px-4 py-2 rounded-md border pr-10"
+          className="w-full px-4 py-2 rounded-md border pr-10 focus:outline-none focus:ring-2"
           style={{
             backgroundColor: "var(--secondary-color)",
             borderColor: "var(--border-color)",
@@ -27,7 +27,9 @@ export default function PasswordInput({ label = "Password", value, onChange, req
         <button
           type="button"
           onClick={() => setShowPassword((prev) => !prev)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+          aria-label={showPassword ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-pressed={showPassword}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus:outline-none focus:ring-2 rounded"
         >
           {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>

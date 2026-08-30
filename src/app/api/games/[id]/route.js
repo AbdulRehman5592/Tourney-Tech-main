@@ -9,10 +9,6 @@ import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { parseForm } from "@/utils/server/parseForm"; // ✅ Use shared util
 import { GameType } from "@/models/GameType";
 
-export const config = {
-  api: { bodyParser: false },
-};
-
 export const PATCH = asyncHandler(async (req, context) => {
   await requireAdmin();
 
