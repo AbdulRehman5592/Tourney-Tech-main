@@ -10,6 +10,9 @@ const CRITERIA_FIELD = { wins: "wins", points: "pointsFor", hands: "handsFor" };
 // shared score for double_player (both members inherit the same team score).
 // Pairing itself never creates/touches a Team; this only reads existing
 // bracket results and sums them for the pair.
+// `gameId` is the specific scheduled instance (Tournament.games[]._id), not
+// the catalog game id -- the same catalog game can be scheduled more than
+// once in one tournament as fully independent competitions.
 export async function computePairStandings({ tournamentId, gameId, winCriteria = "wins", pairs }) {
   const userIds = [
     ...new Set(pairs.flatMap((p) => [p.fromUserId.toString(), p.toUserId.toString()])),
@@ -17,7 +20,7 @@ export async function computePairStandings({ tournamentId, gameId, winCriteria =
 
   const teams = await Team.find({
     tournament: tournamentId,
-    game: gameId,
+    gameConfigId: gameId,
     members: { $in: userIds },
   }).lean();
 
@@ -30,7 +33,7 @@ export async function computePairStandings({ tournamentId, gameId, winCriteria =
 
   const matches = await Match.find({
     tournament: tournamentId,
-    game: gameId,
+    gameConfigId: gameId,
     status: "completed",
   }).lean();
 

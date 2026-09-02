@@ -44,9 +44,14 @@ export default function SelectTeam() {
         const res = await api.get("/api/teamup");
         const allRequests = res.data.data?.requests || [];
 
-        // only keep requests where currentUser is in from or to
+        // Only "team" mode requests can form a real roster team here --
+        // doubles/mixed_doubles is a side-pot overlay and must never turn
+        // into an actual Team. Also only keep requests where currentUser is
+        // in from or to.
         const myRequests = allRequests.filter(
-          (r) => r.from?._id === currentUserId || r.to?._id === currentUserId
+          (r) =>
+            r.mode === "team" &&
+            (r.from?._id === currentUserId || r.to?._id === currentUserId)
         );
         setRequests(myRequests);
 
@@ -60,20 +65,24 @@ export default function SelectTeam() {
             const games = [];
 
             (r.tournament.games || []).forEach((g) => {
-              const gameId = g.game;
-              if (!gameId || seenGames.has(gameId)) return;
+              // Keyed by the specific scheduled instance (subdocument id),
+              // not the catalog game id -- the same catalog game can be
+              // scheduled more than once as fully independent competitions.
+              const gameConfigId = g._id;
+              if (!gameConfigId || seenGames.has(gameConfigId)) return;
 
               // find real game name from fromGames / toGames
+              const catalogGameId = g.game?._id || g.game;
               const gameObj = (r.fromGames || [])
                 .concat(r.toGames || [])
-                .find((gg) => gg._id === gameId);
+                .find((gg) => gg._id === catalogGameId);
 
               games.push({
-                _id: gameId,
-                name: gameObj?.name || "Unknown Game",
+                _id: gameConfigId,
+                name: gameObj?.name || g.game?.name || "Unknown Game",
               });
 
-              seenGames.add(gameId);
+              seenGames.add(gameConfigId);
             });
 
             tournamentMap.set(r.tournament._id, {
@@ -107,12 +116,11 @@ export default function SelectTeam() {
   if (r.tournament?._id !== selectedTournamentId) return false;
   if (!selectedGameId) return false;
 
-  const fromHasGame = r.fromGames?.some(
-    (g) => g._id === selectedGameId || g.game === selectedGameId
-  );
-  const toHasGame = r.toGames?.some(
-    (g) => g._id === selectedGameId || g.game === selectedGameId
-  );
+  // selectedGameId is the specific scheduled instance (gameConfigId), so
+  // eligibility is checked against each side's registered instances, not
+  // their registered catalog games.
+  const fromHasGame = r.fromGameConfigIds?.includes(selectedGameId);
+  const toHasGame = r.toGameConfigIds?.includes(selectedGameId);
 
   if (!(fromHasGame && toHasGame)) return false;
 

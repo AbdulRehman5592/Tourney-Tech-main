@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { GENDER_COLORS } from "@/constants/genderColors";
 
-const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+const MODE_LABELS = { team: "Team Up", doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
 export default function ReceivedRequests() {
   const [requests, setRequests] = useState([]);

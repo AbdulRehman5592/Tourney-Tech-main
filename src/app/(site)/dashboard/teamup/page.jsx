@@ -5,7 +5,17 @@ import { toast } from "react-hot-toast";
 import { GENDER_COLORS } from "@/constants/genderColors";
 import InviteFriendModal from "@/components/ui/dashboard/team/InviteFriendModal";
 
-const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+const MODE_LABELS = { team: "Team Up", doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+
+// Each game carries flags for both isolated pairing processes -- this filters
+// a tournament's games down to only what's relevant for the chosen purpose.
+function gamesForPurpose(games, purpose) {
+  return (games || []).filter((g) =>
+    purpose === "team"
+      ? g.tournamentTeamType === "double_player"
+      : g.doublesEnabled || g.mixedDoublesEnabled
+  );
+}
 
 function isMixedDoublesGenderOk(genderA, genderB) {
   if (genderA === "male" && genderB === "male") return false;
@@ -75,10 +85,15 @@ export default function TeamUp() {
   // ✅ Send team-up request
   const handleRequest = async (id) => {
     const selected = selectedTournamentIds[id];
+    const purpose = selected?.purpose;
     const tournamentId = selected?.tournamentId;
     const gameId = selected?.gameId;
-    const mode = selected?.mode;
+    const mode = purpose === "team" ? "team" : selected?.mode;
 
+    if (!purpose) {
+      toast.error("Please choose Team Up or Doubles first!");
+      return;
+    }
     if (!tournamentId) {
       toast.error("Please select a tournament first!");
       return;
@@ -87,7 +102,7 @@ export default function TeamUp() {
       toast.error("Please select a game!");
       return;
     }
-    if (!mode) {
+    if (purpose === "doubles" && !mode) {
       toast.error("Please select Doubles or Mixed Doubles!");
       return;
     }
@@ -149,8 +164,9 @@ export default function TeamUp() {
           className="mb-6 p-3 rounded-lg text-sm"
           style={{ background: "var(--secondary-color)" }}
         >
-          No tournaments currently have Doubles or Mixed Doubles enabled. Ask
-          an admin to enable it on a tournament's game first.
+          No tournaments currently support Team Up or Doubles/Mixed Doubles.
+          Ask an admin to set up a double-player game or enable doubles on a
+          game first.
         </p>
       )}
 
@@ -194,13 +210,24 @@ export default function TeamUp() {
           {filteredPlayers.length > 0 ? (
             filteredPlayers.map((player) => {
               const selected = selectedTournamentIds[player.id] || {};
-              const selectedTournamentData = tournaments.find(
+              // Only tournaments/games relevant to the chosen purpose are
+              // selectable -- Team Up and Doubles are isolated processes.
+              const purposeTournaments = selected.purpose
+                ? tournaments
+                    .map((t) => ({
+                      ...t,
+                      games: gamesForPurpose(t.games, selected.purpose),
+                    }))
+                    .filter((t) => t.games.length > 0)
+                : [];
+              const selectedTournamentData = purposeTournaments.find(
                 (t) => t._id === selected.tournamentId
               );
               const selectedGameData = (selectedTournamentData?.games || []).find(
                 (g) => g._id === selected.gameId
               );
               const genderConflict =
+                selected.purpose === "doubles" &&
                 selected.mode === "mixed_doubles" &&
                 !isMixedDoublesGenderOk(currentUser?.gender, player.gender);
 
@@ -304,13 +331,38 @@ export default function TeamUp() {
                   )}
 
                   <div className="pt-4 flex flex-col gap-2">
+                      {/* ❓ Prequestion -- Team Up and Doubles are isolated
+                          processes with different results, so this has to be
+                          decided before anything else is selectable. */}
+                      <select
+                        value={selected.purpose || ""}
+                        onChange={(e) =>
+                          setSelectedTournamentIds((prev) => ({
+                            ...prev,
+                            [player.id]: {
+                              purpose: e.target.value,
+                              tournamentId: "",
+                              gameId: "",
+                              mode: "",
+                            },
+                          }))
+                        }
+                        className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] focus:outline-none"
+                      >
+                        <option value="">Inviting for Team Up or Doubles?</option>
+                        <option value="team">Team Up (form your team)</option>
+                        <option value="doubles">Doubles / Mixed Doubles (side pot)</option>
+                      </select>
+
                       {/* 🎯 Tournament Select */}
+                      {selected.purpose && (
                       <select
                         value={selected.tournamentId || ""}
                         onChange={(e) =>
                           setSelectedTournamentIds((prev) => ({
                             ...prev,
                             [player.id]: {
+                              ...prev[player.id],
                               tournamentId: e.target.value,
                               gameId: "",
                               mode: "",
@@ -320,12 +372,13 @@ export default function TeamUp() {
                         className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)] focus:outline-none"
                       >
                         <option value="">Select Tournament</option>
-                        {tournaments.map((t) => (
+                        {purposeTournaments.map((t) => (
                           <option key={t._id} value={t._id}>
                             {t.name}
                           </option>
                         ))}
                       </select>
+                      )}
 
                       {/* 🎮 Game Select */}
                       {selectedTournamentData && (
@@ -352,8 +405,9 @@ export default function TeamUp() {
                         </select>
                       )}
 
-                      {/* 🏸 Mode Select -- only the modes enabled for this game */}
-                      {selectedGameData && (
+                      {/* 🏸 Mode Select -- only for Doubles; Team Up has no
+                          type to choose, it's always just the team. */}
+                      {selected.purpose === "doubles" && selectedGameData && (
                         <select
                           value={selected.mode || ""}
                           onChange={(e) =>

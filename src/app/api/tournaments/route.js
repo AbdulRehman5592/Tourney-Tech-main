@@ -60,12 +60,22 @@ for (const game of games) {
     throw new ApiError(400, "Invalid game configuration (missing format)");
   }
 
+  if (!game.eventTitle || !game.eventTitle.toString().trim()) {
+    throw new ApiError(400, "Event title is required for every game");
+  }
+
   if (!validFormats.includes(game.format)) {
     throw new ApiError(400, "Invalid tournament format");
   }
 
   // Per-game date/time -- optional, but rejected outright if unparseable.
   game.scheduledAt = parseScheduledAt(game.scheduledAt);
+
+  // Drop blank entries -- the form always sends at least one text input, even
+  // when the admin never typed anything into it.
+  game.locations = Array.isArray(game.locations)
+    ? game.locations.map((l) => l?.toString().trim()).filter(Boolean)
+    : [];
 
   // Mesh (table-movement) format has no default round count -- it must be
   // set explicitly so it's never silently skipped at setup.

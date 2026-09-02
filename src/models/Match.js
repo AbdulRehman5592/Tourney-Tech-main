@@ -10,6 +10,11 @@ const MatchSchema = new Schema(
       required: true,
     },
     game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
+    // The specific scheduled instance of that game within the tournament
+    // (Tournament.games[]._id) -- required because the SAME catalog game can
+    // be scheduled more than once in one tournament (different time, entry
+    // fee, format); `game` alone can't tell those instances apart.
+    gameConfigId: { type: Schema.Types.ObjectId, required: true },
     matchNumber: { type: Number },
     // Physical table assignment, 1..N. Byes/walkovers get none (null).
     tableNumber: { type: Number },

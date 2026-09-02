@@ -24,6 +24,9 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (request.status !== "accepted") {
     throw new ApiResponse(400, null, "Only an accepted pair can have its payment approved");
   }
+  if (request.mode === "team") {
+    throw new ApiResponse(400, null, "Payment does not apply to Team Up requests");
+  }
 
   request.payment.approved = approved;
   request.payment.approvedBy = approved ? admin._id : undefined;

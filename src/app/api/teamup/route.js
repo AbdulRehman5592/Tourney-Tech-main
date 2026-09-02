@@ -9,6 +9,7 @@ import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
 import { User } from "@/models/User";
 import { isMixedDoublesGenderOk, getEnabledGameConfig } from "@/utils/server/doublesConfig";
+import { assertNotAlreadyTeammates } from "@/utils/server/teamup";
 
 export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
@@ -26,8 +27,8 @@ export const POST = asyncHandler(async (req) => {
       "Receiver user (to) tournament and game is required"
     );
 
-  if (!["doubles", "mixed_doubles"].includes(mode))
-    throw new ApiResponse(400, null, "mode must be 'doubles' or 'mixed_doubles'");
+  if (!["team", "doubles", "mixed_doubles"].includes(mode))
+    throw new ApiResponse(400, null, "mode must be 'team', 'doubles' or 'mixed_doubles'");
 
   if (to.toString() === user._id.toString())
     throw new ApiResponse(400, null, "Cannot send team-up request to yourself");
@@ -39,6 +40,17 @@ export const POST = asyncHandler(async (req) => {
     const toUser = await User.findById(to).select("gender");
     if (!isMixedDoublesGenderOk(user.gender, toUser?.gender))
       throw new ApiResponse(400, null, "Mixed doubles requires opposite genders");
+  }
+
+  // Doubles/mixed doubles is a side-pot overlay only -- players already
+  // rostered together as teammates aren't eligible to also pair up here.
+  if (mode === "doubles" || mode === "mixed_doubles") {
+    await assertNotAlreadyTeammates({
+      tournamentId,
+      gameConfigId: gameId,
+      userAId: user._id,
+      userBId: to,
+    });
   }
 
   // Team Up is a site-wide directory: any user can propose pairing with any
@@ -87,12 +99,13 @@ export const GET = asyncHandler(async () => {
     .sort({ createdAt: -1 })
     .lean();
 
-  // `gameId` is stored as a plain string (not a ref), so resolve the actual
-  // game name/platform for the request straight off the tournament's game
-  // config -- this works whether or not either side has ever registered.
+  // `gameId` is stored as a plain string (not a ref) -- it's the specific
+  // scheduled instance (Tournament.games[]._id), not the catalog game id, so
+  // resolve the actual game name/platform straight off that subdocument.
+  // This works whether or not either side has ever registered.
   const requestsWithGame = requests.map((req) => {
     const gameConfig = req.tournament?.games?.find(
-      (g) => g.game?._id?.toString() === req.gameId
+      (g) => g._id?.toString() === req.gameId
     );
     return { ...req, game: gameConfig?.game || null };
   });
@@ -141,6 +154,16 @@ export const GET = asyncHandler(async () => {
         ...req,
         fromGames: fromReg?.gameRegistrationDetails?.games || [],
         toGames: toReg?.gameRegistrationDetails?.games || [],
+        // The specific scheduled instance(s) each side registered for
+        // (Tournament.games[]._id) -- what actually determines "do they
+        // share a registration for this game", since the catalog game id
+        // alone can't tell two independent instances apart.
+        fromGameConfigIds: (fromReg?.gameRegistrationDetails?.gameConfigIds || []).map((id) =>
+          id.toString()
+        ),
+        toGameConfigIds: (toReg?.gameRegistrationDetails?.gameConfigIds || []).map((id) =>
+          id.toString()
+        ),
       };
     }
 

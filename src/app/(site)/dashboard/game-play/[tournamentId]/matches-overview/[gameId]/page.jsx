@@ -40,9 +40,10 @@ export default function TournamentPage() {
     try {
       const res = await api.get(`/api/tournaments/${tournamentId}/games`);
       const games = res.data?.games || [];
-      const found = games.find(
-        (g) => (g.game?._id || g.game)?.toString() === gameId
-      );
+      // `gameId` (URL param) is the specific scheduled instance
+      // (Tournament.games[]._id), not the catalog game id -- the same
+      // catalog game can be scheduled more than once with different times.
+      const found = games.find((g) => g._id?.toString() === gameId);
       setGameConfig(found || null);
       return found || null;
     } catch (err) {
@@ -56,7 +57,7 @@ export default function TournamentPage() {
   const fetchTeams = async () => {
     if (!tournamentId || !gameId) return;
     try {
-      const query = new URLSearchParams({ tournament: tournamentId, game: gameId });
+      const query = new URLSearchParams({ tournament: tournamentId, gameConfigId: gameId });
       const res = await api.get(`/api/team?${query.toString()}`);
       setTeams(res.data?.data || []);
     } catch (err) {

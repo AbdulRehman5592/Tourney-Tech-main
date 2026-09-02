@@ -22,9 +22,12 @@ export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
 
   const { fields } = await parseForm(req);
-  const { tournamentId: tournament, gameId: game, protectedSeedTeamId } = fields;
+  // `gameId` here is the specific scheduled instance (Tournament.games[]._id),
+  // not the catalog game id -- the same catalog game can be scheduled more
+  // than once in one tournament as fully independent competitions.
+  const { tournamentId: tournament, gameId: gameConfigId, protectedSeedTeamId } = fields;
 
-  if (!tournament || !game) {
+  if (!tournament || !gameConfigId) {
     throw new ApiResponse(400, null, "Tournament ID and Game ID are required");
   }
 
@@ -32,10 +35,9 @@ export const POST = asyncHandler(async (req) => {
   if (!existingTournament) {
     throw new ApiResponse(404, null, "Tournament not found");
   }
-  const existingGameConfig = existingTournament.games?.find(
-    (v) => v?.game.toString() === game
-  );
+  const existingGameConfig = existingTournament.games.id(gameConfigId);
   if (!existingGameConfig) throw new ApiResponse(400, null, "Game not found");
+  const game = existingGameConfig.game;
 
   const validFormats = [
     "single_elimination",
@@ -48,7 +50,7 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiResponse(400, null, "Unknown tournament format");
   }
 
-  const teams = await Team.find({ tournament, game });
+  const teams = await Team.find({ tournament, gameConfigId });
   if (teams.length < 2) {
     throw new ApiResponse(400, null, "Not enough teams to create matches");
   }
@@ -99,15 +101,18 @@ export const POST = asyncHandler(async (req) => {
   }
 
   const tournamentDoc = await Tournament.findOneAndUpdate(
-    { _id: tournament, games: { $elemMatch: { game, round1Status: "pending" } } },
+    {
+      _id: tournament,
+      games: { $elemMatch: { _id: gameConfigId, round1Status: "pending" } },
+    },
     { $set: inProgressUpdate },
-    { arrayFilters: [{ "g.game": game }], new: true }
+    { arrayFilters: [{ "g._id": gameConfigId }], new: true }
   );
   if (!tournamentDoc) {
     throw new ApiResponse(400, null, "Round 1 has already been generated for this game");
   }
 
-  const gameConfig = tournamentDoc.games.find((v) => v?.game.toString() === game);
+  const gameConfig = tournamentDoc.games.id(gameConfigId);
 
   // Table numbers: elimination brackets number continuously through the whole
   // event; mesh and standard both reuse the same table numbers every round
@@ -120,7 +125,7 @@ export const POST = asyncHandler(async (req) => {
     assignTableNumbers(matchDocs);
   }
 
-  const existingCount = await Match.countDocuments({ tournament, game });
+  const existingCount = await Match.countDocuments({ tournament, gameConfigId });
   let matchNumber = existingCount + 1;
 
   const created = [];
@@ -128,6 +133,7 @@ export const POST = asyncHandler(async (req) => {
     const match = await Match.create({
       tournament,
       game,
+      gameConfigId,
       matchNumber: matchNumber++,
       admin: user._id,
       ...m,
@@ -151,9 +157,14 @@ export const POST = asyncHandler(async (req) => {
 export const GET = asyncHandler(async (req) => {
   const { searchParams } = new URL(req.url);
   const tournamentId = searchParams.get("tournamentId");
+  // The specific scheduled instance (Tournament.games[]._id) -- not the
+  // catalog game id, so matches from two independent competitions that
+  // happen to share a catalog game never get mixed together.
+  const gameConfigId = searchParams.get("gameId");
 
   const filter = {};
   if (tournamentId) filter.tournament = tournamentId;
+  if (gameConfigId) filter.gameConfigId = gameConfigId;
 
  const matches = await Match.find(filter)
   .populate("tournament")

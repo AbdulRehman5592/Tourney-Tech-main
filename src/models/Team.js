@@ -13,6 +13,11 @@ const TeamSchema = new Schema(
       required: true,
     },
     game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
+    // The specific scheduled instance of that game within the tournament
+    // (Tournament.games[]._id) -- the real identity for team formation and
+    // bracket scoping, since the same catalog game can be scheduled more
+    // than once in one tournament as fully independent competitions.
+    gameConfigId: { type: Schema.Types.ObjectId, required: true },
     members: [
       {
         type: Schema.Types.ObjectId,
@@ -47,6 +52,6 @@ const TeamSchema = new Schema(
   { timestamps: true }
 );
 
-TeamSchema.index({ tournament: 1, game: 1, name: 1 }, { unique: true });
+TeamSchema.index({ tournament: 1, gameConfigId: 1, name: 1 }, { unique: true });
 
 export const Team = models.Team || model("Team", TeamSchema);

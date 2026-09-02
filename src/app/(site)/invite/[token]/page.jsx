@@ -7,7 +7,7 @@ import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 import Loader from "@/components/Loader";
 
-const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+const MODE_LABELS = { team: "Team Up", doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
 export default function InvitePage() {
   const { token } = useParams();

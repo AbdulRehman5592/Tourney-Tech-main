@@ -256,12 +256,6 @@ export default function TournamentDetailsPage() {
                           </div>
                         )}
                       <div>
-                        <span className="text-[var(--muted-foreground)]">Team Based:</span>{" "}
-                        <span className="font-semibold">
-                          {game.teamBased ? "Yes" : "No"}
-                        </span>
-                      </div>
-                      <div>
                         <span className="text-[var(--muted-foreground)]">Status:</span>{" "}
                         <span className="font-semibold">
                           {game.status || "Active"}

@@ -3,9 +3,47 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
-import { ClipboardList, Search } from "lucide-react";
+import { ClipboardList, Search, ChevronDown, ChevronRight } from "lucide-react";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
+
+const DEFAULT_SECTIONS = { games: true, players: false, teams: false };
+
+function CollapsibleSection({ title, count, isOpen, onToggle, hasItems, emptyMessage, children }) {
+  return (
+    <div className="mt-6">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between rounded-2xl border border-[var(--border-color)] bg-[var(--background)] px-4 py-3 text-left transition hover:border-[var(--accent-color)]"
+      >
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          {title}
+          <span className="rounded-full bg-[var(--secondary-color)] px-2 py-0.5 text-xs font-normal text-muted-foreground">
+            {count}
+          </span>
+        </span>
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="mt-3">
+          {hasItems ? (
+            children
+          ) : (
+            <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
+              {emptyMessage}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminAllTournamentsPage() {
   const [tournaments, setTournaments] = useState([]);
@@ -15,6 +53,8 @@ export default function AdminAllTournamentsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(new Set());
+  const [sectionOpen, setSectionOpen] = useState({});
 
   const handleStatusChange = async (tournamentId, newStatus) => {
     setUpdatingId(tournamentId);
@@ -108,6 +148,47 @@ export default function AdminAllTournamentsPage() {
     });
   }, [tournaments, search, statusFilter]);
 
+  const toggleTournament = (id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+
+    setSectionOpen((prev) =>
+      prev[id] ? prev : { ...prev, [id]: DEFAULT_SECTIONS }
+    );
+  };
+
+  const toggleSection = (id, section) => {
+    setSectionOpen((prev) => {
+      const current = prev[id] || DEFAULT_SECTIONS;
+      return {
+        ...prev,
+        [id]: { ...current, [section]: !current[section] },
+      };
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedIds(new Set(filteredTournaments.map((t) => t._id)));
+    setSectionOpen((prev) => {
+      const next = { ...prev };
+      filteredTournaments.forEach((t) => {
+        if (!next[t._id]) {
+          next[t._id] = DEFAULT_SECTIONS;
+        }
+      });
+      return next;
+    });
+  };
+
+  const collapseAll = () => setExpandedIds(new Set());
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -146,6 +227,32 @@ export default function AdminAllTournamentsPage() {
         </div>
       </div>
 
+      {!loading && filteredTournaments.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredTournaments.length} tournament
+            {filteredTournaments.length === 1 ? "" : "s"}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={expandAll}
+              className="rounded-full border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent-color)]"
+            >
+              Expand all
+            </button>
+            <button
+              type="button"
+              onClick={collapseAll}
+              className="rounded-full border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent-color)]"
+            >
+              Collapse all
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-3xl border border-[var(--border-color)] bg-[var(--card-background)] p-8 text-center text-muted-foreground">
           Loading tournaments and teams...
@@ -155,31 +262,51 @@ export default function AdminAllTournamentsPage() {
           No tournaments found for the selected filters.
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {filteredTournaments.map((tournament) => {
             const tournamentTeams = groupedTeams[tournament._id] || [];
             const tournamentRegistrations =
               groupedRegistrations[tournament._id] || [];
+            const tournamentGames = tournament.games || [];
+            const isExpanded = expandedIds.has(tournament._id);
+            const sections = sectionOpen[tournament._id] || DEFAULT_SECTIONS;
 
             return (
               <section
                 key={tournament._id}
-                className="rounded-3xl border border-[var(--border-color)] bg-[var(--card-background)] p-6 shadow-sm"
+                className="rounded-3xl border border-[var(--border-color)] bg-[var(--card-background)] shadow-sm"
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Tournament</p>
-                    <h2 className="text-2xl font-semibold text-foreground">{tournament.name}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {tournament.location} • {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => toggleTournament(tournament._id)}
+                  className="flex w-full flex-col gap-4 p-6 text-left sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-start gap-3">
+                    {isExpanded ? (
+                      <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+                    )}
+
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Tournament</p>
+                      <h2 className="text-2xl font-semibold text-foreground">{tournament.name}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {tournament.location} • {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <div
+                    className="flex flex-wrap items-center gap-2 text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <span className="rounded-full bg-[var(--secondary-color)] px-3 py-1 text-[var(--foreground)]">
                       {tournament.status || "N/A"}
                     </span>
+                    <span className="text-muted-foreground">{tournamentGames.length} game{tournamentGames.length === 1 ? "" : "s"}</span>
                     <span className="text-muted-foreground">{tournamentTeams.length} team{tournamentTeams.length === 1 ? "" : "s"}</span>
+                    <span className="text-muted-foreground">{tournamentRegistrations.length} registrant{tournamentRegistrations.length === 1 ? "" : "s"}</span>
 
                     <select
                       value={tournament.status || ""}
@@ -194,162 +321,155 @@ export default function AdminAllTournamentsPage() {
                       <option value="completed">Completed</option>
                     </select>
                   </div>
-                </div>
+                </button>
 
-                <div className="mt-6 space-y-3">
-                  <h3 className="text-lg font-medium text-foreground">
-                    Games &amp; Schedule
-                  </h3>
+                {isExpanded && (
+                  <div className="border-t border-[var(--border-color)] px-6 pb-6">
+                    <CollapsibleSection
+                      title="Games & Schedule"
+                      count={tournamentGames.length}
+                      isOpen={sections.games}
+                      onToggle={() => toggleSection(tournament._id, "games")}
+                      hasItems={tournamentGames.length > 0}
+                      emptyMessage="No games have been added to this tournament yet."
+                    >
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {[...tournamentGames]
+                          .sort(compareByScheduledAt)
+                          .map((game, index) => (
+                            <div
+                              key={game._id || index}
+                              className="rounded-2xl border border-[var(--border-color)] bg-[var(--background)] p-4"
+                            >
+                              <p className="font-semibold text-[var(--foreground)]">
+                                <span className="text-muted-foreground">Game {index + 1}:</span>{" "}
+                                {game.game?.name || "Unnamed Game"}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                ${game.entryFee ?? 0} •{" "}
+                                {game.tournamentTeamType === "double_player"
+                                  ? "Double player"
+                                  : "Single player"}
+                              </p>
+                              <GameScheduleBadge
+                                value={game.scheduledAt}
+                                variant="stacked"
+                                className="mt-3"
+                              />
+                            </div>
+                          ))}
+                      </div>
+                    </CollapsibleSection>
 
-                  {tournament.games?.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {[...tournament.games]
-                        .sort(compareByScheduledAt)
-                        .map((game, index) => (
+                    <CollapsibleSection
+                      title="Registered Players"
+                      count={tournamentRegistrations.length}
+                      isOpen={sections.players}
+                      onToggle={() => toggleSection(tournament._id, "players")}
+                      hasItems={tournamentRegistrations.length > 0}
+                      emptyMessage="No players have registered for this tournament yet."
+                    >
+                      <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium">Player</th>
+                              <th className="px-4 py-2 text-left font-medium">Email</th>
+                              <th className="px-4 py-2 text-left font-medium">Game(s)</th>
+                              <th className="px-4 py-2 text-left font-medium">Team</th>
+                              <th className="px-4 py-2 text-left font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-[var(--background)] text-[var(--foreground)]">
+                            {tournamentRegistrations.map((registration) => {
+                              const team = tournamentTeams.find(
+                                (t) =>
+                                  t._id ===
+                                  (registration.gameRegistrationDetails?.team?._id ||
+                                    registration.gameRegistrationDetails?.team)
+                              );
+
+                              return (
+                                <tr
+                                  key={registration._id}
+                                  className="border-t border-[var(--border-color)]"
+                                >
+                                  <td className="px-4 py-2">
+                                    {registration.user?.username ||
+                                      `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||
+                                      "-"}
+                                  </td>
+                                  <td className="px-4 py-2">{registration.user?.email || "-"}</td>
+                                  <td className="px-4 py-2">
+                                    {registration.gameRegistrationDetails?.games
+                                      ?.map((g) => g.name)
+                                      .join(", ") || "-"}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    {team ? team.name : "Not teamed up yet"}
+                                  </td>
+                                  <td className="px-4 py-2 capitalize">
+                                    {registration.gameRegistrationDetails?.status || "pending"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CollapsibleSection>
+
+                    <CollapsibleSection
+                      title="Teams"
+                      count={tournamentTeams.length}
+                      isOpen={sections.teams}
+                      onToggle={() => toggleSection(tournament._id, "teams")}
+                      hasItems={tournamentTeams.length > 0}
+                      emptyMessage="No teams registered for this tournament yet."
+                    >
+                      <div className="space-y-4">
+                        {tournamentTeams.map((team) => (
                           <div
-                            key={game._id || index}
-                            className="rounded-2xl border border-[var(--border-color)] bg-[var(--background)] p-4"
+                            key={team._id}
+                            className="rounded-3xl border border-[var(--border-color)] bg-[var(--background)] p-4"
                           >
-                            <p className="font-semibold text-[var(--foreground)]">
-                              <span className="text-muted-foreground">Game {index + 1}:</span>{" "}
-                              {game.game?.name || "Unnamed Game"}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              ${game.entryFee ?? 0} •{" "}
-                              {game.tournamentTeamType === "double_player"
-                                ? "Double player"
-                                : "Single player"}
-                            </p>
-                            <GameScheduleBadge
-                              value={game.scheduledAt}
-                              variant="stacked"
-                              className="mt-3"
-                            />
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="font-semibold text-[var(--foreground)]">{team.name}</p>
+                                <p className="text-sm text-muted-foreground">Game: {team.game?.name || "N/A"}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">Serial: {team.serialNo}</p>
+                            </div>
+
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Members</p>
+                                <p className="mt-2 text-sm text-[var(--foreground)]">
+                                  {team.members?.length > 0
+                                    ? team.members
+                                        .map(
+                                          (member) =>
+                                            member.username || `${member.firstname || ""} ${member.lastname || ""}`
+                                        )
+                                        .join(", ")
+                                    : "No members"
+                                  }
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Created by</p>
+                                <p className="mt-2 text-sm text-[var(--foreground)]">
+                                  {team.createdBy?.username || `${team.createdBy?.firstname || ""} ${team.createdBy?.lastname || ""}` || "N/A"}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
-                      No games have been added to this tournament yet.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-foreground">Registered Players</h3>
-                    <span className="text-sm text-muted-foreground">
-                      {tournamentRegistrations.length} registrant
-                      {tournamentRegistrations.length === 1 ? "" : "s"}
-                    </span>
+                      </div>
+                    </CollapsibleSection>
                   </div>
-
-                  {tournamentRegistrations.length > 0 ? (
-                    <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
-                          <tr>
-                            <th className="px-4 py-2 text-left font-medium">Player</th>
-                            <th className="px-4 py-2 text-left font-medium">Email</th>
-                            <th className="px-4 py-2 text-left font-medium">Game(s)</th>
-                            <th className="px-4 py-2 text-left font-medium">Team</th>
-                            <th className="px-4 py-2 text-left font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-[var(--background)] text-[var(--foreground)]">
-                          {tournamentRegistrations.map((registration) => {
-                            const team = tournamentTeams.find(
-                              (t) =>
-                                t._id ===
-                                (registration.gameRegistrationDetails?.team?._id ||
-                                  registration.gameRegistrationDetails?.team)
-                            );
-
-                            return (
-                              <tr
-                                key={registration._id}
-                                className="border-t border-[var(--border-color)]"
-                              >
-                                <td className="px-4 py-2">
-                                  {registration.user?.username ||
-                                    `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||
-                                    "-"}
-                                </td>
-                                <td className="px-4 py-2">{registration.user?.email || "-"}</td>
-                                <td className="px-4 py-2">
-                                  {registration.gameRegistrationDetails?.games
-                                    ?.map((g) => g.name)
-                                    .join(", ") || "-"}
-                                </td>
-                                <td className="px-4 py-2">
-                                  {team ? team.name : "Not teamed up yet"}
-                                </td>
-                                <td className="px-4 py-2 capitalize">
-                                  {registration.gameRegistrationDetails?.status || "pending"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
-                      No players have registered for this tournament yet.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <h3 className="text-lg font-medium text-foreground">Teams</h3>
-
-                  {tournamentTeams.length > 0 ? (
-                    <div className="space-y-4">
-                      {tournamentTeams.map((team) => (
-                        <div
-                          key={team._id}
-                          className="rounded-3xl border border-[var(--border-color)] bg-[var(--background)] p-4"
-                        >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                              <p className="font-semibold text-[var(--foreground)]">{team.name}</p>
-                              <p className="text-sm text-muted-foreground">Game: {team.game?.name || "N/A"}</p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">Serial: {team.serialNo}</p>
-                          </div>
-
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-muted-foreground">Members</p>
-                              <p className="mt-2 text-sm text-[var(--foreground)]">
-                                {team.members?.length > 0
-                                  ? team.members
-                                      .map(
-                                        (member) =>
-                                          member.username || `${member.firstname || ""} ${member.lastname || ""}`
-                                      )
-                                      .join(", ")
-                                  : "No members"
-                                }
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-xs uppercase tracking-wide text-muted-foreground">Created by</p>
-                              <p className="mt-2 text-sm text-[var(--foreground)]">
-                                {team.createdBy?.username || `${team.createdBy?.firstname || ""} ${team.createdBy?.lastname || ""}` || "N/A"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
-                      No teams registered for this tournament yet.
-                    </p>
-                  )}
-                </div>
+                )}
               </section>
             );
           })}

@@ -30,11 +30,17 @@ export const GET = asyncHandler(async (req) => {
   const tournament = await Tournament.findById(tournamentId).lean();
   if (!tournament) throw new ApiError(404, "Tournament not found");
 
-  const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
+  // gameId here is the specific scheduled instance (Tournament.games[]._id),
+  // not the catalog game id.
+  const gameConfig = tournament.games.find((g) => g._id.toString() === gameId);
   if (!gameConfig) throw new ApiError(404, "Game not found in this tournament");
 
-  const query = { status: "accepted", tournament: tournamentId, gameId };
-  if (mode) query.mode = mode;
+  const query = {
+    status: "accepted",
+    tournament: tournamentId,
+    gameId,
+    mode: mode || { $in: ["doubles", "mixed_doubles"] },
+  };
 
   const acceptedPairs = await TeamUp.find(query)
     .populate("from", "firstname lastname username gender")

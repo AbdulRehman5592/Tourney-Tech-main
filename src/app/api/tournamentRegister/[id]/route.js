@@ -16,19 +16,30 @@ export const PATCH = asyncHandler(async (req, context) => {
   const { fields } = await parseForm(req);
 
   const status = fields.status?.toString();
+  const adminNote = fields.adminNote?.toString();
 
-  if (!["pending", "approved", "rejected"].includes(status)) {
+  if (status !== undefined && !["pending", "approved", "rejected"].includes(status)) {
     return Response.json(new ApiResponse(400, null, "Invalid status value"));
   }
+  if (status === undefined && adminNote === undefined) {
+    return Response.json(new ApiResponse(400, null, "Nothing to update"));
+  }
 
-  const registration = await Registration.findByIdAndUpdate(
-    id,
-    {
-      "gameRegistrationDetails.status": status,
-      "gameRegistrationDetails.paid": status === "approved",
-    },
-    { new: true }
-  )
+  const update = {};
+  if (status !== undefined) {
+    update["gameRegistrationDetails.status"] = status;
+    update["gameRegistrationDetails.paid"] = status === "approved";
+  }
+  // Admin's private note (e.g. "paid Sarah cash at check-in") -- independent
+  // of status so it can be jotted down without also having to touch the
+  // approve/reject decision.
+  if (adminNote !== undefined) {
+    update["gameRegistrationDetails.adminNote"] = adminNote;
+  }
+
+  const registration = await Registration.findByIdAndUpdate(id, update, {
+    new: true,
+  })
     .populate("tournament")
     .populate("user", "username email")
     .populate("gameRegistrationDetails.games")

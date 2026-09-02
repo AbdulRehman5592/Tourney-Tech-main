@@ -4,7 +4,18 @@ import { useState } from "react";
 import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 
+// Games relevant to the chosen purpose only -- Team Up (forms the real
+// roster team) and Doubles (side-pot overlay) are isolated processes.
+function gamesForPurpose(games, purpose) {
+  return (games || []).filter((g) =>
+    purpose === "team"
+      ? g.tournamentTeamType === "double_player"
+      : g.doublesEnabled || g.mixedDoublesEnabled
+  );
+}
+
 export default function InviteFriendModal({ tournaments, onClose }) {
+  const [purpose, setPurpose] = useState("");
   const [tournamentId, setTournamentId] = useState("");
   const [gameId, setGameId] = useState("");
   const [mode, setMode] = useState("");
@@ -12,17 +23,27 @@ export default function InviteFriendModal({ tournaments, onClose }) {
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState("");
 
-  const tournament = tournaments.find((t) => t._id === tournamentId);
+  const purposeTournaments = purpose
+    ? tournaments
+        .map((t) => ({ ...t, games: gamesForPurpose(t.games, purpose) }))
+        .filter((t) => t.games.length > 0)
+    : [];
+  const tournament = purposeTournaments.find((t) => t._id === tournamentId);
   const gameData = (tournament?.games || []).find((g) => g._id === gameId);
 
   const handleGenerate = async () => {
-    if (!tournamentId || !gameId || !mode) {
+    if (!purpose) {
+      toast.error("Please choose Team Up or Doubles first.");
+      return;
+    }
+    if (!tournamentId || !gameId || (purpose === "doubles" && !mode)) {
       toast.error("Please select tournament, game and doubles type.");
       return;
     }
+    const effectiveMode = purpose === "team" ? "team" : mode;
     try {
       setLoading(true);
-      const res = await api.post("/api/invites", { tournamentId, gameId, mode, message });
+      const res = await api.post("/api/invites", { tournamentId, gameId, mode: effectiveMode, message });
       const token = res.data?.data?.invite?.token;
       setLink(`${window.location.origin}/invite/${token}`);
     } catch (err) {
@@ -71,21 +92,38 @@ export default function InviteFriendModal({ tournaments, onClose }) {
             </p>
 
             <select
-              value={tournamentId}
+              value={purpose}
               onChange={(e) => {
-                setTournamentId(e.target.value);
+                setPurpose(e.target.value);
+                setTournamentId("");
                 setGameId("");
                 setMode("");
               }}
               className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)]"
             >
-              <option value="">Select Tournament</option>
-              {tournaments.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.name}
-                </option>
-              ))}
+              <option value="">Inviting for Team Up or Doubles?</option>
+              <option value="team">Team Up (form your team)</option>
+              <option value="doubles">Doubles / Mixed Doubles (side pot)</option>
             </select>
+
+            {purpose && (
+              <select
+                value={tournamentId}
+                onChange={(e) => {
+                  setTournamentId(e.target.value);
+                  setGameId("");
+                  setMode("");
+                }}
+                className="w-full p-2 rounded-lg bg-[var(--card-background)] border border-[var(--border-color)]"
+              >
+                <option value="">Select Tournament</option>
+                {purposeTournaments.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {tournament && (
               <select
@@ -105,7 +143,7 @@ export default function InviteFriendModal({ tournaments, onClose }) {
               </select>
             )}
 
-            {gameData && (
+            {purpose === "doubles" && gameData && (
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}

@@ -24,6 +24,11 @@ export default function GameRegistrationPage() {
   });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  // Confirm-before-submit step -- registrations always start "pending" and
+  // unpaid on the backend regardless of what's picked here, so this is the
+  // one place we get to make sure the player actually paid before the admin
+  // has to find out (and reject) the hard way.
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -37,10 +42,14 @@ export default function GameRegistrationPage() {
         );
         const registrationData = res.data;
 
-        const myRegisteredGames =
-          myRegistration?.data?.data?.gameRegistrationDetails?.games || [];
+        // Which specific scheduled slot(s) this player already registered
+        // for -- keyed by gameConfigId (Tournament.games[]._id), not the
+        // catalog game id, since the same game can be scheduled more than
+        // once as fully independent competitions.
+        const myRegisteredGameConfigIds =
+          myRegistration?.data?.data?.gameRegistrationDetails?.gameConfigIds || [];
         setRegisteredGameIds(
-          myRegisteredGames.map((g) => (g?._id ? g._id : g).toString())
+          myRegisteredGameConfigIds.map((id) => id.toString())
         );
 
         // Registered games -- earliest scheduled first, TBA last
@@ -49,7 +58,7 @@ export default function GameRegistrationPage() {
         );
         setGames(
           registeredGames.map((g) => ({
-            _id: g?.game?._id,
+            _id: g?._id,
             name: g?.game?.name,
             scheduledAt: g?.scheduledAt,
           }))
@@ -58,7 +67,7 @@ export default function GameRegistrationPage() {
         // Tournament games details
         setTournamentGames(
           registeredGames.map((g) => ({
-            _id: g.game?._id,
+            _id: g._id,
             entryFee: g.entryFee,
             scheduledAt: g.scheduledAt,
             format: g.format,
@@ -82,11 +91,32 @@ export default function GameRegistrationPage() {
     fetchData();
   }, [tournamentId]);
 
-  const handleSubmit = async (e) => {
+  // Live running total for whatever's currently checked -- shown next to the
+  // game list and again in the confirmation step so the player always knows
+  // exactly what they're committing to pay.
+  const selectedGameDetails = formData.game
+    .map((gameId) => tournamentGames.find((g) => g._id === gameId))
+    .filter(Boolean);
+  const totalFee = selectedGameDetails.reduce(
+    (sum, g) => sum + (Number(g.entryFee) || 0),
+    0
+  );
+
+  const openConfirm = (e) => {
     e.preventDefault();
     if (!tournamentId) return toast.error("Tournament ID is required!");
     if (!formData.game.length) return toast.error("Select at least one game!");
+    if (!formData.paymentType) return toast.error("Select a payment method!");
+    if (
+      formData.paymentType === "online" &&
+      (!formData.bankAccount || !formData.accountName || !formData.transactionId)
+    ) {
+      return toast.error("Fill in all online payment details!");
+    }
+    setShowConfirm(true);
+  };
 
+  const handleSubmit = async () => {
     try {
       setLoading(true);
       const payload = {
@@ -118,6 +148,7 @@ export default function GameRegistrationPage() {
         transactionId: "",
         accountName: "",
       });
+      setShowConfirm(false);
     } catch (err) {
       console.error("Error submitting registration:", err);
       toast.error(err.response?.data?.message || "Registration failed.");
@@ -143,7 +174,7 @@ export default function GameRegistrationPage() {
         Tournament Registration
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={openConfirm} className="space-y-5">
         {/* Game Selection with Checkboxes */}
         <div>
           <label
@@ -219,7 +250,7 @@ export default function GameRegistrationPage() {
                   {games.find((g) => g._id === game._id)?.name}
                 </p>
                 <p>
-                  <strong>Entry Fee:</strong> {game.entryFee}
+                  <strong>Entry Fee:</strong> ${game.entryFee ?? 0}
                 </p>
 
                 <GameScheduleBadge
@@ -239,6 +270,25 @@ export default function GameRegistrationPage() {
               </div>
             );
           })}
+
+          {/* Running total -- updates live as games are checked/unchecked so
+              the player always sees what they'll owe before they even get to
+              payment method. */}
+          {selectedGameDetails.length > 0 && (
+            <div
+              className="mt-3 flex items-center justify-between rounded-lg px-3 py-2 font-semibold"
+              style={{
+                background: "var(--accent-color)",
+                color: "var(--background)",
+              }}
+            >
+              <span>
+                Total for {selectedGameDetails.length} game
+                {selectedGameDetails.length === 1 ? "" : "s"}
+              </span>
+              <span>${totalFee}</span>
+            </div>
+          )}
         </div>
 
         {/* Payment Method */}
@@ -364,6 +414,95 @@ export default function GameRegistrationPage() {
           {loading ? "Registering..." : "Register"}
         </button>
       </form>
+
+      {/* Confirm-you've-paid step -- registration is submitted as "pending,
+          unpaid" either way, so this is the last chance to make sure the
+          player isn't about to get rejected for a payment that never
+          happened. */}
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !loading && setShowConfirm(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6 shadow-lg"
+            style={{
+              background: "var(--card-background)",
+              border: "1px solid var(--border-color)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              className="text-lg font-bold mb-3"
+              style={{ color: "var(--accent-color)" }}
+            >
+              Confirm Your Payment
+            </h3>
+
+            <div
+              className="mb-4 space-y-1 rounded-lg p-3 text-sm"
+              style={{
+                background: "var(--secondary-color)",
+                color: "var(--foreground)",
+              }}
+            >
+              {selectedGameDetails.map((g) => (
+                <div key={g._id} className="flex justify-between">
+                  <span>{games.find((game) => game._id === g._id)?.name}</span>
+                  <span>${g.entryFee ?? 0}</span>
+                </div>
+              ))}
+              <div
+                className="mt-2 flex justify-between border-t pt-2 font-bold"
+                style={{ borderColor: "var(--border-color)" }}
+              >
+                <span>Total</span>
+                <span>${totalFee}</span>
+              </div>
+              <p className="pt-1 text-xs opacity-75 capitalize">
+                Paying via {formData.paymentType}
+                {formData.paymentType === "online" &&
+                  ` — ${bankAccounts.find((b) => b._id === formData.bankAccount)?.bankName || ""}, txn ${formData.transactionId}`}
+              </p>
+            </div>
+
+            <p
+              className="mb-5 text-sm"
+              style={{ color: "var(--foreground)" }}
+            >
+              By confirming, you're stating that you have already paid{" "}
+              <strong>${totalFee}</strong> for the game(s) above. Your
+              registration will be marked <strong>pending</strong> until the
+              tournament admin verifies it —{" "}
+              <span style={{ color: "var(--error-color)" }}>
+                if payment wasn't actually made, the admin will reject this
+                registration.
+              </span>
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 rounded-lg border py-2 px-4 font-semibold disabled:opacity-50"
+                style={{ borderColor: "var(--border-color)", color: "var(--foreground)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleSubmit}
+                className="flex-1 rounded-lg py-2 px-4 font-semibold disabled:opacity-50"
+                style={{ background: "var(--accent-color)", color: "black" }}
+              >
+                {loading ? "Registering..." : "Yes, I've Paid — Register"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
