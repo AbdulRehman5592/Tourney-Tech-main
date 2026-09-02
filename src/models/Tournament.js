@@ -9,6 +9,15 @@ const TournamentGameSchema = new Schema({
   // created before scheduling existed -- and drafts still being planned -- stay
   // valid; the UI shows "Schedule TBA" when it's unset.
   scheduledAt: { type: Date },
+  // Free-text label for this specific scheduled slot/round (e.g. "Morning
+  // Session", "Round 1 Finals") -- distinct from the game itself. Enforced as
+  // required at the API layer (not here) so saving any one game on an
+  // existing tournament doesn't fail whole-document validation over older
+  // sibling games that predate this field.
+  eventTitle: { type: String, trim: true },
+  // Where this game is played. Usually one room/court, but a game can span
+  // several (e.g. multiple courts running the same round at once).
+  locations: { type: [String], default: [] },
   format: {
     type: String,
     enum: [

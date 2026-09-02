@@ -2,11 +2,12 @@
 
 import { Tournament } from "@/models/Tournament";
 import { TeamUp } from "@/models/TeamUp";
+import { Team } from "@/models/Team";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
-import { validateAcceptedPairing } from "@/utils/server/teamup";
+import { validateAcceptedPairing, createTeamForAcceptedTeamUp } from "@/utils/server/teamup";
 
 export const PATCH = asyncHandler(async (req, context) => {
   const user = await requireAuth();
@@ -39,20 +40,32 @@ export const PATCH = asyncHandler(async (req, context) => {
       throw new ApiResponse(400, null, "Tournament not found");
     }
 
-    // Snapshot the pair's cost at accept time (owed by `from`, the requestor)
-    // and initialize payment tracking. Doubles is a scoring overlay only --
-    // no Team/TeamMember gets created; paired players keep playing their own
-    // solo matches in the bracket untouched.
-    const { costOwed, payment } = await validateAcceptedPairing({
-      tournament,
-      gameId: request.gameId,
-      mode: request.mode,
-      fromUser: request.from,
-      toUser: request.to,
-      excludeRequestId: request._id,
-    });
-    request.costOwed = costOwed;
-    request.payment = payment;
+    if (request.mode === "team") {
+      // Team Up has its own isolated result: accepting it forms the real
+      // roster Team, not a scoring overlay. No cost/payment involved.
+      const team = await createTeamForAcceptedTeamUp({
+        tournament,
+        gameId: request.gameId,
+        fromUser: request.from,
+        toUser: request.to,
+      });
+      request.team = team._id;
+    } else {
+      // Snapshot the pair's cost at accept time (owed by `from`, the requestor)
+      // and initialize payment tracking. Doubles is a scoring overlay only --
+      // no Team/TeamMember gets created; paired players keep playing their own
+      // solo matches in the bracket untouched.
+      const { costOwed, payment } = await validateAcceptedPairing({
+        tournament,
+        gameId: request.gameId,
+        mode: request.mode,
+        fromUser: request.from,
+        toUser: request.to,
+        excludeRequestId: request._id,
+      });
+      request.costOwed = costOwed;
+      request.payment = payment;
+    }
   }
 
   request.status = status;
@@ -85,6 +98,12 @@ export const DELETE = asyncHandler(async (_, context) => {
     request.to.toString() !== user._id.toString()
   ) {
     throw new ApiResponse(403, null, "Not authorized to delete this request");
+  }
+
+  // Dropping an accepted Team Up partner disbands the roster Team it created
+  // -- doubles/mixed_doubles never created one, so there's nothing to unwind.
+  if (request.mode === "team" && request.team) {
+    await Team.findByIdAndDelete(request.team);
   }
 
   await request.deleteOne();

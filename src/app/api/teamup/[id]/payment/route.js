@@ -34,6 +34,9 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (request.status !== "accepted") {
     throw new ApiResponse(400, null, "Payment can only be submitted for an accepted pair");
   }
+  if (request.mode === "team") {
+    throw new ApiResponse(400, null, "Payment does not apply to Team Up requests");
+  }
 
   request.payment = {
     ...request.payment.toObject(),

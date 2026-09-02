@@ -1,6 +1,7 @@
 import { Trash2, Pencil } from "lucide-react";
 import { useState, useMemo } from "react";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
+import { compareByScheduledAt } from "@/utils/gameSchedule";
 
 export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +69,12 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                 </td>
               </tr>
             ) : (
-              currentTournaments.map((t, i) => (
+              currentTournaments.map((t, i) => {
+                const sortedGames = Array.isArray(t.games)
+                  ? [...t.games].sort(compareByScheduledAt)
+                  : [];
+
+                return (
                 <tr key={t._id} className="border-b border-gray-700">
                   <td className="p-3">
                     {(currentPage - 1) * itemsPerPage + i + 1}
@@ -95,11 +101,11 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                   <td className="p-3 capitalize text-yellow-300">{t.status}</td>
                 
                   <td className="p-3 align-top">
-                    {Array.isArray(t.games) && t.games.length > 0 ? (
+                    {sortedGames.length > 0 ? (
                       <div className="flex flex-col gap-1.5">
-                        {t.games.map((g, i) => (
+                        {sortedGames.map((g, i) => (
                           <div
-                            key={i}
+                            key={g._id || i}
                             className="flex min-h-[46px] flex-col gap-1"
                           >
                             <span className="bg-gray-700 text-xs px-2 py-1 rounded self-start">
@@ -117,13 +123,13 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                     )}
                   </td>
                    <td className="p-3 align-top">
-                    {Array.isArray(t.games) && t.games.length > 0 ? (
+                    {sortedGames.length > 0 ? (
                       <div className="flex flex-col gap-1.5">
-                        {t.games.map((g, i) => (
+                        {sortedGames.map((g, i) => (
                           // min-height keeps each fee lined up with its
                           // two-line game + schedule block in the column before
                           <span
-                            key={i}
+                            key={g._id || i}
                             className="flex min-h-[46px] items-start text-xs whitespace-nowrap"
                           >
                             ${g.entryFee ?? 0}
@@ -151,7 +157,8 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

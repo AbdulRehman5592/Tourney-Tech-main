@@ -56,12 +56,12 @@ export const POST = asyncHandler(async (req, context) => {
 
   const round1Matches = await Match.find({
     tournament: tournamentId,
-    game: gameConfig.game,
+    gameConfigId,
     stage: "round1",
   });
   const teams = await Team.find({
     tournament: tournamentId,
-    game: gameConfig.game,
+    gameConfigId,
   });
 
   // Mesh tallies standings the same flat way as round robin (no pools) --
@@ -132,7 +132,7 @@ export const POST = asyncHandler(async (req, context) => {
 
   const existingCount = await Match.countDocuments({
     tournament: tournamentId,
-    game: gameConfig.game,
+    gameConfigId,
   });
   let matchNumber = existingCount + 1;
 
@@ -141,6 +141,7 @@ export const POST = asyncHandler(async (req, context) => {
     const match = await Match.create({
       tournament: tournamentId,
       game: gameConfig.game,
+      gameConfigId,
       matchNumber: matchNumber++,
       admin: user._id,
       ...m,

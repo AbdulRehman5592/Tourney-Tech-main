@@ -9,6 +9,12 @@ import { ApiError } from "@/utils/server/ApiError";
 // (which can create the account first). Keeping it in one place means both
 // entry points apply the same duplicate, payment and validation rules.
 //
+// `gameIds` here means "which specific scheduled slot(s)" -- i.e. each value
+// must be a Tournament.games[]._id (gameConfigId), NOT the catalog Game id.
+// The same catalog game can be scheduled more than once in a tournament as
+// fully independent competitions (different time/entry fee/format), so the
+// subdocument id is the only thing that actually identifies "which one".
+//
 // Throws ApiError on bad input; returns { registration, created }.
 export async function createOrUpdateRegistration({
   tournamentId,
@@ -21,13 +27,13 @@ export async function createOrUpdateRegistration({
     throw new ApiError(400, "Tournament ID and User ID are required.");
   }
 
-  const normalizedGameIds = Array.isArray(gameIds)
+  const normalizedGameConfigIds = Array.isArray(gameIds)
     ? gameIds
     : gameIds
       ? [gameIds]
       : [];
 
-  if (!normalizedGameIds.length) {
+  if (!normalizedGameConfigIds.length) {
     throw new ApiError(400, "At least one Game ID is required.");
   }
 
@@ -37,13 +43,6 @@ export async function createOrUpdateRegistration({
   ) {
     throw new ApiError(400, "Invalid Tournament ID or User ID.");
   }
-
-  const validGameIds = normalizedGameIds.map((gameId) => {
-    if (!gameId || !mongoose.isValidObjectId(gameId)) {
-      throw new ApiError(400, `Game ID ${gameId} is invalid.`);
-    }
-    return new mongoose.Types.ObjectId(gameId);
-  });
 
   const tournament = await Tournament.findById(tournamentId);
   if (!tournament) {
@@ -55,18 +54,35 @@ export async function createOrUpdateRegistration({
     throw new ApiError(404, "User not found.");
   }
 
+  // Resolve + validate each requested slot against the tournament's actual
+  // games[] -- each id must be a real scheduled instance, not just any
+  // ObjectId (and definitely not a catalog Game id).
+  const resolvedSlots = normalizedGameConfigIds.map((id) => {
+    if (!id || !mongoose.isValidObjectId(id)) {
+      throw new ApiError(400, `Game ID ${id} is invalid.`);
+    }
+    const slot = tournament.games.id(id);
+    if (!slot) {
+      throw new ApiError(404, `Game ${id} not found in this tournament.`);
+    }
+    return slot;
+  });
+
+  const validGameConfigIds = resolvedSlots.map((s) => s._id);
+  const validCatalogGameIds = resolvedSlots.map((s) => s.game);
+
   const existingRegistration = await Registration.findOne({
     tournament: tournamentId,
     user: userId,
   });
 
   if (existingRegistration) {
-    const existingGames = (
-      existingRegistration.gameRegistrationDetails?.games || []
-    ).map((game) => game.toString());
-    const requestedGames = validGameIds.map((gameId) => gameId.toString());
-    const allRequestedAlreadyRegistered = requestedGames.every((gameId) =>
-      existingGames.includes(gameId)
+    const existingConfigIds = (
+      existingRegistration.gameRegistrationDetails?.gameConfigIds || []
+    ).map((id) => id.toString());
+    const requestedConfigIds = validGameConfigIds.map((id) => id.toString());
+    const allRequestedAlreadyRegistered = requestedConfigIds.every((id) =>
+      existingConfigIds.includes(id)
     );
 
     if (allRequestedAlreadyRegistered) {
@@ -78,16 +94,23 @@ export async function createOrUpdateRegistration({
 
     // Merge with previously registered games instead of overwriting them,
     // so registering for game 2 doesn't drop the earlier game 1 record.
-    const mergedGameIds = [
-      ...existingRegistration.gameRegistrationDetails.games,
-      ...validGameIds.filter((gameId) => !existingGames.includes(gameId.toString())),
+    const newConfigIds = validGameConfigIds.filter(
+      (id) => !existingConfigIds.includes(id.toString())
+    );
+    const mergedConfigIds = [
+      ...existingRegistration.gameRegistrationDetails.gameConfigIds,
+      ...newConfigIds,
     ];
+    const mergedCatalogIds = mergedConfigIds
+      .map((configId) => tournament.games.id(configId)?.game)
+      .filter(Boolean);
 
     const registration = await Registration.findByIdAndUpdate(
       existingRegistration._id,
       {
         gameRegistrationDetails: {
-          games: mergedGameIds,
+          games: mergedCatalogIds,
+          gameConfigIds: mergedConfigIds,
           status: "pending",
           paid: false,
           paymentMethod: paymentMethod || "cash",
@@ -101,7 +124,8 @@ export async function createOrUpdateRegistration({
   }
 
   const gameRegistrationDetails = {
-    games: validGameIds,
+    games: validCatalogGameIds,
+    gameConfigIds: validGameConfigIds,
     status: "pending",
     paid: false,
     paymentMethod: paymentMethod || "cash",

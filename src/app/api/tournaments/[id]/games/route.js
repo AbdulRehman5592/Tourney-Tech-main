@@ -26,6 +26,8 @@ export const POST = asyncHandler(async (req, context) => {
     game,
     entryFee = 0,
     scheduledAt,
+    eventTitle,
+    locations,
     format,
     meshRounds,
     standardRounds,
@@ -46,6 +48,9 @@ export const POST = asyncHandler(async (req, context) => {
   // ✅ Required fields
   if (!game || !format || !tournamentTeamType) {
     throw new ApiError(400, "Missing required fields");
+  }
+  if (!eventTitle || !eventTitle.toString().trim()) {
+    throw new ApiError(400, "Event title is required");
   }
 
   // ✅ Validate enums
@@ -144,6 +149,10 @@ export const POST = asyncHandler(async (req, context) => {
     game,
     entryFee,
     scheduledAt: parsedScheduledAt,
+    eventTitle: eventTitle.toString().trim(),
+    locations: Array.isArray(locations)
+      ? locations.map((l) => l?.toString().trim()).filter(Boolean)
+      : [],
     format,
     meshRounds: format === "mesh" ? Number(meshRounds) : undefined,
     standardDirection: format === "standard" ? standardDirection : undefined,

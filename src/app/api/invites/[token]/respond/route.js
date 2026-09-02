@@ -8,7 +8,7 @@ import { ApiError } from "@/utils/server/ApiError";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
-import { validateAcceptedPairing } from "@/utils/server/teamup";
+import { validateAcceptedPairing, createTeamForAcceptedTeamUp } from "@/utils/server/teamup";
 
 export const POST = asyncHandler(async (req, context) => {
   const user = await requireAuth();
@@ -45,14 +45,27 @@ export const POST = asyncHandler(async (req, context) => {
     return Response.json(new ApiResponse(200, { invite }, "Invite declined"));
   }
 
-  const { costOwed, payment } = await validateAcceptedPairing({
-    tournament: invite.tournament,
-    gameId: invite.gameId,
-    mode: invite.mode,
-    fromUser: invite.inviter,
-    toUser: user,
-    excludeRequestId: null,
-  });
+  let costOwed = 0;
+  let payment;
+  let team = null;
+
+  if (invite.mode === "team") {
+    team = await createTeamForAcceptedTeamUp({
+      tournament: invite.tournament,
+      gameId: invite.gameId,
+      fromUser: invite.inviter,
+      toUser: user,
+    });
+  } else {
+    ({ costOwed, payment } = await validateAcceptedPairing({
+      tournament: invite.tournament,
+      gameId: invite.gameId,
+      mode: invite.mode,
+      fromUser: invite.inviter,
+      toUser: user,
+      excludeRequestId: null,
+    }));
+  }
 
   const teamUp = await TeamUp.create({
     from: invite.inviter._id,
@@ -64,6 +77,7 @@ export const POST = asyncHandler(async (req, context) => {
     status: "accepted",
     costOwed,
     payment,
+    team: team?._id,
   });
 
   invite.status = "accepted";

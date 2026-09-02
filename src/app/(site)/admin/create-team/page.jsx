@@ -31,7 +31,10 @@ export default function TeamForm() {
             value: t._id,
             label: t.name || "Unnamed Tournament",
             games: (t.games || []).map((g) => ({
-              value: g.game?._id,
+              // Keyed by the specific scheduled instance (subdocument id),
+              // not the catalog game id -- the same catalog game can be
+              // scheduled more than once as fully independent competitions.
+              value: g._id,
               label: g.game?.name || "Unknown Game",
               tournamentTeamType: g.tournamentTeamType || "single_player",
             })),
@@ -138,7 +141,7 @@ const handleSubmit = async (e) => {
 
     await api.post("/api/team", {
       tournament: form.tournament.value,
-      game: form.game.value,
+      gameConfigId: form.game.value,
       members: form.members,
     });
 

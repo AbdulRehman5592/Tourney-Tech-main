@@ -28,7 +28,10 @@ export default function GamePlay() {
           );
           const scheduleMap = {};
           (tournamentRes.data?.games || []).forEach((g) => {
-            const id = g.game?._id || g.game;
+            // Keyed by the specific scheduled instance (subdocument id), not
+            // the catalog game id -- the same game can be scheduled more
+            // than once with different times.
+            const id = g._id;
             if (id) scheduleMap[id.toString()] = g.scheduledAt || null;
           });
           setScheduleByGame(scheduleMap);
@@ -66,13 +69,24 @@ export default function GamePlay() {
 
         let myGames;
 
-        // Flatten games
+        // Flatten games -- each entry carries `gameConfigId` (the specific
+        // scheduled instance, Tournament.games[]._id) alongside the catalog
+        // Game fields, since the same catalog game can be scheduled more
+        // than once as fully independent competitions.
         if (Array.isArray(myRegistrations) && myRegistrations.length > 0) {
-          myGames = myRegistrations.flatMap(
-            (reg) => reg.gameRegistrationDetails?.games || []
-          );
+          myGames = myRegistrations.flatMap((reg) => {
+            const regGames = reg.gameRegistrationDetails?.games || [];
+            const gameConfigIds = reg.gameRegistrationDetails?.gameConfigIds || [];
+            return regGames.map((g, i) => ({
+              ...g,
+              gameConfigId: gameConfigIds[i]?.toString(),
+            }));
+          });
         } else {
-          myGames = registrations?.games.flatMap((reg) => reg?.game || []);
+          myGames = (registrations?.games || []).map((entry) => ({
+            ...(entry?.game || {}),
+            gameConfigId: entry?._id?.toString(),
+          }));
         }
 
         setGames(myGames);
@@ -104,8 +118,8 @@ export default function GamePlay() {
 
   const orderedGames = [...games].sort((a, b) =>
     compareByScheduledAt(
-      { scheduledAt: scheduleByGame[a?._id] },
-      { scheduledAt: scheduleByGame[b?._id] }
+      { scheduledAt: scheduleByGame[a?.gameConfigId] },
+      { scheduledAt: scheduleByGame[b?.gameConfigId] }
     )
   );
 
@@ -113,7 +127,7 @@ export default function GamePlay() {
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {orderedGames.map((game) => (
         <div
-          key={game._id}
+          key={game.gameConfigId || game._id}
           className="rounded-2xl shadow-lg border overflow-hidden 
                    hover:scale-[1.02] hover:shadow-2xl transition-transform duration-300"
           style={{
@@ -141,7 +155,7 @@ export default function GamePlay() {
 
               {/* When this game was / is played */}
               <GameScheduleBadge
-                value={scheduleByGame[game._id]}
+                value={scheduleByGame[game.gameConfigId]}
                 variant="stacked"
               />
 
@@ -165,7 +179,7 @@ export default function GamePlay() {
 
             {/* Action Button */}
             <div className="mt-5">
-               <Link href={`/dashboard/game-score/${tournamentId}/scoreBoard/${game._id}`}>
+               <Link href={`/dashboard/game-score/${tournamentId}/scoreBoard/${game.gameConfigId}`}>
             <button
               className="w-full py-2.5 rounded-lg font-semibold transition hover:scale-[1.03] shadow-lg"
               style={{

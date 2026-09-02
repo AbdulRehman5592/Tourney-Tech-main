@@ -99,16 +99,16 @@ export default function AdminRegisterPlayerPage() {
     setFormData((prev) => ({
       ...prev,
       gameIds: prev.gameIds.filter((gameId) =>
-        (tournament?.games || []).some((entry) => {
-          const id = entry?.game?._id || entry?._id;
-          return id === gameId;
-        })
+        (tournament?.games || []).some((entry) => entry?._id === gameId)
       ),
     }));
   }, [formData.tournamentId, tournaments]);
 
+  // Selection is keyed by the specific scheduled instance (Tournament.games[]._id),
+  // not the catalog game id -- the same catalog game can be scheduled more than
+  // once in one tournament as fully independent competitions.
   const tournamentGames = (selectedTournament?.games || []).map((entry) => ({
-    id: entry?.game?._id || entry?._id,
+    id: entry?._id,
     name: entry?.game?.name || entry?.name,
   }));
 

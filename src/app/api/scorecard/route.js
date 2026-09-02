@@ -17,14 +17,17 @@ const DEFAULT_SCORE_FIELDS = [
 export const GET = asyncHandler(async (req) => {
   const { searchParams } = new URL(req.url);
   const tournamentId = searchParams.get("tournamentId");
-  const gameId = searchParams.get("gameId");
+  // The specific scheduled instance (Tournament.games[]._id) -- not the
+  // catalog game id, so two independent competitions sharing a catalog game
+  // never get combined into one scoreboard.
+  const gameConfigId = searchParams.get("gameId");
 
-  if (!tournamentId || !gameId) {
+  if (!tournamentId || !gameConfigId) {
     throw new ApiResponse(400, null, "Tournament ID and Game ID required");
   }
 
   // ✅ Fetch matches
-  const matches = await Match.find({ tournament: tournamentId, game: gameId })
+  const matches = await Match.find({ tournament: tournamentId, gameConfigId })
     .populate([
       {
         path: "teamA",
@@ -51,8 +54,9 @@ export const GET = asyncHandler(async (req) => {
 
   // Resolve this game's score-column layout so the results table can render
   // the same columns as the score-entry form (e.g. Score/Hands/Bostons, or
-  // whatever a custom game type defines).
-  const game = await Game.findById(gameId).select("gameType").lean();
+  // whatever a custom game type defines). `matches[0].game` is the catalog
+  // game id (every match here already shares one, via gameConfigId).
+  const game = await Game.findById(matches[0].game).select("gameType").lean();
   const gameType = game?.gameType
     ? await GameType.findOne({ name: game.gameType }).lean()
     : null;

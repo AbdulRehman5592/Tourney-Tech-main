@@ -1,6 +1,6 @@
 import { Team } from "@/models/Team";
 import { User } from "@/models/User";
-// import { Tournament } from "@/models/Tournament";
+import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
 import { assignTeamNumber } from "@/utils/server/teamNumbering";
 import { ApiResponse } from "@/utils/server/ApiResponse";
@@ -19,17 +19,26 @@ export const POST = asyncHandler(async (req) => {
 
   const { fields } = await parseForm(req);
   const tournamentId = fields.tournamentId?.toString();
-  const gameId = fields.gameId?.toString();
+  // The specific scheduled instance (Tournament.games[]._id), not the
+  // catalog game id -- the same catalog game can be scheduled more than
+  // once in one tournament as fully independent competitions.
+  const gameConfigId = fields.gameId?.toString();
   const partnerIdRaw = fields.partnerId?.toString();
   const teamName = fields.teamName?.toString();
 
-  if (!tournamentId || !gameId) {
+  if (!tournamentId || !gameConfigId) {
     throw new ApiResponse(400, null, "tournamentId and gameId are required");
   }
 
-  if (!isValidObjectId(tournamentId) || !isValidObjectId(gameId)) {
+  if (!isValidObjectId(tournamentId) || !isValidObjectId(gameConfigId)) {
     throw new ApiResponse(400, null, "Invalid tournamentId or gameId");
   }
+
+  const tournamentDoc = await Tournament.findById(tournamentId).select("games");
+  if (!tournamentDoc) throw new ApiResponse(404, null, "Tournament not found");
+  const gameConfig = tournamentDoc.games.id(gameConfigId);
+  if (!gameConfig) throw new ApiResponse(404, null, "Game not found in this tournament");
+  const catalogGameId = gameConfig.game;
 
   let memberIds = [];
 
@@ -78,7 +87,7 @@ export const POST = asyncHandler(async (req) => {
 
   const possibleTeams = await Team.find({
     tournament: tournamentId,
-    game: gameId,
+    gameConfigId,
     createdBy: user?._id,
   });
 
@@ -108,7 +117,7 @@ export const POST = asyncHandler(async (req) => {
 
   const partnerTaken = await Team.findOne({
     tournament: tournamentId,
-    game: gameId,
+    gameConfigId,
     partner: partnerId,
   });
 
@@ -124,12 +133,12 @@ export const POST = asyncHandler(async (req) => {
     Registration.findOne({
       tournament: tournamentId,
       user: user._id,
-      "gameRegistrationDetails.games": gameId,
+      "gameRegistrationDetails.gameConfigIds": gameConfigId,
     }).populate("gameRegistrationDetails.games"),
     Registration.findOne({
       tournament: tournamentId,
       user: partnerId,
-      "gameRegistrationDetails.games": gameId,
+      "gameRegistrationDetails.gameConfigIds": gameConfigId,
     }).populate("gameRegistrationDetails.games"),
   ]);
 
@@ -140,7 +149,7 @@ export const POST = asyncHandler(async (req) => {
       "Both creator and selected partner must be registered for this game in the tournament"
     );
   }
-  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameId}`);
+  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameConfigId}`);
 
   // Region-based team numbering (RR-TTT): creator is primary, partner secondary.
   const [creatorUser, partnerUser] = await Promise.all([
@@ -154,7 +163,8 @@ export const POST = asyncHandler(async (req) => {
 
   const newTeam = await Team.create({
     tournament: new mongoose.Types.ObjectId(tournamentId),
-    game: new mongoose.Types.ObjectId(gameId),
+    game: catalogGameId,
+    gameConfigId,
     members: memberIds,
     partner: partnerId,
     createdBy: user._id,

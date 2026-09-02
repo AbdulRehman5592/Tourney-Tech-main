@@ -25,19 +25,22 @@ export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
   const { fields } = await parseForm(req);
   const tournamentId = fields.tournamentId?.toString();
-  const gameId = fields.gameId?.toString();
+  // The specific scheduled instance (Tournament.games[]._id), not the
+  // catalog game id -- the same catalog game can be scheduled more than
+  // once in one tournament as fully independent competitions.
+  const gameConfigId = fields.gameId?.toString();
 
-  if (!tournamentId || !gameId) {
+  if (!tournamentId || !gameConfigId) {
     throw new ApiResponse(400, null, "tournamentId and gameId are required");
   }
-  if (!isValidObjectId(tournamentId) || !isValidObjectId(gameId)) {
+  if (!isValidObjectId(tournamentId) || !isValidObjectId(gameConfigId)) {
     throw new ApiResponse(400, null, "Invalid tournamentId or gameId");
   }
 
   const tournament = await Tournament.findById(tournamentId);
   if (!tournament) throw new ApiResponse(404, null, "Tournament not found");
 
-  const gameConfig = tournament.games.find((g) => g.game.toString() === gameId);
+  const gameConfig = tournament.games.id(gameConfigId);
   if (!gameConfig) throw new ApiResponse(404, null, "Game not found in this tournament");
   if (gameConfig.tournamentTeamType !== "single_player") {
     throw new ApiResponse(400, null, "This game is not a single-player game");
@@ -46,7 +49,7 @@ export const POST = asyncHandler(async (req) => {
   const registration = await Registration.findOne({
     tournament: tournamentId,
     user: user._id,
-    "gameRegistrationDetails.games": gameId,
+    "gameRegistrationDetails.gameConfigIds": gameConfigId,
   });
   if (!registration) {
     throw new ApiResponse(400, null, "You are not registered for this game in this tournament");
@@ -54,7 +57,7 @@ export const POST = asyncHandler(async (req) => {
 
   const existingTeam = await Team.findOne({
     tournament: tournamentId,
-    game: gameId,
+    gameConfigId,
     members: user._id,
   });
   if (existingTeam) {
@@ -62,12 +65,13 @@ export const POST = asyncHandler(async (req) => {
   }
 
   const me = await User.findById(user._id).select("username region");
-  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameId}`);
+  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameConfigId}`);
   const numbering = await assignTeamNumber([me.region]);
 
   const team = await Team.create({
     tournament: new mongoose.Types.ObjectId(tournamentId),
-    game: new mongoose.Types.ObjectId(gameId),
+    game: gameConfig.game,
+    gameConfigId,
     members: [user._id],
     createdBy: user._id,
     serialNo: newSerial.toString(),

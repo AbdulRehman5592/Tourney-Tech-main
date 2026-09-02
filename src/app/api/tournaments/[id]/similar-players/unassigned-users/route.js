@@ -13,7 +13,9 @@ export const GET = asyncHandler(async (req, context) => {
   await requireAdmin(req);
   const { id: tournamentId } = await context.params;
   const { searchParams } = new URL(req.url);
-  const gameId = searchParams.get("gameId");
+  // The specific scheduled instance (Tournament.games[]._id), not the
+  // catalog game id.
+  const gameConfigId = searchParams.get("gameId");
 
   // const { fields } = await parseForm(req);
   // const tournamentId = fields?.tournamentId?.toString();
@@ -26,14 +28,14 @@ export const GET = asyncHandler(async (req, context) => {
   const registrations = await Registration.find({
     tournament: tournamentId,
     "gameRegistrationDetails.status": "approved",
-    ...(gameId && { "gameRegistrationDetails.games": { $in: [gameId] } }),
+    ...(gameConfigId && { "gameRegistrationDetails.gameConfigIds": { $in: [gameConfigId] } }),
   }).populate({
     path: "user",
     model: "User",
     select: "-password -refreshToken -accessToken -__v",
   });
 
-  const teams = await Team.find({ tournament: tournamentId, game: gameId });
+  const teams = await Team.find({ tournament: tournamentId, gameConfigId });
 
   const restrictedUserIds = new Set();
   teams.forEach((team) => {

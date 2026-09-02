@@ -57,12 +57,12 @@ export const POST = asyncHandler(async (req, context) => {
 
   const lastRoundMatch = await Match.findOne({
     tournament: tournamentId,
-    game: gameConfig.game,
+    gameConfigId,
     stage: "round1",
   }).sort({ round: -1 });
   const nextRound = (lastRoundMatch?.round || 0) + 1;
 
-  const teams = await Team.find({ tournament: tournamentId, game: gameConfig.game });
+  const teams = await Team.find({ tournament: tournamentId, gameConfigId });
   const matchDocs = buildStandardRotation(teams, {
     direction: gameConfig.standardDirection,
     fromRound: nextRound,
@@ -74,7 +74,7 @@ export const POST = asyncHandler(async (req, context) => {
 
   const existingCount = await Match.countDocuments({
     tournament: tournamentId,
-    game: gameConfig.game,
+    gameConfigId,
   });
   let matchNumber = existingCount + 1;
 
@@ -83,6 +83,7 @@ export const POST = asyncHandler(async (req, context) => {
     const match = await Match.create({
       tournament: tournamentId,
       game: gameConfig.game,
+      gameConfigId,
       matchNumber: matchNumber++,
       admin: user._id,
       ...m,

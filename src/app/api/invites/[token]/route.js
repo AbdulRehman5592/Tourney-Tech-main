@@ -21,9 +21,9 @@ export const GET = asyncHandler(async (_, context) => {
     throw new ApiError(404, "Invite not found");
   }
 
-  const gameConfig = invite.tournament?.games?.find(
-    (g) => g.game?._id?.toString() === invite.gameId
-  );
+  // invite.gameId is the specific scheduled instance (Tournament.games[]._id),
+  // not the catalog game id.
+  const gameConfig = invite.tournament?.games?.id(invite.gameId);
 
   const isExpired = invite.status === "pending" && invite.expiresAt < new Date();
 

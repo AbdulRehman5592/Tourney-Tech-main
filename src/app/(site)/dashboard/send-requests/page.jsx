@@ -4,7 +4,7 @@ import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import { GENDER_COLORS } from "@/constants/genderColors";
 
-const MODE_LABELS = { doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
+const MODE_LABELS = { team: "Team Up", doubles: "Doubles", mixed_doubles: "Mixed Doubles" };
 
 function PaymentForm({ req, onSubmitted }) {
   const [method, setMethod] = useState(req.payment?.method || "cash");

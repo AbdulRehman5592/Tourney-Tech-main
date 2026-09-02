@@ -22,8 +22,8 @@ export const POST = asyncHandler(async (req) => {
 
   if (!tournamentId || !gameId)
     throw new ApiError(400, "Tournament and game are required");
-  if (!["doubles", "mixed_doubles"].includes(mode))
-    throw new ApiError(400, "mode must be 'doubles' or 'mixed_doubles'");
+  if (!["team", "doubles", "mixed_doubles"].includes(mode))
+    throw new ApiError(400, "mode must be 'team', 'doubles' or 'mixed_doubles'");
 
   const tournament = await Tournament.findById(tournamentId);
   // Same tournament/game/mode-enabled validation as a direct TeamUp request --

@@ -18,9 +18,14 @@ export const GET = asyncHandler(async (req) => {
   const tournamentId = searchParams.get("tournamentId");
   const mode = searchParams.get("mode");
 
-  const query = { status: "accepted" };
+  // "team" mode requests form a real roster Team, not a doubles pair -- this
+  // report is doubles/mixed_doubles only, so exclude them whether or not a
+  // specific mode filter was requested.
+  const query = {
+    status: "accepted",
+    mode: mode && ["doubles", "mixed_doubles"].includes(mode) ? mode : { $in: ["doubles", "mixed_doubles"] },
+  };
   if (tournamentId) query.tournament = tournamentId;
-  if (mode && ["doubles", "mixed_doubles"].includes(mode)) query.mode = mode;
 
   const pairs = await TeamUp.find(query)
     .populate("from", "firstname lastname username email gender")
@@ -29,18 +34,31 @@ export const GET = asyncHandler(async (req) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  // gameId is stored as a plain string (not a schema ref), so populate it
-  // manually rather than relying on Mongoose's ref-based populate.
-  const gameIds = [...new Set(pairs.map((p) => p.gameId).filter(Boolean))];
-  const games = await Game.find({ _id: { $in: gameIds } })
+  // p.gameId is a plain string (not a schema ref) holding the specific
+  // scheduled instance id (Tournament.games[]._id), not the catalog game id
+  // -- resolve instance -> catalog game -> name in two steps.
+  const gameConfigFor = (p) =>
+    p.tournament?.games?.find((g) => g._id?.toString() === p.gameId);
+
+  const catalogGameIds = [
+    ...new Set(
+      pairs
+        .map((p) => gameConfigFor(p)?.game?.toString())
+        .filter(Boolean)
+    ),
+  ];
+  const games = await Game.find({ _id: { $in: catalogGameIds } })
     .select("name")
     .lean();
   const gameNameById = new Map(games.map((g) => [g._id.toString(), g.name]));
 
-  const pairsWithGameName = pairs.map((p) => ({
-    ...p,
-    gameName: gameNameById.get(p.gameId) || "Unknown game",
-  }));
+  const pairsWithGameName = pairs.map((p) => {
+    const catalogGameId = gameConfigFor(p)?.game?.toString();
+    return {
+      ...p,
+      gameName: (catalogGameId && gameNameById.get(catalogGameId)) || "Unknown game",
+    };
+  });
 
   return Response.json(
     new ApiResponse(200, { pairs: pairsWithGameName }, "Fetched doubles pairs")

@@ -85,6 +85,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
           scheduledAt: toDateTimeLocalInput(g.scheduledAt),
+          eventTitle: g.eventTitle || "",
+          locations: g.locations?.length ? g.locations : [""],
           format: g.format || "",
           meshRounds: g.meshRounds || "",
           standardRounds: g.standardRounds || "",
@@ -94,7 +96,10 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           playoffEnabled: g.playoffEnabled || false,
           playoffQualifiersCount: g.playoffQualifiersCount || "",
           playoffFormat: g.playoffFormat || "single_elimination",
-          teamBased: g.teamBased || false,
+          // "Team Based" used to be a separate checkbox but never drove any
+          // real logic -- tournamentTeamType alone decides team size, so this
+          // is now always true (fixes stale games that got stuck at false).
+          teamBased: true,
           tournamentTeamType: g.tournamentTeamType || "double_player",
           doublesEnabled: g.doublesEnabled || false,
           doublesCost: g.doublesCost || "",
@@ -162,6 +167,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         game: "",
         entryFee: "",
         scheduledAt: "",
+        eventTitle: "",
+        locations: [""],
         format: "",
         meshRounds: "",
         standardRounds: "",
@@ -171,7 +178,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         playoffEnabled: false,
         playoffQualifiersCount: "",
         playoffFormat: "single_elimination",
-        teamBased: false,
+        teamBased: true,
         tournamentTeamType: "double_player",
         doublesEnabled: false,
         doublesCost: "",
@@ -192,7 +199,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
 
   const handleGameFieldChange = (index, name, value) => {
     const updated = [...gameFields];
-    if (["teamBased", "doublesEnabled", "mixedDoublesEnabled", "playoffEnabled"].includes(name)) {
+    if (["doublesEnabled", "mixedDoublesEnabled", "playoffEnabled"].includes(name)) {
       updated[index][name] = value === true || value === "true";
     } else if (
       ["entryFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost", "playoffQualifiersCount"].includes(name)
@@ -201,6 +208,29 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     } else {
       updated[index][name] = value;
     }
+    setGameFields(updated);
+  };
+
+  // Each game can play at multiple locations at once (e.g. several courts
+  // running the same round) -- kept as a free-text list, not a preset list.
+  const handleLocationChange = (gameIndex, locIndex, value) => {
+    const updated = [...gameFields];
+    const locations = [...(updated[gameIndex].locations || [])];
+    locations[locIndex] = value;
+    updated[gameIndex].locations = locations;
+    setGameFields(updated);
+  };
+
+  const handleAddLocation = (gameIndex) => {
+    const updated = [...gameFields];
+    updated[gameIndex].locations = [...(updated[gameIndex].locations || []), ""];
+    setGameFields(updated);
+  };
+
+  const handleRemoveLocation = (gameIndex, locIndex) => {
+    const updated = [...gameFields];
+    const locations = (updated[gameIndex].locations || []).filter((_, i) => i !== locIndex);
+    updated[gameIndex].locations = locations.length ? locations : [""];
     setGameFields(updated);
   };
 
@@ -282,6 +312,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           (g) =>
             g.game &&
             g.format &&
+            g.eventTitle?.trim() &&
             (g.entryFee === "" || !isNaN(g.entryFee)) &&
             g.tournamentTeamType &&
             (g.format !== "mesh" || (g.meshRounds && Number(g.meshRounds) >= 1))
@@ -289,6 +320,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         .map((g) => ({
           ...g,
           scheduledAt: scheduledAtPayload(g.scheduledAt),
+          locations: (g.locations || []).map((l) => l.trim()).filter(Boolean),
           playoffQualifiersCount:
             g.playoffEnabled && g.playoffQualifiersCount
               ? Number(g.playoffQualifiersCount)
@@ -311,6 +343,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             game: g.game,
             entryFee: Number(g.entryFee),
             scheduledAt: scheduledAtPayload(g.scheduledAt),
+            eventTitle: g.eventTitle?.trim(),
+            locations: (g.locations || []).map((l) => l.trim()).filter(Boolean),
             format: g.format,
             meshRounds: g.format === "mesh" ? Number(g.meshRounds) : undefined,
             standardRounds:
@@ -688,6 +722,61 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 )}
               </div>
 
+              {/* Event Title */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Event Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Morning Session, Round 1 Finals"
+                  value={field.eventTitle || ""}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "eventTitle", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                />
+              </div>
+
+              {/* Location / Room -- free text, with as many entries as needed
+                  when a game is played across multiple rooms/courts at once. */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Location / Room
+                </label>
+                <div className="space-y-2">
+                  {(field.locations || [""]).map((loc, locIndex) => (
+                    <div key={locIndex} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Room 1, Court A"
+                        value={loc}
+                        onChange={(e) =>
+                          handleLocationChange(index, locIndex, e.target.value)
+                        }
+                        className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                      />
+                      {field.locations.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLocation(index, locIndex)}
+                          className="shrink-0 text-red-500 hover:text-red-400"
+                        >
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddLocation(index)}
+                  className="mt-2 text-sm px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
+                >
+                  + Add another location
+                </button>
+              </div>
+
               {/* Format */}
               <select
                 value={field.format}
@@ -856,18 +945,6 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 </div>
               )}
 
-              {/* Team Based */}
-              <label className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  checked={field.teamBased}
-                  onChange={(e) =>
-                    handleGameFieldChange(index, "teamBased", e.target.checked)
-                  }
-                />
-                Team Based?
-              </label>
-
               {/* Tournament Team Type */}
               <select
                 value={field.tournamentTeamType}
@@ -947,6 +1024,8 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                       game: field.game,
                       entryFee: field.entryFee,
                       scheduledAt: scheduledAtPayload(field.scheduledAt),
+                      eventTitle: field.eventTitle?.trim(),
+                      locations: (field.locations || []).map((l) => l.trim()).filter(Boolean),
                       format: field.format,
                       meshRounds:
                         field.format === "mesh" ? Number(field.meshRounds) : undefined,

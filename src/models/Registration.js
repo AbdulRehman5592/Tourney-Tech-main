@@ -3,7 +3,14 @@ import mongoose from "mongoose";
 const { Schema, model, models } = mongoose;
 
 const GameRegistrationSchema = new Schema({
+  // Catalog Game ids, kept for display (populate -> name/icon/etc.). Not
+  // unique on its own -- see gameConfigIds below.
   games: [{ type: Schema.Types.ObjectId, ref: "Game", required: true }],
+  // The specific scheduled instance(s) registered for (Tournament.games[]._id),
+  // one per entry in `games` at the same index -- the real identity, since the
+  // same catalog game can be scheduled more than once in one tournament as
+  // fully independent competitions with their own entry fee/format/etc.
+  gameConfigIds: [{ type: Schema.Types.ObjectId, required: true }],
   team: { type: Schema.Types.ObjectId, ref: "Team" }, // optional for solo
   status: {
     type: String,
@@ -28,6 +35,9 @@ const GameRegistrationSchema = new Schema({
       type: String,
     },
   },
+  // Admin-only scratchpad -- e.g. "player paid Sarah in cash at check-in".
+  // Never shown to the player, just a memory aid for whoever reviews payments.
+  adminNote: { type: String, trim: true, default: "" },
 });
 
 const RegistrationSchema = new Schema(

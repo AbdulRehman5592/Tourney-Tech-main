@@ -10,7 +10,7 @@ export async function routeIntoTarget(match, teamId, target) {
 
   const targetMatch = await Match.findOne({
     tournament: match.tournament._id || match.tournament,
-    game: match.game._id || match.game,
+    gameConfigId: match.gameConfigId,
     round: target.round,
     slot: target.match,
   });

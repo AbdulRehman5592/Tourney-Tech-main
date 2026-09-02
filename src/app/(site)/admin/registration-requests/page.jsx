@@ -11,6 +11,10 @@ export default function AdminRegistrationsTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const rowsPerPage = 10;
+  // Local drafts for the Notes column -- typed as the admin edits, only
+  // sent to the server on blur so we're not firing a request per keystroke.
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [savingNoteId, setSavingNoteId] = useState(null);
 
   // ✅ status order: pending → rejected → approved
   const statusPriority = {
@@ -99,6 +103,44 @@ export default function AdminRegistrationsTable() {
     }
   };
 
+  // Save the note only if it actually changed since the last saved value --
+  // avoids a pointless request every time the field is just clicked into and
+  // out of.
+  const handleNoteBlur = async (registration) => {
+    const draft = noteDrafts[registration._id];
+    const saved = registration.gameRegistrationDetails?.adminNote || "";
+    if (draft === undefined || draft === saved) return;
+
+    setSavingNoteId(registration._id);
+    try {
+      const formData = new FormData();
+      formData.append("adminNote", draft);
+
+      await api.patch(`/api/tournamentRegister/${registration._id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setRegistrations((prev) =>
+        prev.map((r) =>
+          r._id === registration._id
+            ? {
+                ...r,
+                gameRegistrationDetails: {
+                  ...r.gameRegistrationDetails,
+                  adminNote: draft,
+                },
+              }
+            : r
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save note");
+    } finally {
+      setSavingNoteId(null);
+    }
+  };
+
   // Pagination logic
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
@@ -141,6 +183,7 @@ export default function AdminRegistrationsTable() {
               <th className="py-2 px-4 text-left">Entry Fee</th>
               <th className="py-2 px-4 text-left">Current Status</th>
               <th className="py-2 px-4 text-left">Actions</th>
+              <th className="py-2 px-4 text-left">Notes</th>
               <th className="py-2 px-4 text-left">Players</th>
               <th className="py-2 px-4 text-left">Paid</th>
               <th className="py-2 px-4 text-left">Payment Method</th>
@@ -211,6 +254,24 @@ export default function AdminRegistrationsTable() {
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                   </select>
+                </td>
+
+                <td className="py-2 px-4">
+                  <input
+                    type="text"
+                    placeholder="e.g. paid Sarah cash at check-in"
+                    value={
+                      noteDrafts[r._id] !== undefined
+                        ? noteDrafts[r._id]
+                        : r.gameRegistrationDetails?.adminNote || ""
+                    }
+                    onChange={(e) =>
+                      setNoteDrafts((prev) => ({ ...prev, [r._id]: e.target.value }))
+                    }
+                    onBlur={() => handleNoteBlur(r)}
+                    disabled={savingNoteId === r._id}
+                    className="min-w-[200px] px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)] disabled:opacity-50"
+                  />
                 </td>
 
                 <td className="py-2 px-4">

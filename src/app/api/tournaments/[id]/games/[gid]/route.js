@@ -38,6 +38,7 @@ export const PATCH = asyncHandler(async (req, context) => {
   const allowedFields = [
     "game",
     "entryFee",
+    "eventTitle",
     "format",
     "meshRounds",
     "standardRounds",
@@ -63,6 +64,18 @@ export const PATCH = asyncHandler(async (req, context) => {
   // Date/time needs parsing (and null must clear it) rather than a raw assign.
   if ("scheduledAt" in body) {
     game.scheduledAt = parseScheduledAt(body.scheduledAt);
+  }
+
+  if ("eventTitle" in body && (!body.eventTitle || !body.eventTitle.toString().trim())) {
+    throw new ApiError(400, "Event title is required");
+  }
+
+  // Drop blank entries -- the form always sends at least one text input, even
+  // when the admin never typed anything into it.
+  if ("locations" in body) {
+    game.locations = Array.isArray(body.locations)
+      ? body.locations.map((l) => l?.toString().trim()).filter(Boolean)
+      : [];
   }
 
   // Validate enums manually if needed
