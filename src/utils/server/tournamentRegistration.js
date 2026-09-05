@@ -4,6 +4,42 @@ import { Tournament } from "@/models/Tournament.js";
 import { User } from "@/models/User.js";
 import { ApiError } from "@/utils/server/ApiError";
 
+// Validates + normalizes the payment sub-document for either payment method.
+// Online requires a receipt screenshot (receiptUrl) alongside the
+// self-reported bank/transaction info, since none of it is otherwise
+// verified -- the receipt is the one thing an admin can actually check
+// against the bank statement. Cash just carries an optional player memo.
+//
+// `requireReceipt` is only turned on for the self-serve player flow -- an
+// admin registering a walk-in player is vouching for the payment in person,
+// so there's no screenshot to attach.
+function buildPaymentDetails(paymentMethod, paymentDetails, requireReceipt) {
+  if (paymentMethod === "online") {
+    if (
+      !paymentDetails ||
+      !paymentDetails.bankId ||
+      !paymentDetails.accountName ||
+      !paymentDetails.transactionId ||
+      (requireReceipt && !paymentDetails.receiptUrl) ||
+      !mongoose.isValidObjectId(paymentDetails.bankId)
+    ) {
+      throw new ApiError(
+        400,
+        `Bank ID, Account Name, and Transaction ID${requireReceipt ? ", and a receipt screenshot," : ""} are required for online payments, and Bank ID must be valid.`
+      );
+    }
+    return {
+      bankId: new mongoose.Types.ObjectId(paymentDetails.bankId),
+      accountName: paymentDetails.accountName,
+      transactionId: paymentDetails.transactionId,
+      note: paymentDetails.note || undefined,
+      receiptUrl: paymentDetails.receiptUrl,
+    };
+  }
+
+  return paymentDetails?.note ? { note: paymentDetails.note } : null;
+}
+
 // Shared "register this user for these games" logic, used by the self-serve
 // POST /api/tournamentRegister route and by the admin register-player route
 // (which can create the account first). Keeping it in one place means both
@@ -22,6 +58,7 @@ export async function createOrUpdateRegistration({
   gameIds,
   paymentMethod,
   paymentDetails,
+  requireReceipt = false,
 }) {
   if (!tournamentId || !userId) {
     throw new ApiError(400, "Tournament ID and User ID are required.");
@@ -114,7 +151,11 @@ export async function createOrUpdateRegistration({
           status: "pending",
           paid: false,
           paymentMethod: paymentMethod || "cash",
-          paymentDetails: paymentMethod === "online" ? paymentDetails : null,
+          paymentDetails: buildPaymentDetails(
+            paymentMethod,
+            paymentDetails,
+            requireReceipt
+          ),
         },
       },
       { new: true }
@@ -131,27 +172,11 @@ export async function createOrUpdateRegistration({
     paymentMethod: paymentMethod || "cash",
   };
 
-  if (paymentMethod === "online") {
-    if (
-      !paymentDetails ||
-      !paymentDetails.bankId ||
-      !paymentDetails.accountName ||
-      !paymentDetails.transactionId ||
-      !mongoose.isValidObjectId(paymentDetails.bankId)
-    ) {
-      throw new ApiError(
-        400,
-        "Bank ID, Account Name, and Transaction ID are required for online payments, and Bank ID must be valid."
-      );
-    }
-    gameRegistrationDetails.paymentDetails = {
-      bankId: new mongoose.Types.ObjectId(paymentDetails.bankId),
-      accountName: paymentDetails.accountName,
-      transactionId: paymentDetails.transactionId,
-    };
-  } else {
-    gameRegistrationDetails.paymentDetails = null;
-  }
+  gameRegistrationDetails.paymentDetails = buildPaymentDetails(
+    paymentMethod,
+    paymentDetails,
+    requireReceipt
+  );
 
   const registration = new Registration({
     tournament: new mongoose.Types.ObjectId(tournamentId),

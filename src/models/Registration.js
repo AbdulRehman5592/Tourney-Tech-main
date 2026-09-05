@@ -34,6 +34,17 @@ const GameRegistrationSchema = new Schema({
     transactionId: {
       type: String,
     },
+    // Player-submitted note about the payment, e.g. "paid Sarah cash at
+    // check-in" -- shown to organizers to help them track/verify it.
+    note: {
+      type: String,
+      trim: true,
+    },
+    // Screenshot of the transfer receipt, required for online payments --
+    // gives organizers something to actually check the transaction ID against.
+    receiptUrl: {
+      type: String,
+    },
   },
   // Admin-only scratchpad -- e.g. "player paid Sarah in cash at check-in".
   // Never shown to the player, just a memory aid for whoever reviews payments.

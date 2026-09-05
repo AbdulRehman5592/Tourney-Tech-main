@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
 
 export default function AdminRegistrationsTable() {
   const [registrations, setRegistrations] = useState([]);
@@ -15,6 +16,13 @@ export default function AdminRegistrationsTable() {
   // sent to the server on blur so we're not firing a request per keystroke.
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNoteId, setSavingNoteId] = useState(null);
+
+  // Bulk approve/reject -- for when an admin has just bulk-registered a
+  // group of players (Register Player / Excel import) and doesn't want to
+  // click the status dropdown one row at a time.
+  const bulkSelection = useBulkSelection((r) => r._id);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   // ✅ status order: pending → rejected → approved
   const statusPriority = {
@@ -103,6 +111,76 @@ export default function AdminRegistrationsTable() {
     }
   };
 
+  // Bulk approve/reject -- fans out to the same per-row PATCH the dropdown
+  // already uses (no new bulk API needed) and reports success/failure per
+  // row, same shape as the Register Player bulk-result panel.
+  const handleBulkStatusUpdate = async (status) => {
+    const ids = [...bulkSelection.selected];
+    if (!ids.length) {
+      toast.error("Select at least one registration");
+      return;
+    }
+
+    setBulkUpdating(true);
+    setBulkResult(null);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => {
+          const formData = new FormData();
+          formData.append("status", status);
+          return api.patch(`/api/tournamentRegister/${id}`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        })
+      );
+
+      const succeeded = [];
+      const failed = [];
+      results.forEach((result, i) => {
+        const id = ids[i];
+        const registration = registrations.find((r) => r._id === id);
+        const label = registration?.user?.username || registration?.user?.email || id;
+
+        if (result.status === "fulfilled") {
+          succeeded.push(id);
+          setRegistrations((prev) =>
+            prev.map((r) =>
+              r._id === id
+                ? {
+                    ...r,
+                    gameRegistrationDetails: {
+                      ...r.gameRegistrationDetails,
+                      status: result.value.data.data.gameRegistrationDetails.status,
+                      paid: result.value.data.data.gameRegistrationDetails.paid,
+                    },
+                  }
+                : r
+            )
+          );
+        } else {
+          failed.push({
+            label,
+            message: result.reason?.response?.data?.message || "Failed to update",
+          });
+        }
+      });
+
+      setBulkResult({ status, succeeded: succeeded.length, failed });
+
+      if (failed.length === 0) {
+        toast.success(`${succeeded.length} registration(s) marked ${status}`);
+      } else if (succeeded.length === 0) {
+        toast.error(`Failed to update ${failed.length} registration(s)`);
+      } else {
+        toast(`${succeeded.length} updated, ${failed.length} failed`, { icon: "⚠️" });
+      }
+
+      bulkSelection.clear();
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   // Save the note only if it actually changed since the last saved value --
   // avoids a pointless request every time the field is just clicked into and
   // out of.
@@ -168,6 +246,62 @@ export default function AdminRegistrationsTable() {
         </div>
       </div>
 
+      {/* Bulk approve/reject -- for a batch of admin-added registrants */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--card-background)] p-3">
+        <span className="text-sm font-medium text-[var(--foreground)]">
+          {bulkSelection.size} selected
+        </span>
+        <button
+          type="button"
+          onClick={() => bulkSelection.selectAll(currentRows)}
+          className="text-xs font-semibold text-[var(--accent-color)] hover:underline"
+        >
+          Select all on this page
+        </button>
+        <button
+          type="button"
+          onClick={bulkSelection.clear}
+          className="text-xs font-semibold text-[var(--muted-foreground)] hover:underline"
+        >
+          Clear selection
+        </button>
+        <button
+          type="button"
+          disabled={!bulkSelection.size || bulkUpdating}
+          onClick={() => handleBulkStatusUpdate("approved")}
+          className="rounded-lg px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          style={{ background: "var(--success-color)" }}
+        >
+          {bulkUpdating ? "Working..." : `Approve Selected (${bulkSelection.size})`}
+        </button>
+        <button
+          type="button"
+          disabled={!bulkSelection.size || bulkUpdating}
+          onClick={() => handleBulkStatusUpdate("rejected")}
+          className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-sm font-semibold text-[var(--foreground)] disabled:opacity-40"
+        >
+          Reject Selected ({bulkSelection.size})
+        </button>
+      </div>
+
+      {bulkResult && (
+        <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] p-3 text-sm">
+          <p className="font-semibold text-[var(--foreground)]">
+            {bulkResult.succeeded} marked {bulkResult.status}
+            {bulkResult.failed.length > 0 && `, ${bulkResult.failed.length} failed`}
+          </p>
+          {bulkResult.failed.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-[var(--muted-foreground)]">
+              {bulkResult.failed.map((f, i) => (
+                <li key={i}>
+                  <strong className="text-[var(--foreground)]">{f.label}</strong>: {f.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="scrollbar-x overflow-x-auto">
         <table
           className="border border-[var(--border-color)] rounded-lg overflow-hidden"
@@ -177,6 +311,7 @@ export default function AdminRegistrationsTable() {
             <tr>
               <th className="py-2 px-4 text-left sticky left-0 z-20 bg-[var(--secondary-color)] w-14">Sr No.</th>
               <th className="py-2 px-4 text-left sticky left-14 z-20 bg-[var(--secondary-color)]">User</th>
+              <th className="py-2 px-4 text-left">Select</th>
               <th className="py-2 px-4 text-left">User Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
               <th className="py-2 px-4 text-left">Game</th>
@@ -191,6 +326,8 @@ export default function AdminRegistrationsTable() {
               <th className="py-2 px-4 text-left">Bank Name</th>
               <th className="py-2 px-4 text-left">Player Account Name</th>
               <th className="py-2 px-4 text-left">Player Transaction ID</th>
+              <th className="py-2 px-4 text-left">Receipt</th>
+              <th className="py-2 px-4 text-left">Player Payment Memo</th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
@@ -212,6 +349,14 @@ export default function AdminRegistrationsTable() {
                   }`}
                 >
                   {r.user?.username}
+                </td>
+                <td className="py-2 px-4">
+                  <input
+                    type="checkbox"
+                    checked={bulkSelection.isSelected(r)}
+                    onChange={() => bulkSelection.toggle(r)}
+                    className="h-4 w-4 accent-[var(--accent-color)]"
+                  />
                 </td>
                 <td className="py-2 px-4">{r.user?.email}</td>
                 <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
@@ -259,7 +404,7 @@ export default function AdminRegistrationsTable() {
                 <td className="py-2 px-4">
                   <input
                     type="text"
-                    placeholder="e.g. paid Sarah cash at check-in"
+                    placeholder="Add a reminder note..."
                     value={
                       noteDrafts[r._id] !== undefined
                         ? noteDrafts[r._id]
@@ -321,8 +466,45 @@ export default function AdminRegistrationsTable() {
                     "-"}
                 </td>
                 <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paymentDetails?.transactionId ||
-                    "-"}
+                  <span
+                    className={
+                      r.gameRegistrationDetails?.paymentDetails
+                        ?.isDuplicateTransactionId
+                        ? "rounded px-1.5 py-0.5 bg-[var(--error-color)] text-white"
+                        : ""
+                    }
+                    title={
+                      r.gameRegistrationDetails?.paymentDetails
+                        ?.isDuplicateTransactionId
+                        ? "This transaction ID is used by more than one registration"
+                        : undefined
+                    }
+                  >
+                    {r.gameRegistrationDetails?.paymentDetails
+                      ?.transactionId || "-"}
+                    {r.gameRegistrationDetails?.paymentDetails
+                      ?.isDuplicateTransactionId && " ⚠ Duplicate"}
+                  </span>
+                </td>
+                <td className="py-2 px-4">
+                  {r.gameRegistrationDetails?.paymentDetails?.receiptUrl ? (
+                    <a
+                      href={r.gameRegistrationDetails.paymentDetails.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={r.gameRegistrationDetails.paymentDetails.receiptUrl}
+                        alt="Payment receipt"
+                        className="h-12 w-12 object-cover rounded border border-[var(--border-color)]"
+                      />
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+                <td className="py-2 px-4 min-w-[200px]">
+                  {r.gameRegistrationDetails?.paymentDetails?.note || "-"}
                 </td>
               </tr>
             ))}

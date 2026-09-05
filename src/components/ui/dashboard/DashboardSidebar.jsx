@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation"; // ✅ add this
 
 const logo = "/img/logo.jpg";
 
-export default function DashboardSidebar({ isOpen, onClose, navItems }) {
+export default function DashboardSidebar({ isOpen, onClose, navItems, badges = {} }) {
   const [openMenu, setOpenMenu] = useState(null);
   const router = useRouter(); // ✅ add this
 
@@ -82,6 +82,14 @@ export default function DashboardSidebar({ isOpen, onClose, navItems }) {
                       <span className="flex items-center gap-2">
                         <item.icon size={18} />
                         {item.label}
+                        {!!badges[item.label] && (
+                          <span
+                            className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold leading-none"
+                            style={{ background: "var(--error-color)", color: "white" }}
+                          >
+                            {badges[item.label]}
+                          </span>
+                        )}
                       </span>
                       {openMenu === item.label ? (
                         <ChevronUp size={16} />
@@ -96,13 +104,21 @@ export default function DashboardSidebar({ isOpen, onClose, navItems }) {
                           <li key={subItem.label}>
                             <Link
                               href={subItem.href}
-                              className="block text-sm px-2 py-1 rounded hover:bg-[var(--card-hover)]"
+                              className="flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-[var(--card-hover)]"
                               onClick={() => {
                                 setOpenMenu(null);
                                 onClose(); // ✅ close sidebar on submenu click
                               }}
                             >
                               {subItem.label}
+                              {!!badges[subItem.label] && (
+                                <span
+                                  className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold leading-none"
+                                  style={{ background: "var(--error-color)", color: "white" }}
+                                >
+                                  {badges[subItem.label]}
+                                </span>
+                              )}
                             </Link>
                           </li>
                         ))}

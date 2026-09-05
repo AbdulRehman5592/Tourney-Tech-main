@@ -28,6 +28,8 @@ export const PATCH = asyncHandler(async (req, context) => {
     "endDate",
     "isPublic",
     "status",
+    "approvalStatus",
+    "approvalNote",
   ];
 
   for (const field of allowedFields) {

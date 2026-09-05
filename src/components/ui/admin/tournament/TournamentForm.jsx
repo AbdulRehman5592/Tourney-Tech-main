@@ -647,7 +647,11 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                 </span>
                 <h4 className="font-semibold">
                   Game {index + 1}
-                  {selectedGameName ? ` — ${selectedGameName}` : ""}
+                  {field.eventTitle?.trim()
+                    ? ` — ${field.eventTitle.trim()}`
+                    : selectedGameName
+                      ? ` — ${selectedGameName}`
+                      : ""}
                 </h4>
                 {field.scheduledAt && (
                   <span className="ml-auto text-xs text-gray-400">

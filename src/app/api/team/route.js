@@ -5,9 +5,11 @@ import { ApiResponse } from "@/utils/server/ApiResponse";
 import { Team } from "@/models/Team";
 // import { TeamUp } from "@/models/TeamUp";
 import { User } from "@/models/User"; // agar members check karna ho
+import { Registration } from "@/models/Registration";
 import { Tournament } from "@/models/Tournament";
 import { getNextSequence } from "@/lib/utils";
 import { assignTeamNumber } from "@/utils/server/teamNumbering";
+import { hasRejectedRegistration } from "@/utils/server/registrationEligibility";
 import mongoose from "mongoose";
 import "@/models/BankDetails";
 import "@/models/Game";
@@ -67,6 +69,14 @@ export const POST = asyncHandler(async (req) => {
     );
   }
 
+  if (await hasRejectedRegistration({ tournamentId: tournament, gameConfigId, userIds: memberIds })) {
+    throw new ApiResponse(
+      400,
+      null,
+      "One or more selected players' registration for this game was rejected"
+    );
+  }
+
   const users = await User.find({ _id: { $in: memberIds } }).select(
     "username region"
   );
@@ -99,6 +109,18 @@ export const POST = asyncHandler(async (req) => {
     partner: expectedSize === 2 ? memberIds[1] : undefined,
     ...numbering,
   });
+
+  // Link each member's registration back to this team -- without this,
+  // admin reports (e.g. the Registered Players table) can't tell the team
+  // was formed and keep showing "Not teamed up yet".
+  await Registration.updateMany(
+    {
+      tournament,
+      user: { $in: memberIds },
+      "gameRegistrationDetails.gameConfigIds": gameConfigId,
+    },
+    { $set: { "gameRegistrationDetails.team": team._id } }
+  );
 
   return Response.json(new ApiResponse(201, team, "Team created successfully"));
 });

@@ -3,7 +3,13 @@ import { useState, useMemo } from "react";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
 
-export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
+const APPROVAL_COLOR = {
+  approved: "text-green-400",
+  pending: "text-yellow-300",
+  rejected: "text-red-400",
+};
+
+export default function TournamentsTable({ tournaments, onEdit, onDelete, onApprove, onReject }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -56,6 +62,7 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
               <th className="p-3">Location</th>
               <th className="p-3">Dates</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Approval</th>
               <th className="p-3">Games &amp; Schedule</th>
               <th className="p-3">Entry Fee</th>
               <th className="p-3">Actions</th>
@@ -64,7 +71,7 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
           <tbody>
             {currentTournaments.length === 0 ? (
               <tr>
-                <td colSpan="9" className="p-4 text-center text-gray-400">
+                <td colSpan="10" className="p-4 text-center text-gray-400">
                   No tournaments found.
                 </td>
               </tr>
@@ -99,7 +106,40 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete }) {
                     {new Date(t.endDate).toLocaleDateString()}
                   </td>
                   <td className="p-3 capitalize text-yellow-300">{t.status}</td>
-                
+
+                  <td className="p-3 align-top">
+                    <div className="flex flex-col gap-1.5">
+                      <span
+                        className={`capitalize font-semibold text-xs ${
+                          APPROVAL_COLOR[t.approvalStatus] || APPROVAL_COLOR.approved
+                        }`}
+                      >
+                        {t.approvalStatus || "approved"}
+                      </span>
+                      {t.approvalStatus === "pending" && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onApprove(t._id)}
+                            className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => onReject(t._id)}
+                            className="rounded bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {t.approvalStatus === "rejected" && t.approvalNote && (
+                        <span className="text-xs text-gray-400 max-w-[160px]">
+                          {t.approvalNote}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
                   <td className="p-3 align-top">
                     {sortedGames.length > 0 ? (
                       <div className="flex flex-col gap-1.5">

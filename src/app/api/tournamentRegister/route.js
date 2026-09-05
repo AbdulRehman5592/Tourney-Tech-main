@@ -7,19 +7,27 @@ import { parseForm } from "@/utils/server/parseForm";
 import { requireAuth } from "@/utils/server/auth";
 import { requireAdmin } from "@/utils/server/roleGuards";
 import { createOrUpdateRegistration } from "@/utils/server/tournamentRegistration";
+import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import "@/models/BankDetails";
 import "@/models/Game";
 import "@/models/Team";
 
 export const POST = asyncHandler(async (req) => {
   await connectDB();
-  const { fields } = await parseForm(req);
+  const { fields, files } = await parseForm(req);
   const requester = await requireAuth();
 
   const tournamentId = fields.tournamentId?.toString();
   const requestedUserId = fields.userId?.toString();
   const userId = requestedUserId || requester?._id?.toString();
-  const gameIds = fields.gameIds;
+  let gameIds = fields.gameIds;
+  if (typeof gameIds === "string") {
+    try {
+      gameIds = JSON.parse(gameIds);
+    } catch {
+      // not JSON -- leave as the single id string it already is
+    }
+  }
   const paymentMethod = fields.paymentMethod?.toString();
   const paymentDetails =
     typeof fields.paymentDetails === "string"
@@ -30,12 +38,30 @@ export const POST = asyncHandler(async (req) => {
     await requireAdmin();
   }
 
+  // Screenshot of the transfer, required for online payments -- gives
+  // organizers something to actually check the transaction ID against.
+  if (paymentMethod === "online") {
+    const receiptFile = Array.isArray(files?.receipt)
+      ? files.receipt[0]
+      : files?.receipt;
+    if (receiptFile?.filepath) {
+      const uploaded = await uploadOnCloudinary(
+        receiptFile.filepath,
+        "payment-receipts"
+      );
+      if (paymentDetails) {
+        paymentDetails.receiptUrl = uploaded?.secure_url;
+      }
+    }
+  }
+
   const { registration, created } = await createOrUpdateRegistration({
     tournamentId,
     userId,
     gameIds,
     paymentMethod,
     paymentDetails,
+    requireReceipt: true,
   });
 
   if (!created) {
@@ -96,6 +122,24 @@ export const GET = asyncHandler(async (req) => {
     })
     .sort({ createdAt: -1 })
     .lean();
+
+  // Flag transaction IDs reused across more than one registration -- a real
+  // one should never appear twice, so a repeat is a strong signal someone
+  // copy-pasted a screenshot/ID from another registration.
+  const transactionIdCounts = {};
+  for (const r of registrations) {
+    const txnId = r.gameRegistrationDetails?.paymentDetails?.transactionId;
+    if (txnId) {
+      transactionIdCounts[txnId] = (transactionIdCounts[txnId] || 0) + 1;
+    }
+  }
+  for (const r of registrations) {
+    const txnId = r.gameRegistrationDetails?.paymentDetails?.transactionId;
+    if (r.gameRegistrationDetails?.paymentDetails) {
+      r.gameRegistrationDetails.paymentDetails.isDuplicateTransactionId =
+        !!txnId && transactionIdCounts[txnId] > 1;
+    }
+  }
 
   return Response.json(
     new ApiResponse(200, registrations, "Registrations fetched successfully")

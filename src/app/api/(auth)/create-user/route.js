@@ -7,7 +7,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAdmin } from "@/utils/server/roleGuards";
 
 export const POST = asyncHandler(async (req) => {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await connectDB();
 
   const { fields: body } = await parseForm(req);
@@ -52,6 +52,7 @@ export const POST = asyncHandler(async (req) => {
     club,
     region: region || "00",
     isVerified: true,
+    createdBy: admin._id,
   });
 
   await user.save();

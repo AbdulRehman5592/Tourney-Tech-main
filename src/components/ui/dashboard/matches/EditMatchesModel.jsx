@@ -24,7 +24,18 @@ function initialValue(match, side, field) {
   return field.min ?? 0;
 }
 
-export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
+export default function EditMatchModal({
+  isOpen,
+  onClose,
+  match,
+  onSave,
+  // Set by callers (e.g. the Live Table Overview page) when the viewer is
+  // tournament staff (owner/organizer/manager) for this match's tournament --
+  // grants the same full-override controls as a global admin. Must mirror
+  // SCORE_OVERRIDE_STAFF_ROLES in PATCH /api/matches/[id] or this button will
+  // show but the request will 403.
+  isStaffOverride = false,
+}) {
   const [fields, setFields] = useState(DEFAULT_FIELDS);
   const [teamA, setTeamA] = useState({});
   const [teamB, setTeamB] = useState({});
@@ -81,7 +92,7 @@ export default function EditMatchModal({ isOpen, onClose, match, onSave }) {
 
   if (!isOpen || !match) return null;
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || isStaffOverride;
   const userId = user?._id?.toString();
 
   const teamAMembers = match?.teamA?.members?.map((m) => m.toString()) || [];

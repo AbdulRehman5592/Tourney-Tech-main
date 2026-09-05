@@ -48,6 +48,13 @@ const TeamSchema = new Schema(
     // For hybrid/alliance teams: the two home regions of the paired players.
     primaryRegion: { type: String },
     secondaryRegion: { type: String },
+
+    // Check-in: has this team actually shown up? A team that isn't checked
+    // in when Round 1 is generated (POST /api/matches) is excluded from
+    // seeding entirely, rather than getting seated and then no-showing.
+    checkedIn: { type: Boolean, default: false },
+    checkedInAt: { type: Date },
+    checkedInBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );

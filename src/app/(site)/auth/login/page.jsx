@@ -58,7 +58,7 @@ function LoginForm() {
       toast.success("Login successful!");
 
       // ✅ Wait a moment for cookies to be set before redirecting
-      setTimeout(() => {
+      setTimeout(async () => {
         // ✅ Honor a same-site ?redirect= (e.g. back to an invite link) if
         // present -- only allow a relative path, never an absolute/external
         // URL, to avoid this becoming an open redirect.
@@ -69,6 +69,23 @@ function LoginForm() {
         } else if (user.role === "admin") {
           window.location.href = "/admin";
         } else {
+          // A player currently listed in a live tournament should land
+          // straight on their score-entry screen instead of the generic
+          // dashboard -- saves time when they're mid-event and just need to
+          // get back to entering a score.
+          try {
+            const myTournamentsRes = await api.get("/api/tournaments/my-tournaments");
+            const myTournaments = myTournamentsRes.data?.data || [];
+            const activeTournament = myTournaments.find((t) => t.status === "ongoing");
+
+            if (activeTournament) {
+              window.location.href = `/dashboard/game-play/${activeTournament._id}`;
+              return;
+            }
+          } catch (err) {
+            console.error("Failed to check for an active tournament:", err);
+          }
+
           window.location.href = "/dashboard";
         }
       }, 500); // Wait 500ms
