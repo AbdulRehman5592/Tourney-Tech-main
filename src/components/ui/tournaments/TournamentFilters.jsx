@@ -19,6 +19,13 @@ export default function TournamentFilters({
     ...new Set(tournamentData.flatMap((t) => t.games.map((g) => g.tournamentTeamType))),
   ];
 
+  // Derive unique game names (Spades, Bid Whist, etc.)
+  const uniqueGames = [
+    ...new Set(
+      tournamentData.flatMap((t) => t.games.map((g) => g.game?.name)).filter(Boolean)
+    ),
+  ].sort();
+
   const selectClass =
     "p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)]";
 
@@ -28,7 +35,7 @@ export default function TournamentFilters({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-10">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-10">
       {/* Search bar */}
       <input
         type="text"
@@ -72,6 +79,23 @@ export default function TournamentFilters({
         {uniqueLocations.map((loc) => (
           <option key={loc} value={loc} style={optionStyle}>
             {loc}
+          </option>
+        ))}
+      </select>
+
+      {/* Game filter */}
+      <select
+        name="game"
+        value={filters.game}
+        onChange={onChange}
+        className={selectClass}
+      >
+        <option value="" style={optionStyle}>
+          All Games
+        </option>
+        {uniqueGames.map((name) => (
+          <option key={name} value={name} style={optionStyle}>
+            {name}
           </option>
         ))}
       </select>

@@ -21,7 +21,10 @@ export default function GameRegistrationPage() {
     bankAccount: "",
     transactionId: "",
     accountName: "",
+    cashMemo: "",
   });
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   // Confirm-before-submit step -- registrations always start "pending" and
@@ -113,29 +116,52 @@ export default function GameRegistrationPage() {
     ) {
       return toast.error("Fill in all online payment details!");
     }
+    if (formData.paymentType === "online" && !receiptFile) {
+      return toast.error("Upload a screenshot of the transfer receipt!");
+    }
     setShowConfirm(true);
   };
 
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      const payload = {
-        tournamentId,
-        gameIds: formData.game, // send array of selected games
-        paymentMethod: formData.paymentType,
-      };
 
+      let res;
       if (formData.paymentType === "online") {
-        payload.paymentDetails = {
-          bankId: formData.bankAccount,
-          accountName: formData.accountName,
-          transactionId: formData.transactionId,
-        };
-      }
+        // Multipart so the receipt screenshot can ride along with the rest
+        // of the registration in one request.
+        const form = new FormData();
+        form.append("tournamentId", tournamentId);
+        form.append("gameIds", JSON.stringify(formData.game));
+        form.append("paymentMethod", formData.paymentType);
+        form.append(
+          "paymentDetails",
+          JSON.stringify({
+            bankId: formData.bankAccount,
+            accountName: formData.accountName,
+            transactionId: formData.transactionId,
+          })
+        );
+        if (receiptFile) form.append("receipt", receiptFile);
 
-      const res = await api.post("/api/tournamentRegister", payload, {
-        headers: { "Content-Type": "application/json" },
-      });
+        res = await api.post("/api/tournamentRegister", form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        const payload = {
+          tournamentId,
+          gameIds: formData.game, // send array of selected games
+          paymentMethod: formData.paymentType,
+        };
+
+        if (formData.cashMemo.trim()) {
+          payload.paymentDetails = { note: formData.cashMemo.trim() };
+        }
+
+        res = await api.post("/api/tournamentRegister", payload, {
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
       toast.success("Registration successful!");
       setRegisteredGameIds((prev) => [
@@ -147,7 +173,10 @@ export default function GameRegistrationPage() {
         bankAccount: "",
         transactionId: "",
         accountName: "",
+        cashMemo: "",
       });
+      setReceiptFile(null);
+      setReceiptPreview(null);
       setShowConfirm(false);
     } catch (err) {
       console.error("Error submitting registration:", err);
@@ -185,50 +214,68 @@ export default function GameRegistrationPage() {
           </label>
 
           <div className="space-y-2">
-            {games.map((g) => (
-              <label
-                key={g._id}
-                className="flex flex-col gap-2 cursor-pointer rounded-lg border px-3 py-2"
-                style={{
-                  color: "var(--foreground)",
-                  borderColor: "var(--border-color)",
-                }}
-              >
-                <span className="flex items-center gap-2 flex-wrap">
-                  <input
-                    type="checkbox"
-                    value={g._id}
-                    checked={formData.game.includes(g._id)}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        game: prev.game.includes(value)
-                          ? prev.game.filter((id) => id !== value)
-                          : [...prev.game, value],
-                      }));
-                    }}
-                    className="w-4 h-4 shrink-0 accent-[var(--accent-color)]"
-                  />
-                  <span>{g.name}</span>
-                  {registeredGameIds.includes(g._id) && (
+            {games.map((g) => {
+              const config = tournamentGames.find((tg) => tg._id === g._id);
+              const teamTypeLabel =
+                config?.tournamentTeamType === "double_player"
+                  ? "Double Player"
+                  : "Single Player";
+
+              return (
+                <label
+                  key={g._id}
+                  className="flex flex-col gap-2 cursor-pointer rounded-lg border px-3 py-2"
+                  style={{
+                    color: "var(--foreground)",
+                    borderColor: "var(--border-color)",
+                  }}
+                >
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="checkbox"
+                      value={g._id}
+                      checked={formData.game.includes(g._id)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          game: prev.game.includes(value)
+                            ? prev.game.filter((id) => id !== value)
+                            : [...prev.game, value],
+                        }));
+                      }}
+                      className="w-4 h-4 shrink-0 accent-[var(--accent-color)]"
+                    />
+                    <span>{g.name}</span>
                     <span
                       className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
                       style={{
-                        background: "var(--accent-color)",
-                        color: "var(--background)",
+                        background: "var(--secondary-color)",
+                        color: "var(--foreground)",
+                        border: "1px solid var(--border-color)",
                       }}
                     >
-                      Registered
+                      {teamTypeLabel}
                     </span>
-                  )}
-                </span>
-                <GameScheduleBadge
-                  value={g.scheduledAt}
-                  className="self-end"
-                />
-              </label>
-            ))}
+                    {registeredGameIds.includes(g._id) && (
+                      <span
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+                        style={{
+                          background: "var(--accent-color)",
+                          color: "var(--background)",
+                        }}
+                      >
+                        Registered
+                      </span>
+                    )}
+                  </span>
+                  <GameScheduleBadge
+                    value={g.scheduledAt}
+                    className="self-end"
+                  />
+                </label>
+              );
+            })}
           </div>
 
           {/* Display selected games details */}
@@ -319,6 +366,35 @@ export default function GameRegistrationPage() {
           </select>
         </div>
 
+        {/* Cash Payment Memo -- optional note the player can leave for the
+            organizer, e.g. "paid Sarah in cash at check-in", to help them
+            track/verify the payment. */}
+        {formData.paymentType === "cash" && (
+          <div>
+            <label
+              className="block text-sm font-medium mb-1"
+              style={{ color: "var(--foreground)" }}
+            >
+              Memo (optional)
+            </label>
+            <textarea
+              name="cashMemo"
+              value={formData.cashMemo}
+              onChange={(e) =>
+                setFormData({ ...formData, cashMemo: e.target.value })
+              }
+              placeholder="e.g. Paid Sarah in cash at check-in"
+              rows={2}
+              className="w-full rounded-lg px-3 py-2"
+              style={{
+                background: "var(--secondary-color)",
+                borderColor: "var(--border-color)",
+                color: "var(--foreground)",
+              }}
+            />
+          </div>
+        )}
+
         {/* Online Payment Details */}
         {formData.paymentType === "online" && (
           <div className="space-y-4">
@@ -399,6 +475,46 @@ export default function GameRegistrationPage() {
                 required
               />
             </div>
+
+            <div>
+              <label
+                className="block text-sm font-medium mb-1"
+                style={{ color: "var(--foreground)" }}
+              >
+                Receipt Screenshot
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setReceiptFile(file);
+                  setReceiptPreview(file ? URL.createObjectURL(file) : null);
+                }}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{
+                  background: "var(--secondary-color)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--foreground)",
+                }}
+                required
+              />
+              <p
+                className="mt-1 text-xs opacity-75"
+                style={{ color: "var(--foreground)" }}
+              >
+                Upload a screenshot of the transfer so the organizer can
+                verify it against the transaction ID above.
+              </p>
+              {receiptPreview && (
+                <img
+                  src={receiptPreview}
+                  alt="Receipt preview"
+                  className="mt-2 max-h-40 rounded-lg border"
+                  style={{ borderColor: "var(--border-color)" }}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -464,13 +580,26 @@ export default function GameRegistrationPage() {
                 {formData.paymentType === "online" &&
                   ` — ${bankAccounts.find((b) => b._id === formData.bankAccount)?.bankName || ""}, txn ${formData.transactionId}`}
               </p>
+              {formData.paymentType === "cash" && formData.cashMemo.trim() && (
+                <p className="pt-1 text-xs opacity-75 normal-case">
+                  Memo: {formData.cashMemo.trim()}
+                </p>
+              )}
+              {formData.paymentType === "online" && receiptPreview && (
+                <img
+                  src={receiptPreview}
+                  alt="Receipt preview"
+                  className="mt-2 max-h-32 rounded-lg border"
+                  style={{ borderColor: "var(--border-color)" }}
+                />
+              )}
             </div>
 
             <p
               className="mb-5 text-sm"
               style={{ color: "var(--foreground)" }}
             >
-              By confirming, you're stating that you have already paid{" "}
+              By confirming, you're stating that you have or will pay{" "}
               <strong>${totalFee}</strong> for the game(s) above. Your
               registration will be marked <strong>pending</strong> until the
               tournament admin verifies it —{" "}

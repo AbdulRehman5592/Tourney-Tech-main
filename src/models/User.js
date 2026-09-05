@@ -116,6 +116,17 @@ const UserSchema = new Schema(
       enum: ["player", "admin"],
       default: "player",
     },
+    // Global, admin-granted capability: may this subscriber create their own
+    // tournaments (subject to admin approval before going public)? Kept as
+    // its own field rather than a new `role` enum value -- role changes go
+    // through /api/users/[id]/role, which has its own separately-maintained
+    // allowed-values list that already drifts from this schema's enum.
+    canCreateTournaments: { type: Boolean, default: false },
+    // Which admin/organizer created this account on someone else's behalf
+    // (e.g. via Register Player, Import Users, or the admin Create User
+    // form) -- null for a public self-signup. Backs the restricted user
+    // directory: a promoted director can see users they personally added.
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     subCity: {
       type: String,
     },

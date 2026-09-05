@@ -55,6 +55,12 @@ export default function AdminAllTournamentsPage() {
   const [updatingId, setUpdatingId] = useState(null);
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [sectionOpen, setSectionOpen] = useState({});
+  // Per-tournament "form a team" state: which game we're teaming up players
+  // for, and which registrants are currently checked -- lets an admin who
+  // just bulk-registered a pile of players pair them up right from this
+  // table instead of retyping names on the separate Create Team page.
+  const [teamFormState, setTeamFormState] = useState({});
+  const [creatingTeamFor, setCreatingTeamFor] = useState(null);
 
   const handleStatusChange = async (tournamentId, newStatus) => {
     setUpdatingId(tournamentId);
@@ -77,6 +83,80 @@ export default function AdminAllTournamentsPage() {
       );
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const getFormState = (tournamentId) =>
+    teamFormState[tournamentId] || { gameConfigId: "", selected: new Set() };
+
+  const setFormGame = (tournamentId, gameConfigId) => {
+    setTeamFormState((prev) => ({
+      ...prev,
+      [tournamentId]: { gameConfigId, selected: new Set() },
+    }));
+  };
+
+  const clearSelection = (tournamentId) => {
+    setTeamFormState((prev) => ({
+      ...prev,
+      [tournamentId]: { ...getFormState(tournamentId), selected: new Set() },
+    }));
+  };
+
+  const toggleSelect = (tournamentId, registrationId, expectedSize) => {
+    setTeamFormState((prev) => {
+      const current = prev[tournamentId] || { gameConfigId: "", selected: new Set() };
+      const next = new Set(current.selected);
+      if (next.has(registrationId)) {
+        next.delete(registrationId);
+      } else {
+        if (next.size >= expectedSize) {
+          toast.error(`This game only needs ${expectedSize} player${expectedSize > 1 ? "s" : ""} per team`);
+          return prev;
+        }
+        next.add(registrationId);
+      }
+      return { ...prev, [tournamentId]: { ...current, selected: next } };
+    });
+  };
+
+  const handleCreateTeam = async (tournament, registrations, expectedSize) => {
+    const formState = getFormState(tournament._id);
+    const memberIds = registrations
+      .filter((r) => formState.selected.has(r._id))
+      .map((r) => r.user?._id)
+      .filter(Boolean);
+
+    if (memberIds.length !== expectedSize) {
+      toast.error(`Select exactly ${expectedSize} player${expectedSize > 1 ? "s" : ""} to form a team`);
+      return;
+    }
+
+    setCreatingTeamFor(tournament._id);
+    try {
+      const res = await api.post("/api/team", {
+        tournament: tournament._id,
+        gameConfigId: formState.gameConfigId,
+        members: memberIds,
+      });
+      toast.success(res.data?.message || "Team created");
+
+      // Re-fetch rather than hand-patch local state -- the create response
+      // doesn't come back with `members`/`game` populated the way the rest
+      // of this page expects, so a manual merge would show blank names
+      // until the next reload anyway.
+      const [teamRes, registrationRes] = await Promise.all([
+        api.get("/api/team"),
+        api.get("/api/tournamentRegister"),
+      ]);
+      setTeams(teamRes.data?.data || []);
+      setRegistrations(registrationRes.data?.data || []);
+      clearSelection(tournament._id);
+    } catch (err) {
+      console.error("Failed to create team:", err);
+      toast.error(err.response?.data?.message || "Failed to create team");
+    } finally {
+      setCreatingTeamFor(null);
     }
   };
 
@@ -271,6 +351,29 @@ export default function AdminAllTournamentsPage() {
             const isExpanded = expandedIds.has(tournament._id);
             const sections = sectionOpen[tournament._id] || DEFAULT_SECTIONS;
 
+            const formState = getFormState(tournament._id);
+            const formGameConfig = tournamentGames.find(
+              (g) => g._id === formState.gameConfigId
+            );
+            const expectedTeamSize =
+              formGameConfig?.tournamentTeamType === "single_player" ? 1 : 2;
+
+            // Eligible for the currently-selected game: registered for that
+            // specific scheduled instance, and not already on a team for it.
+            const isEligibleForTeamForming = (registration) => {
+              if (!formState.gameConfigId) return false;
+              const gameConfigIds = (
+                registration.gameRegistrationDetails?.gameConfigIds || []
+              ).map(String);
+              if (!gameConfigIds.includes(formState.gameConfigId)) return false;
+              const alreadyTeamed = tournamentTeams.some(
+                (t) =>
+                  String(t.gameConfigId) === formState.gameConfigId &&
+                  (t.members || []).some((m) => m._id === registration.user?._id)
+              );
+              return !alreadyTeamed;
+            };
+
             return (
               <section
                 key={tournament._id}
@@ -369,10 +472,58 @@ export default function AdminAllTournamentsPage() {
                       hasItems={tournamentRegistrations.length > 0}
                       emptyMessage="No players have registered for this tournament yet."
                     >
+                      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-3">
+                        <span className="text-sm font-medium text-foreground">Form a team:</span>
+                        <select
+                          value={formState.gameConfigId}
+                          onChange={(e) => setFormGame(tournament._id, e.target.value)}
+                          className="rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1.5 text-sm text-[var(--foreground)]"
+                        >
+                          <option value="">Select a game...</option>
+                          {tournamentGames.map((g) => (
+                            <option key={g._id} value={g._id}>
+                              {g.game?.name || "Unnamed Game"}
+                              {g.eventTitle ? ` — ${g.eventTitle}` : ""}
+                            </option>
+                          ))}
+                        </select>
+
+                        {formState.gameConfigId && (
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              {formState.selected.size} of {expectedTeamSize} selected
+                            </span>
+                            <button
+                              type="button"
+                              disabled={
+                                formState.selected.size !== expectedTeamSize ||
+                                creatingTeamFor === tournament._id
+                              }
+                              onClick={() =>
+                                handleCreateTeam(tournament, tournamentRegistrations, expectedTeamSize)
+                              }
+                              className="rounded-lg bg-[var(--accent-color)] px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-40"
+                            >
+                              {creatingTeamFor === tournament._id ? "Creating..." : "Create Team"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => clearSelection(tournament._id)}
+                              className="text-xs font-medium text-muted-foreground hover:underline"
+                            >
+                              Clear selection
+                            </button>
+                          </>
+                        )}
+                      </div>
+
                       <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
                         <table className="min-w-full text-sm">
                           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
                             <tr>
+                              {formState.gameConfigId && (
+                                <th className="px-4 py-2 text-left font-medium">Select</th>
+                              )}
                               <th className="px-4 py-2 text-left font-medium">Player</th>
                               <th className="px-4 py-2 text-left font-medium">Email</th>
                               <th className="px-4 py-2 text-left font-medium">Game(s)</th>
@@ -388,12 +539,27 @@ export default function AdminAllTournamentsPage() {
                                   (registration.gameRegistrationDetails?.team?._id ||
                                     registration.gameRegistrationDetails?.team)
                               );
+                              const eligible = isEligibleForTeamForming(registration);
 
                               return (
                                 <tr
                                   key={registration._id}
                                   className="border-t border-[var(--border-color)]"
                                 >
+                                  {formState.gameConfigId && (
+                                    <td className="px-4 py-2">
+                                      {eligible && (
+                                        <input
+                                          type="checkbox"
+                                          checked={formState.selected.has(registration._id)}
+                                          onChange={() =>
+                                            toggleSelect(tournament._id, registration._id, expectedTeamSize)
+                                          }
+                                          className="h-4 w-4 accent-[var(--accent-color)]"
+                                        />
+                                      )}
+                                    </td>
+                                  )}
                                   <td className="px-4 py-2">
                                     {registration.user?.username ||
                                       `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||

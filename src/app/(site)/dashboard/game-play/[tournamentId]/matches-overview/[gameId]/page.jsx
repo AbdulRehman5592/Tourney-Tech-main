@@ -3,12 +3,49 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import api from "@/utils/axios";
+import { toast } from "react-hot-toast";
 import RoundOneMatches from "@/components/ui/dashboard/matches/RoundOne";
 import RoundTwoBracket from "@/components/ui/dashboard/matches/RoundTwo";
 import SeatingChart from "@/components/ui/dashboard/matches/SeatingChart";
 
 import Link from "next/link";
 
+const CRITERIA_LABEL = { wins: "Wins", points: "Points", hands: "Hands" };
+
+function StandingsTable({ data, winnerId }) {
+  if (!data?.standings?.length) return null;
+  return (
+    <div className="overflow-x-auto scrollbar-x">
+      <table className="w-full border-collapse text-sm" style={{ width: "max-content" }}>
+        <thead className="bg-gray-800 text-white">
+          <tr>
+            <th className="p-2 text-left">#</th>
+            <th className="p-2 text-left">Team</th>
+            <th className="p-2 text-left">{CRITERIA_LABEL[data.criteria] || "Wins"}</th>
+            <th className="p-2 text-left">Points For</th>
+            <th className="p-2 text-left">Points Against</th>
+            <th className="p-2 text-left">Hands</th>
+          </tr>
+        </thead>
+        <tbody className="bg-gray-900 text-gray-200">
+          {data.standings.map((row) => (
+            <tr key={row.teamId} className="border-b border-gray-700">
+              <td className="p-2 font-semibold">{row.rank}</td>
+              <td className="p-2">
+                {row.teamId === winnerId && "🏆 "}
+                {[row.displayId, row.name].filter(Boolean).join(" ")}
+              </td>
+              <td className="p-2">{row.wins}</td>
+              <td className="p-2">{row.pointsFor}</td>
+              <td className="p-2">{row.pointsAgainst}</td>
+              <td className="p-2">{row.handsFor}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function TournamentPage() {
   const { tournamentId, gameId } = useParams();
@@ -25,6 +62,8 @@ export default function TournamentPage() {
   const [playoffFormat, setPlayoffFormat] = useState("single_elimination");
   const [generatingBracket, setGeneratingBracket] = useState(false);
   const [showSeatingChart, setShowSeatingChart] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
+  const [standings, setStandings] = useState(null);
   const intervalRef = useRef(null);
 
   const hasRewardBye =
@@ -62,6 +101,45 @@ export default function TournamentPage() {
       setTeams(res.data?.data || []);
     } catch (err) {
       console.error("Error fetching teams:", err);
+    }
+  };
+
+  // 🔹 Only tournament staff (or a global admin) may stop/continue rotation,
+  // decide on a playoff, or generate the bracket -- the API already enforces
+  // this, but the buttons were being shown to every viewer regardless, so a
+  // regular player's click just 403'd silently. This gates the UI to match.
+  const checkStaffStatus = async () => {
+    if (!tournamentId) return;
+    try {
+      const meRes = await api.get("/api/me");
+      const user = meRes.data?.data?.user;
+      if (!user) return;
+      if (user.role === "admin") {
+        setIsStaff(true);
+        return;
+      }
+      const tRes = await api.get("/api/tournaments");
+      const tournament = (tRes.data?.data || []).find((t) => t._id === tournamentId);
+      setIsStaff(
+        (tournament?.staff || []).some((s) => s.user?._id === user._id)
+      );
+    } catch (err) {
+      console.error("Failed to check staff status:", err);
+    }
+  };
+
+  // 🔹 Ranked standings -- previewed before the playoff decision, and shown
+  // as the final result once round1Status is "completed" with no playoff.
+  const fetchStandings = async (config) => {
+    const resolvedGameId = config?._id || gameConfig?._id;
+    if (!tournamentId || !resolvedGameId) return;
+    try {
+      const res = await api.get(
+        `/api/tournaments/${tournamentId}/games/${resolvedGameId}/standings`
+      );
+      setStandings(res.data?.data || null);
+    } catch (err) {
+      console.error("Failed to fetch standings:", err);
     }
   };
 
@@ -121,6 +199,7 @@ export default function TournamentPage() {
     };
 
     fetchOrCreateMatches();
+    checkStaffStatus();
 
     // 🔹 Polling for live updates every 5s
     intervalRef.current = setInterval(() => {
@@ -130,6 +209,19 @@ export default function TournamentPage() {
 
     return () => clearInterval(intervalRef.current);
   }, [tournamentId, gameId]);
+
+  // Preview standings once the qualifying rounds are done, and show them as
+  // the final result once the game is fully decided with no playoff.
+  useEffect(() => {
+    const status = gameConfig?.round1Status;
+    if (
+      isScoreBased &&
+      (status === "awaiting_playoff_decision" || status === "completed")
+    ) {
+      fetchStandings(gameConfig);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameConfig?.round1Status, gameConfig?._id]);
 
   // 🔹 Pre-fill the qualifiers count and playoff format from the plan set at
   // tournament setup (gameConfig.playoffQualifiersCount / playoffFormat) once
@@ -173,6 +265,26 @@ export default function TournamentPage() {
       await fetchMatches();
     } catch (err) {
       console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to record that decision");
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  // Reverses the single most recent stop/playoff decision -- see
+  // undo-decision route for exactly what it will and won't undo.
+  const handleUndoDecision = async () => {
+    setFinalizing(true);
+    try {
+      const res = await api.post(
+        `/api/tournaments/${tournamentId}/games/${gameConfig._id}/undo-decision`
+      );
+      toast.success(res.data?.message || "Decision undone");
+      await fetchGameConfig();
+      await fetchMatches();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to undo");
     } finally {
       setFinalizing(false);
     }
@@ -199,6 +311,7 @@ export default function TournamentPage() {
       await fetchMatches();
     } catch (err) {
       console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to record that decision");
     } finally {
       setFinalizing(false);
     }
@@ -218,6 +331,7 @@ export default function TournamentPage() {
       await fetchMatches();
     } catch (err) {
       console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to generate the bracket");
     } finally {
       setGeneratingBracket(false);
     }
@@ -264,27 +378,33 @@ export default function TournamentPage() {
             their way up to meet them there. Leave unselected to generate a
             normal bracket with no protection.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            <select
-              value={protectedSeedTeamId}
-              onChange={(e) => setProtectedSeedTeamId(e.target.value)}
-              className="p-2 rounded bg-[var(--background)] text-white w-64"
-            >
-              <option value="">No protected seed</option>
-              {teams.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.displayId || t.serialNo} {t.name}
-                </option>
-              ))}
-            </select>
-            <button
-              disabled={generatingBracket}
-              onClick={handleGenerateBracket}
-              className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
-            >
-              {generatingBracket ? "Generating..." : "Generate Bracket"}
-            </button>
-          </div>
+          {isStaff ? (
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <select
+                value={protectedSeedTeamId}
+                onChange={(e) => setProtectedSeedTeamId(e.target.value)}
+                className="p-2 rounded bg-[var(--background)] text-white w-64"
+              >
+                <option value="">No protected seed</option>
+                {teams.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.displayId || t.serialNo} {t.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={generatingBracket}
+                onClick={handleGenerateBracket}
+                className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
+              >
+                {generatingBracket ? "Generating..." : "Generate Bracket"}
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">
+              Waiting for the tournament organizer to generate the bracket.
+            </p>
+          )}
         </section>
       )}
 
@@ -353,22 +473,28 @@ export default function TournamentPage() {
             <h3 className="text-xl font-bold text-blue-400">
               Round complete — play another round?
             </h3>
-            <div className="flex gap-3">
-              <button
-                disabled={finalizing}
-                onClick={() => handleNextRoundDecision(true)}
-                className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
-              >
-                Yes, Another Round
-              </button>
-              <button
-                disabled={finalizing}
-                onClick={() => handleNextRoundDecision(false)}
-                className="px-4 py-2 rounded bg-gray-700 text-white font-medium disabled:opacity-50"
-              >
-                No, Stop Here
-              </button>
-            </div>
+            {isStaff ? (
+              <div className="flex gap-3">
+                <button
+                  disabled={finalizing}
+                  onClick={() => handleNextRoundDecision(true)}
+                  className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
+                >
+                  Yes, Another Round
+                </button>
+                <button
+                  disabled={finalizing}
+                  onClick={() => handleNextRoundDecision(false)}
+                  className="px-4 py-2 rounded bg-gray-700 text-white font-medium disabled:opacity-50"
+                >
+                  No, Stop Here
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">
+                Waiting for the organizer to decide whether to continue.
+              </p>
+            )}
           </section>
         )}
 
@@ -380,66 +506,114 @@ export default function TournamentPage() {
             <h3 className="text-xl font-bold text-yellow-400">
               Qualifying rounds complete — start a playoff?
             </h3>
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
-              <select
-                value={playoffFormat}
-                onChange={(e) => setPlayoffFormat(e.target.value)}
-                className="p-2 rounded bg-[var(--background)] text-white"
-              >
-                <option value="single_elimination">Single Elimination</option>
-                <option value="double_elimination">Double Elimination</option>
-              </select>
-              <input
-                type="number"
-                min={2}
-                placeholder="Teams to qualify"
-                value={qualifiersCount}
-                onChange={(e) => setQualifiersCount(e.target.value)}
-                className="p-2 rounded bg-[var(--background)] text-white w-48"
-              />
-              {playoffFormat === "single_elimination" && (
-                <select
-                  value={playoffByeType}
-                  onChange={(e) => setPlayoffByeType(e.target.value)}
-                  className="p-2 rounded bg-[var(--background)] text-white"
-                >
-                  <option value="none">Reward Bye: None</option>
-                  <option value="first_round">Reward Bye: First Round</option>
-                  <option value="quarterfinal">Reward Bye: Quarterfinal</option>
-                  <option value="semifinal">Reward Bye: Semifinal</option>
-                  <option value="final_four">Reward Bye: Final Four</option>
-                  <option value="championship">Reward Bye: Championship</option>
-                </select>
-              )}
-              {playoffFormat === "single_elimination" && playoffByeType !== "none" && (
-                <select
-                  value={protectedSeedTeamId}
-                  onChange={(e) => setProtectedSeedTeamId(e.target.value)}
-                  className="p-2 rounded bg-[var(--background)] text-white w-56"
-                >
-                  <option value="">Protected team...</option>
-                  {teams.map((t) => (
-                    <option key={t._id} value={t._id}>
-                      {t.displayId || t.serialNo} {t.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                disabled={finalizing || !qualifiersCount}
-                onClick={() => handleFinalizeRound1(true)}
-                className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
-              >
-                Start Playoff
-              </button>
+
+            {standings && <StandingsTable data={standings} />}
+
+            {isStaff ? (
+              <>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+                  <select
+                    value={playoffFormat}
+                    onChange={(e) => setPlayoffFormat(e.target.value)}
+                    className="p-2 rounded bg-[var(--background)] text-white"
+                  >
+                    <option value="single_elimination">Single Elimination</option>
+                    <option value="double_elimination">Double Elimination</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={2}
+                    placeholder="Teams to qualify"
+                    value={qualifiersCount}
+                    onChange={(e) => setQualifiersCount(e.target.value)}
+                    className="p-2 rounded bg-[var(--background)] text-white w-48"
+                  />
+                  {playoffFormat === "single_elimination" && (
+                    <select
+                      value={playoffByeType}
+                      onChange={(e) => setPlayoffByeType(e.target.value)}
+                      className="p-2 rounded bg-[var(--background)] text-white"
+                    >
+                      <option value="none">Reward Bye: None</option>
+                      <option value="first_round">Reward Bye: First Round</option>
+                      <option value="quarterfinal">Reward Bye: Quarterfinal</option>
+                      <option value="semifinal">Reward Bye: Semifinal</option>
+                      <option value="final_four">Reward Bye: Final Four</option>
+                      <option value="championship">Reward Bye: Championship</option>
+                    </select>
+                  )}
+                  {playoffFormat === "single_elimination" && playoffByeType !== "none" && (
+                    <select
+                      value={protectedSeedTeamId}
+                      onChange={(e) => setProtectedSeedTeamId(e.target.value)}
+                      className="p-2 rounded bg-[var(--background)] text-white w-56"
+                    >
+                      <option value="">Protected team...</option>
+                      {teams.map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.displayId || t.serialNo} {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    disabled={finalizing || !qualifiersCount}
+                    onClick={() => handleFinalizeRound1(true)}
+                    className="px-4 py-2 rounded bg-[var(--accent-color)] text-black font-medium disabled:opacity-50"
+                  >
+                    Start Playoff
+                  </button>
+                  <button
+                    disabled={finalizing}
+                    onClick={() => handleFinalizeRound1(false)}
+                    className="px-4 py-2 rounded bg-gray-700 text-white font-medium disabled:opacity-50"
+                  >
+                    No Playoff — Crown Standings Winner
+                  </button>
+                </div>
+
+                {/* Only reachable via an explicit "Stop Here" on indefinite
+                    standard rotation -- round_robin/mesh/capped-standard land
+                    here automatically once every match is done, so there's no
+                    prior "stop" click to undo. */}
+                {gameConfig?.format === "standard" && !gameConfig?.standardRounds && (
+                  <button
+                    disabled={finalizing}
+                    onClick={handleUndoDecision}
+                    className="text-sm text-gray-400 hover:text-white underline disabled:opacity-50"
+                  >
+                    ↩ Undo — resume rotation (accidentally stopped?)
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-400 italic">
+                Waiting for the organizer to decide on a playoff.
+              </p>
+            )}
+          </section>
+        )}
+
+      {/* FINAL RESULT: NO PLAYOFF, CROWNED BY STANDINGS */}
+      {isScoreBased &&
+        gameConfig?.round1Status === "completed" &&
+        playoffMatches.length === 0 && (
+          <section className="p-4 rounded-lg border border-green-500 bg-gray-900 space-y-3">
+            <h3 className="text-xl font-bold text-green-400">
+              🏆 Final Standings
+            </h3>
+            {standings && (
+              <StandingsTable data={standings} winnerId={gameConfig?.winner?.toString?.() || gameConfig?.winner} />
+            )}
+            {isStaff && (
               <button
                 disabled={finalizing}
-                onClick={() => handleFinalizeRound1(false)}
-                className="px-4 py-2 rounded bg-gray-700 text-white font-medium disabled:opacity-50"
+                onClick={handleUndoDecision}
+                className="text-sm text-gray-400 hover:text-white underline disabled:opacity-50"
               >
-                No Playoff — Crown Standings Winner
+                ↩ Undo — back to playoff decision (wrong button?)
               </button>
-            </div>
+            )}
           </section>
         )}
 

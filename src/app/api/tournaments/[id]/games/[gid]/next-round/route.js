@@ -62,7 +62,11 @@ export const POST = asyncHandler(async (req, context) => {
   }).sort({ round: -1 });
   const nextRound = (lastRoundMatch?.round || 0) + 1;
 
-  const teams = await Team.find({ tournament: tournamentId, gameConfigId });
+  const teams = await Team.find({
+    tournament: tournamentId,
+    gameConfigId,
+    checkedIn: true,
+  });
   const matchDocs = buildStandardRotation(teams, {
     direction: gameConfig.standardDirection,
     fromRound: nextRound,

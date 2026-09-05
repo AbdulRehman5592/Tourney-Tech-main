@@ -1,7 +1,7 @@
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { ApiError } from "@/utils/server/ApiError";
-import { requireAdmin } from "@/utils/server/roleGuards";
+import { requireAdmin, requireTournamentCreator } from "@/utils/server/roleGuards";
 import { parseForm } from "@/utils/server/parseForm";
 import { uploadOnCloudinary } from "@/utils/server/cloudinary";
 import { Tournament } from "@/models/Tournament";
@@ -12,7 +12,7 @@ import { Game } from "@/models/Game";
 
 
 export const POST = asyncHandler(async (req) => {
-  const user = await requireAdmin();
+  const user = await requireTournamentCreator();
 
   const { fields, files } = await parseForm(req);
 
@@ -28,9 +28,14 @@ export const POST = asyncHandler(async (req) => {
   const status = fields.status?.toString() || "upcoming";
 
 
-  const organizers = JSON.parse(fields.organizers || "[]");
-  const managers = JSON.parse(fields.managers || "[]");
-  const support = JSON.parse(fields.support || "[]");
+  // A non-admin (promoted) creator can't nominate other staff at creation
+  // time -- they staff up their own tournament afterward via the existing
+  // /api/tournaments/[id]/staff route (which already allows an `owner` to do
+  // this with no approval-status gate). Only a Full Admin may seed staff
+  // directly on creation, same as before.
+  const organizers = user.role === "admin" ? JSON.parse(fields.organizers || "[]") : [];
+  const managers = user.role === "admin" ? JSON.parse(fields.managers || "[]") : [];
+  const support = user.role === "admin" ? JSON.parse(fields.support || "[]") : [];
 
   if (!name || !location || isNaN(startDate) || isNaN(endDate)) {
     throw new ApiError(400, "Missing required fields");
@@ -139,6 +144,13 @@ for (const game of games) {
     ...support.map((id) => ({ user: id, role: "support" })),
   ];
 
+  // A Full Admin's tournament is immediately live, matching today's
+  // behavior exactly. A promoted (non-admin) director's submission stays
+  // invisible/unregistrable until a Full Admin approves it (see the
+  // approvalStatus filter in GET below and the approve/reject action on
+  // PATCH /api/tournaments/[id]).
+  const approvalStatus = user.role === "admin" ? "approved" : "pending";
+
   const tournament = await Tournament.create({
     name,
     description,
@@ -150,23 +162,45 @@ for (const game of games) {
     games,
     status: finalStatus,
     staff,
-
+    approvalStatus,
   });
 
   return Response.json(
-    new ApiResponse(201, tournament, "Tournament created successfully")
+    new ApiResponse(
+      201,
+      tournament,
+      approvalStatus === "pending"
+        ? "Tournament submitted -- an admin will review it before it goes live"
+        : "Tournament created successfully"
+    )
   );
 });
 
 // Draft (0-game) tournaments are excluded by default -- they have nothing to
 // register for/play and would show as broken empty cards to players. Admin
 // management pages that need to find and edit their drafts pass
-// ?includeDrafts=true.
+// ?includeDrafts=true. A tournament pending or rejected by admin review is
+// excluded from the public/default list either way -- only a Full Admin
+// review queue (?pendingOnly=true) or a creator's own "My Tournaments" list
+// (a separate, staff-membership-based route, unaffected by this filter)
+// ever surfaces it.
 export const GET = asyncHandler(async (req) => {
   const { searchParams } = new URL(req.url);
   const includeDrafts = searchParams.get("includeDrafts") === "true";
+  const pendingOnly = searchParams.get("pendingOnly") === "true";
 
-  const query = includeDrafts ? {} : { status: { $ne: "draft" } };
+  let query;
+  if (pendingOnly) {
+    await requireAdmin();
+    query = { approvalStatus: "pending" };
+  } else if (includeDrafts) {
+    // Admin tooling: see drafts and pending submissions, but not rejected ones.
+    query = { approvalStatus: { $ne: "rejected" } };
+  } else {
+    // Public/default: field-missing (pre-existing docs) counts as approved.
+    query = { status: { $ne: "draft" }, approvalStatus: { $nin: ["pending", "rejected"] } };
+  }
+
   const tournaments = await Tournament.find(query)
     .populate("games.game", "name icon")
     .populate("staff.user", "username email")

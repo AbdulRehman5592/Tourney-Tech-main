@@ -30,6 +30,7 @@ export default function UserTable({ onEditUser, refreshKey }) {
   const [data, setData] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [updatingCreatorId, setUpdatingCreatorId] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -72,6 +73,31 @@ export default function UserTable({ onEditUser, refreshKey }) {
       toast.error(error?.response?.data?.message || "Failed to update status");
     } finally {
       setUpdatingStatusId(null);
+    }
+  };
+
+  // Grant/revoke the global "may create their own tournaments" capability --
+  // uses the real plural /api/users/[id] route (the status/delete calls
+  // above point at a singular /api/user/[id] route that doesn't actually
+  // exist; not fixing that pre-existing bug here, just not repeating it).
+  const handleCreatorToggle = async (id, canCreateTournaments) => {
+    setUpdatingCreatorId(id);
+    try {
+      await api.patch(
+        `/api/users/${id}`,
+        { canCreateTournaments },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      toast.success(
+        canCreateTournaments ? "Promoted to tournament director" : "Tournament director access revoked"
+      );
+      setData((prev) =>
+        prev.map((u) => (u._id === id ? { ...u, canCreateTournaments } : u))
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update access");
+    } finally {
+      setUpdatingCreatorId(null);
     }
   };
 
@@ -121,6 +147,30 @@ export default function UserTable({ onEditUser, refreshKey }) {
         },
       },
       {
+        header: "Tournament Director",
+        accessorKey: "canCreateTournaments",
+        cell: ({ row }) => {
+          const user = row.original;
+          return (
+            <label
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={!!user.canCreateTournaments}
+                disabled={updatingCreatorId === user._id || user.role === "admin"}
+                onChange={(e) => handleCreatorToggle(user._id, e.target.checked)}
+                className="h-4 w-4 accent-[var(--accent-color)] disabled:opacity-50"
+              />
+              <span className="text-xs text-muted-foreground">
+                {user.role === "admin" ? "Full Admin" : user.canCreateTournaments ? "Yes" : "No"}
+              </span>
+            </label>
+          );
+        },
+      },
+      {
         header: "DOB",
         accessorKey: "dob",
 
@@ -156,7 +206,7 @@ export default function UserTable({ onEditUser, refreshKey }) {
         },
       },
     ],
-    [onEditUser, updatingStatusId]
+    [onEditUser, updatingStatusId, updatingCreatorId]
   );
 
   const table = useReactTable({

@@ -75,6 +75,10 @@ const TournamentGameSchema = new Schema({
     ],
     default: "pending",
   },
+  // Whether check-in is currently accepting arrivals for this game, ahead of
+  // bracket generation -- a team that never checks in isn't pulled into
+  // Round 1 seeding (see the Team.checkedIn filter in POST /api/matches).
+  checkInOpen: { type: Boolean, default: false },
   winner: { type: Schema.Types.ObjectId, ref: "Team" },
   // Reward bye / protected seed (single_elimination only): how deep a
   // protected team's bye reaches before it plays its first match. Which team
@@ -137,6 +141,17 @@ const TournamentSchema = new Schema(
       type: [TournamentGameSchema],
     },
     staff: [TournamentStaffSchema],
+    // Independent of `status` (play lifecycle) and `isPublic` (unused today) --
+    // a tournament created by a promoted, non-admin director starts "pending"
+    // and is excluded from every public listing until a Full Admin approves
+    // it. Admin-created tournaments default straight to "approved" so
+    // existing behavior is unchanged.
+    approvalStatus: {
+      type: String,
+      enum: ["approved", "pending", "rejected"],
+      default: "approved",
+    },
+    approvalNote: { type: String, trim: true, default: "" },
   },
   { timestamps: true }
 );

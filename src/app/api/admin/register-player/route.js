@@ -17,7 +17,7 @@ import { buildImportRow, validateImportRow, slugify } from "@/utils/userImport";
 // created moments earlier is removed again, so a retry doesn't collide with a
 // half-registered user left behind by the previous attempt.
 export const POST = asyncHandler(async (req) => {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await connectDB();
 
   const { fields } = await parseForm(req);
@@ -101,6 +101,7 @@ export const POST = asyncHandler(async (req) => {
     region,
     role: "player",
     isVerified: true,
+    createdBy: admin._id,
   });
 
   await user.save();

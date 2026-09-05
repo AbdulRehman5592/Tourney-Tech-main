@@ -25,7 +25,7 @@ const MAX_ROWS = 2000;
 // saved one at a time (never insertMany) because the User model hashes
 // passwords in a pre("save") hook that bulk inserts would bypass.
 export const POST = asyncHandler(async (req) => {
-  await requireAdmin();
+  const admin = await requireAdmin();
   await connectDB();
 
   const { fields } = await parseForm(req);
@@ -173,6 +173,7 @@ export const POST = asyncHandler(async (req) => {
         region,
         role: "player",
         isVerified: true,
+        createdBy: admin._id,
       });
 
       await user.save();

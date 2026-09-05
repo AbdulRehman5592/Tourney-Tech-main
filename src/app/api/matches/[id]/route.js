@@ -1,12 +1,20 @@
 import { Match } from "@/models/Match";
-import "@/models/Team";
+import { Team } from "@/models/Team";
 import "@/models/Tournament";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { parseForm } from "@/utils/server/parseForm";
 import { requireAuth } from "@/utils/server/auth";
 import { routeIntoTarget } from "@/utils/server/bracketProgression";
+import { isTournamentStaff } from "@/utils/server/tournamentPermissions";
 import "@/models/Game";
+
+// Staff (besides global admins) who may fully override/force-complete a
+// score -- deliberately excludes "support", which only gets check-in/seating
+// authority (see the "reassign" action below).
+const SCORE_OVERRIDE_STAFF_ROLES = ["owner", "organizer", "manager"];
+// Staff who may reassign/vacate a team's seat at a table.
+const REASSIGN_STAFF_ROLES = ["owner", "organizer", "manager", "support"];
 
 // Coerces an incoming dynamic scores object ({ score, boston, ... }) to numbers
 // and applies it to one side of the match, mirroring the well-known `boston`
@@ -51,14 +59,75 @@ export const PATCH = asyncHandler(async (req, context) => {
     teamBboston,
     teamAScores, // dynamic per-game-type score map
     teamBScores,
-    action, // "submit" | "respond" (regular users only; admin always overrides)
+    action, // "submit" | "respond" | "reassign" (regular users only submit/respond; admin always overrides)
     agree, // for action: "respond"
+    side, // for action: "reassign" -- "teamA" | "teamB"
+    teamId, // for action: "reassign" -- new team id, or empty/null to vacate the seat
   } = fields;
 
   const match = await Match.findById(matchId).populate(
     "teamA teamB tournament game"
   );
   if (!match) throw new ApiResponse(404, null, "Match not found");
+
+  if (action === "reassign") {
+    const canReassign =
+      user.role === "admin" ||
+      (await isTournamentStaff(match.tournament, user, REASSIGN_STAFF_ROLES));
+    if (!canReassign) {
+      throw new ApiResponse(
+        403,
+        null,
+        "You are not authorized to reassign teams for this match"
+      );
+    }
+    if (side !== "teamA" && side !== "teamB") {
+      throw new ApiResponse(400, null, "side must be 'teamA' or 'teamB'");
+    }
+    if (match.status === "completed") {
+      throw new ApiResponse(
+        400,
+        null,
+        "Cannot reassign teams on a completed match"
+      );
+    }
+
+    const otherSide = side === "teamA" ? "teamB" : "teamA";
+    const otherTeamId = match[otherSide]?._id?.toString();
+
+    if (teamId) {
+      if (teamId === otherTeamId) {
+        throw new ApiResponse(
+          400,
+          null,
+          "That team is already seated on the other side of this match"
+        );
+      }
+      const team = await Team.findOne({
+        _id: teamId,
+        tournament: match.tournament._id,
+        gameConfigId: match.gameConfigId,
+      });
+      if (!team) {
+        throw new ApiResponse(
+          400,
+          null,
+          "Team not found for this tournament and game"
+        );
+      }
+      match[side] = team._id;
+    } else {
+      match[side] = null;
+    }
+
+    await match.save();
+    const populated = await Match.findById(match._id).populate(
+      "teamA teamB tournament game"
+    );
+    return Response.json(
+      new ApiResponse(200, populated, "Match seating updated")
+    );
+  }
 
   // Captured before any mutation below: a match that was ALREADY completed
   // before this request must not re-trigger bracket routing when re-saved --
@@ -68,8 +137,12 @@ export const PATCH = asyncHandler(async (req, context) => {
   // corrupting the bracket (a team ends up facing itself).
   const wasAlreadyCompleted = match.status === "completed";
 
-  if (user.role === "admin") {
-    // ✅ Admin full control: sets both sides and completes immediately.
+  const isScoreOverrideStaff =
+    user.role === "admin" ||
+    (await isTournamentStaff(match.tournament, user, SCORE_OVERRIDE_STAFF_ROLES));
+
+  if (isScoreOverrideStaff) {
+    // ✅ Admin/staff full control: sets both sides and completes immediately.
     match.teamAScore = Number(teamAScore) || 0;
     match.teamBScore = Number(teamBScore) || 0;
     match.teamAtotalWon = Number(teamAtotalWon) || 0;

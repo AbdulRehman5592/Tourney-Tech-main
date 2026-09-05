@@ -35,6 +35,14 @@ export const POST = asyncHandler(async (req) => {
   if (!existingTournament) {
     throw new ApiResponse(404, null, "Tournament not found");
   }
+
+  // Note: intentionally not staff-gated. The player-facing matches-overview
+  // page (game-play/[tournamentId]/matches-overview/[gameId]) auto-calls this
+  // endpoint for whichever player happens to load the page first, once
+  // Round 1 doesn't exist yet -- locking this down to staff would silently
+  // break that auto-generation for any tournament staff hasn't manually
+  // opened first. Pre-existing gap, left as-is; the checked-in filter below
+  // is the actual scope of this change.
   const existingGameConfig = existingTournament.games.id(gameConfigId);
   if (!existingGameConfig) throw new ApiResponse(400, null, "Game not found");
   const game = existingGameConfig.game;
@@ -50,9 +58,16 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiResponse(400, null, "Unknown tournament format");
   }
 
-  const teams = await Team.find({ tournament, gameConfigId });
+  // Only teams that actually checked in get seeded -- a team that registered
+  // but never checked in shouldn't be seated into a bracket (and left to
+  // no-show a bye/first match).
+  const teams = await Team.find({ tournament, gameConfigId, checkedIn: true });
   if (teams.length < 2) {
-    throw new ApiResponse(400, null, "Not enough teams to create matches");
+    throw new ApiResponse(
+      400,
+      null,
+      "Not enough checked-in teams to create matches"
+    );
   }
 
   const matchDocs = [];

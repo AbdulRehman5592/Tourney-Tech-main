@@ -7,14 +7,11 @@
 
 import { Team } from "@/models/Team";
 import { Tournament } from "@/models/Tournament";
-import { Registration } from "@/models/Registration";
-import { User } from "@/models/User";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { parseForm } from "@/utils/server/parseForm";
-import { getNextSequence } from "@/lib/utils";
-import { assignTeamNumber } from "@/utils/server/teamNumbering";
+import { createSoloTeam } from "@/utils/server/soloTeam";
 import mongoose from "mongoose";
 
 function isValidObjectId(id) {
@@ -40,21 +37,6 @@ export const POST = asyncHandler(async (req) => {
   const tournament = await Tournament.findById(tournamentId);
   if (!tournament) throw new ApiResponse(404, null, "Tournament not found");
 
-  const gameConfig = tournament.games.id(gameConfigId);
-  if (!gameConfig) throw new ApiResponse(404, null, "Game not found in this tournament");
-  if (gameConfig.tournamentTeamType !== "single_player") {
-    throw new ApiResponse(400, null, "This game is not a single-player game");
-  }
-
-  const registration = await Registration.findOne({
-    tournament: tournamentId,
-    user: user._id,
-    "gameRegistrationDetails.gameConfigIds": gameConfigId,
-  });
-  if (!registration) {
-    throw new ApiResponse(400, null, "You are not registered for this game in this tournament");
-  }
-
   const existingTeam = await Team.findOne({
     tournament: tournamentId,
     gameConfigId,
@@ -64,23 +46,7 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiResponse(400, null, "You already have a team for this tournament and game");
   }
 
-  const me = await User.findById(user._id).select("username region");
-  const newSerial = await getNextSequence(`team-serial-${tournamentId}-${gameConfigId}`);
-  const numbering = await assignTeamNumber([me.region]);
-
-  const team = await Team.create({
-    tournament: new mongoose.Types.ObjectId(tournamentId),
-    game: gameConfig.game,
-    gameConfigId,
-    members: [user._id],
-    createdBy: user._id,
-    serialNo: newSerial.toString(),
-    name: me.username,
-    ...numbering,
-  });
-
-  registration.gameRegistrationDetails.team = team._id;
-  await registration.save();
+  const team = await createSoloTeam({ tournament, gameConfigId, userId: user._id });
 
   const populatedTeam = await Team.findById(team._id)
     .populate("tournament")

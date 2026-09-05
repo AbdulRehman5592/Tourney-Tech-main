@@ -62,6 +62,7 @@ export const POST = asyncHandler(async (req, context) => {
   const teams = await Team.find({
     tournament: tournamentId,
     gameConfigId,
+    checkedIn: true,
   });
 
   // Mesh tallies standings the same flat way as round robin (no pools) --
