@@ -2,18 +2,18 @@ export default function HowItWorks() {
   const steps = [
     {
       title: "1. Browse Tournaments",
-      description: "Explore ongoing and upcoming tournaments across different games or sports.",
+      description: "Explore ongoing and upcoming tournaments.",
       emoji: "🔍",
     },
     {
-      title: "2. Join a Match",
-      description: "Sign up for a tournament and get matched with other players instantly.",
-      emoji: "🎮",
+      title: "2. Register",
+      description: "Sign up for a tournament and select your teammate and doubles partner(s).",
+      image: "/img/tourney-tech-3a-logo.png",
     },
     {
       title: "3. Play & Compete",
-      description: "Play your matches on time, and compete with others to move up the bracket.",
-      emoji: "⚔️",
+      description: "Play your matches on time, and compete with others for the best ranking.",
+      image: "/img/tourney-tech-shield-logo.png",
     },
     {
       title: "4. Track Progress",
@@ -46,7 +46,11 @@ export default function HowItWorks() {
                 color: "var(--foreground)",
               }}
             >
-              <div className="text-4xl mb-4">{step.emoji}</div>
+              {step.image ? (
+                <img src={step.image} alt="" className="h-12 mb-4 object-contain" />
+              ) : (
+                <div className="text-4xl mb-4">{step.emoji}</div>
+              )}
               <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
               <p style={{ color: "#9CA3AF" }}>{step.description}</p>
             </div>

@@ -2,11 +2,64 @@
 
 import { useEffect, useState } from "react";
 import api from "@/utils/axios"; // your axios instance
-import Link from "next/link";
+
+function TournamentCard({ item }) {
+  const [gamesExpanded, setGamesExpanded] = useState(false);
+  const games = item.games || [];
+
+  return (
+    <div
+      className="p-6 rounded-xl shadow hover:shadow-lg transition"
+      style={{ backgroundColor: "var(--card-background)" }}
+    >
+      <h3
+        className="text-xl font-semibold mb-3 capitalize"
+        style={{ color: "var(--accent-color)" }}
+      >
+        {item.name}
+      </h3>
+
+      <div className="mb-1 font-medium capitalize" style={{ color: "#D1D5DB" }}>
+        📍 Location: {item.location}
+      </div>
+
+      {/* Collapsed by default -- just the count, expandable on click */}
+      <div className="mb-1">
+        <button
+          type="button"
+          onClick={() => setGamesExpanded((v) => !v)}
+          className="font-medium flex items-center gap-1"
+          style={{ color: "#D1D5DB" }}
+        >
+          🎮 {games.length} Game{games.length === 1 ? "" : "s"}
+          <span className="text-xs">{gamesExpanded ? "▲" : "▼"}</span>
+        </button>
+        {gamesExpanded && (
+          <ul className="list-disc list-inside space-y-1 mt-1">
+            {games.map((g, idx) => (
+              <li key={idx} className="capitalize" style={{ color: "#9CA3AF" }}>
+                {g.game?.name} — {g.tournamentTeamType}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <p style={{ color: "#9CA3AF" }}>
+        📅 {new Date(item.startDate).toLocaleDateString()} -{" "}
+        {new Date(item.endDate).toLocaleDateString()}
+      </p>
+    </div>
+  );
+}
 
 export default function UpcomingTournaments() {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Everything here is public -- an account is only needed to register, not
+  // to browse, so "View More" just reveals the rest of the already-fetched
+  // list instead of sending visitors to log in.
+  const [showAllCards, setShowAllCards] = useState(false);
 
   useEffect(() => {
     const fetchTournaments = async () => {
@@ -24,8 +77,9 @@ export default function UpcomingTournaments() {
     fetchTournaments();
   }, []);
 
-  const showAll = tournaments.length <= 3;
-  const topTwo = tournaments.slice(0, 2);
+  const hasMore = tournaments.length > 3;
+  const displayedTournaments =
+    showAllCards || !hasMore ? tournaments : tournaments.slice(0, 2);
   const remainingCount = tournaments.length - 2;
 
   return (
@@ -52,124 +106,30 @@ export default function UpcomingTournaments() {
           <p style={{ color: "#9CA3AF" }}>No upcoming tournaments found.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-            {/* ✅ If tournaments ≤ 3 → show all */}
-            {showAll ? (
-              tournaments.map((item, index) => (
-                <div
-                  key={index}
-                  className="p-6 rounded-xl shadow hover:shadow-lg transition"
-                  style={{ backgroundColor: "var(--card-background)" }}
+            {displayedTournaments.map((item, index) => (
+              <TournamentCard key={item._id || index} item={item} />
+            ))}
+
+            {!showAllCards && hasMore && (
+              <div
+                className="flex flex-col items-center justify-center p-6 rounded-xl shadow hover:shadow-lg transition text-center"
+                style={{ backgroundColor: "var(--card-background)" }}
+              >
+                <p className="text-lg font-semibold mb-2" style={{ color: "#D1D5DB" }}>
+                  +{remainingCount} More Tournaments
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAllCards(true)}
+                  className="px-4 py-2 rounded-lg font-medium"
+                  style={{
+                    backgroundColor: "var(--accent-color)",
+                    color: "black",
+                  }}
                 >
-                  <h3
-                    className="text-xl font-semibold mb-3 capitalize"
-                    style={{ color: "var(--accent-color)" }}
-                  >
-                    {item.name}
-                  </h3>
-
-                  <div
-                    className="mb-1 font-medium capitalize"
-                    style={{ color: "#D1D5DB" }}
-                  >
-                    📍 Location: {item.location}
-                  </div>
-
-                  {/* ✅ Show games in list */}
-                  <div className="mb-1">
-                    <p className="font-medium" style={{ color: "#D1D5DB" }}>
-                      🎮 Games:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1">
-                      {item.games?.map((g, idx) => (
-                        <li
-                          key={idx}
-                          className="capitalize"
-                          style={{ color: "#9CA3AF" }}
-                        >
-                          {g.game?.name} — {g.tournamentTeamType}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <p style={{ color: "#9CA3AF" }}>
-                    📅 {new Date(item.startDate).toLocaleDateString()} -{" "}
-                    {new Date(item.endDate).toLocaleDateString()}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <>
-                {/* ✅ Show only first 2 */}
-                {topTwo.map((item, index) => (
-                  <div
-                    key={index}
-                    className="p-6 rounded-xl shadow hover:shadow-lg transition"
-                    style={{ backgroundColor: "var(--card-background)" }}
-                  >
-                    <h3
-                      className="text-xl font-semibold mb-3 capitalize"
-                      style={{ color: "var(--accent-color)" }}
-                    >
-                      {item.name}
-                    </h3>
-
-                    <div
-                      className="mb-1 font-medium capitalize"
-                      style={{ color: "#D1D5DB" }}
-                    >
-                      📍 Location: {item.location}
-                    </div>
-
-                    {/* ✅ Show games in list */}
-                    <div className="mb-1">
-                      <p className="font-medium" style={{ color: "#D1D5DB" }}>
-                        🎮 Games:
-                      </p>
-                      <ul className="list-disc list-inside space-y-1">
-                        {item.games?.map((g, idx) => (
-                          <li
-                            key={idx}
-                            className="capitalize"
-                            style={{ color: "#9CA3AF" }}
-                          >
-                            {g.game?.name} — {g.tournamentTeamType}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <p style={{ color: "#9CA3AF" }}>
-                      📅 {new Date(item.startDate).toLocaleDateString()} -{" "}
-                      {new Date(item.endDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-
-                {/* ✅ 3rd card = "View More" */}
-                <div
-                  className="flex flex-col items-center justify-center p-6 rounded-xl shadow hover:shadow-lg transition text-center"
-                  style={{ backgroundColor: "var(--card-background)" }}
-                >
-                  <p
-                    className="text-lg font-semibold mb-2"
-                    style={{ color: "#D1D5DB" }}
-                  >
-                    +{remainingCount} More Tournaments
-                  </p>
-                  <Link href="/auth/login">
-                    <button
-                      className="px-4 py-2 rounded-lg font-medium"
-                      style={{
-                        backgroundColor: "var(--accent-color)",
-                        color: "black",
-                      }}
-                    >
-                      View More
-                    </button>
-                  </Link>
-                </div>
-              </>
+                  View More
+                </button>
+              </div>
             )}
           </div>
         )}
