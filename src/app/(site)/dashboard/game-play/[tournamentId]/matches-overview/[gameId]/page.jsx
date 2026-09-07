@@ -408,6 +408,21 @@ export default function TournamentPage() {
         </section>
       )}
 
+      {/* FULL STANDINGS PAGE -- round-by-round table, only meaningful for the
+          score-based formats standings apply to. */}
+      {isScoreBased && (round1Matches.length > 0 || playoffMatches.length > 0) && (
+        <div className="flex justify-end">
+          <Link href={`/dashboard/game-play/${tournamentId}/standings/${gameId}`}>
+            <button
+              className="px-4 py-2 rounded-lg font-semibold transition hover:scale-[1.03] shadow-lg"
+              style={{ backgroundColor: "var(--accent-color)", color: "var(--background)" }}
+            >
+              View Full Standings
+            </button>
+          </Link>
+        </div>
+      )}
+
       {/* SEATING CHART -- auto-generated from table assignments, toggleable */}
       {(round1Matches.length > 0 || playoffMatches.length > 0) && (
         <section>

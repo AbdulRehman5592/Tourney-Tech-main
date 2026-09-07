@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import DashboardNavbar from "@/components/ui/dashboard/DashboardNavbar";
 import DashboardSidebar from "@/components/ui/dashboard/DashboardSidebar";
 
-import { LayoutDashboard, Users, LogOut, BellDot,SquareChartGantt, Trophy, CheckSquare, LayoutGrid, BadgePlus } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, BellDot,SquareChartGantt, Trophy, CheckSquare, LayoutGrid, BadgePlus, Award } from "lucide-react";
 
 import UserGuard from "@/components/gard/user/UserGard";
 
@@ -16,6 +16,7 @@ import api from "@/utils/axios";
 const userNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/my-tournaments", label: "My Tournaments", icon: Trophy },
+  { href: "/dashboard/rankings", label: "National Rankings", icon: Award },
   { href: "/dashboard/profile", label: "Profile", icon: Users },
   { href: "/dashboard/teamup", label: "Team Up", icon: Users },
    {

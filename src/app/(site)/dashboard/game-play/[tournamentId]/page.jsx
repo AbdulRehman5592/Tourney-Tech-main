@@ -177,10 +177,11 @@ export default function GamePlay() {
             </div> */}
             </div>
 
-            {/* Action Button */}
-            <div className="mt-5">
+            {/* Action Buttons */}
+            <div className="mt-5 flex gap-2">
               <Link
                 href={`/dashboard/game-play/${tournamentId}/matches-overview/${game.gameConfigId}`}
+                className="flex-1"
               >
                 <button
                   className="w-full py-2.5 rounded-lg font-semibold transition hover:scale-[1.03] shadow-lg"
@@ -190,6 +191,20 @@ export default function GamePlay() {
                   }}
                 >
                   Play Now
+                </button>
+              </Link>
+              <Link
+                href={`/dashboard/game-play/${tournamentId}/standings/${game.gameConfigId}`}
+                className="flex-1"
+              >
+                <button
+                  className="w-full py-2.5 rounded-lg font-semibold transition hover:scale-[1.03] shadow-lg"
+                  style={{
+                    backgroundColor: "var(--accent-color)",
+                    color: "var(--background)",
+                  }}
+                >
+                  Standings
                 </button>
               </Link>
             </div>
