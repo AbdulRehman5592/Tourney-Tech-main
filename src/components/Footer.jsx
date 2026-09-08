@@ -28,7 +28,7 @@ export default function Footer() {
               Tourney Tech
             </h3>
             <p style={{ color: MUTED }}>
-              Powering seamless tournaments for every player. No sign-up needed, just join & play!
+              Powering tournaments from registration to final standings.
             </p>
           </div>
 

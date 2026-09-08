@@ -16,17 +16,20 @@ export default function Hero() {
         {/* Left Content */}
         <div className="w-full lg:w-3/5 text-center lg:text-left">
           <h1 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
-            Manage Tournaments Effortlessly <span aria-hidden="true">🏆</span>
+            Tournament Management. Simplified. <span aria-hidden="true">🏆</span>
           </h1>
           <p
             className="text-base mb-6"
             style={{ color: "var(--muted-foreground)" }}
           >
-            Create, schedule, and track tournaments like a pro. Brackets, teams,
-            live updates — all in one powerful dashboard.
+            From registration to final standings, Tourney Tech brings tournament
+            directors, players, teams, scoring, and results together in one place.
           </p>
 
-          <Button href="/auth/login" size="lg">Lets Play Tournament</Button>
+          <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+            <Button href="#upcoming" size="lg">Find a Tournament</Button>
+            <Button href="/auth/login" size="lg" variant="secondary">Host a Tournament</Button>
+          </div>
         </div>
 
         {/* Right Image or Illustration */}

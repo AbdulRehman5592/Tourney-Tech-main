@@ -88,9 +88,12 @@ export const GET = asyncHandler(async (req) => {
   if (tournamentId) {
     const requester = await requireAuth();
 
+    // A cancelled registration shouldn't block re-registering for the same
+    // games -- treat it the same as "not registered" here.
     const registration = await Registration.findOne({
       tournament: tournamentId,
       user: requester._id,
+      cancelled: { $ne: true },
     })
       .populate({
         path: "gameRegistrationDetails.games",

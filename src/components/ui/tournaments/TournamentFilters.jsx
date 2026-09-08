@@ -58,6 +58,9 @@ export default function TournamentFilters({
         <option value="upcoming" style={optionStyle}>
           Upcoming
         </option>
+        <option value="registration_closed" style={optionStyle}>
+          Registration Closed
+        </option>
         <option value="ongoing" style={optionStyle}>
           Ongoing
         </option>

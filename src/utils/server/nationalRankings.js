@@ -2,26 +2,38 @@
 // tournament-game using the tiered table-count scale published at
 // https://dmvcardtel.com/2026-top-players/ ("POINT VALUE ASSESSED (BASED ON
 // TOURNAMENT TABLE COUNT)"): larger events are worth proportionally more.
-// Only round_robin/mesh/standard formats have a defined "top 4" (the same
-// standings math already used by the per-tournament standings page) --
-// single/double elimination brackets are excluded from point-scoring since
-// there's no existing placement logic for them to reuse safely, though a
-// team's participation there still counts toward attendance.
+// Whether a tournament counts at all is Tourney Techs Staff's call
+// (Tournament.nationallyRanked) -- not tied to its bracket/rotation format.
+// Within a ranked tournament, only round_robin/mesh/standard games have a
+// defined "top 4" (the same standings math already used by the
+// per-tournament standings page); single/double elimination brackets don't
+// score points yet since there's no placement logic for them built out.
 import { Tournament } from "@/models/Tournament";
 import { Team } from "@/models/Team";
 import { Match } from "@/models/Match";
+import { Game } from "@/models/Game";
+import { ExternalRankingAward } from "@/models/ExternalRankingAward";
 import {
   computeStandingsRoundRobin,
   computeStandingsMesh,
+  STANDINGS_ELIGIBLE_FORMATS,
 } from "@/utils/server/tournamentBracket";
 
-const POINTS_TABLE = [
+// The official point schedule -- shared by native tournament scoring and the
+// manual external-award entry form, so both derive points the exact same
+// way instead of duplicating the tier table. The PDF flags sub-5 and 100+
+// table events as an unresolved ranking policy gap; the top tier stays
+// open-ended here (matching existing native-event behavior) and the 100+
+// case is instead blocked at the door for external awards specifically, via
+// the `max: 100` bound on ExternalRankingAward.tableCount.
+export const POINTS_TABLE = [
   { minTables: 20, maxTables: Infinity, points: [25, 20, 15, 10] },
   { minTables: 10, maxTables: 19, points: [20, 15, 10, 5] },
   { minTables: 5, maxTables: 9, points: [8, 6, 4, 2] },
 ];
 
-function pointsForPlacement(tableCount, placementIndex) {
+// `placementIndex` is 0-based (0 = 1st place ... 3 = 4th place).
+export function pointsForPlacement(tableCount, placementIndex) {
   const tier = POINTS_TABLE.find((t) => tableCount >= t.minTables && tableCount <= t.maxTables);
   return tier ? tier.points[placementIndex] ?? 0 : 0;
 }
@@ -31,8 +43,28 @@ function playerName(user) {
   return full || user.username || "Unknown";
 }
 
-export async function computeNationalRankings() {
-  const tournaments = await Tournament.find({ status: { $in: ["ongoing", "completed"] } })
+// Rankings are kept strictly per GameType (Bid Whist, Spades, Pinochle,
+// Bridge, etc.) -- a player's totals in one game must never mix with
+// another, per the "one User ID + one Game = one ranking record" rule.
+// `gameTypeName` is required so a caller can never accidentally get a
+// cross-game blend. A single GameType can back several catalog Game entries
+// (e.g. "Bid Whist" scheduled as both a Kitty and a No-Kitty variant), so all
+// of them count toward the same national ranking.
+export async function computeNationalRankings(gameTypeName) {
+  if (!gameTypeName) {
+    throw new Error("computeNationalRankings requires a gameTypeName");
+  }
+
+  const gamesOfType = await Game.find({ gameType: gameTypeName }).select("_id").lean();
+  const gameIds = new Set(gamesOfType.map((g) => g._id.toString()));
+  if (!gameIds.size) {
+    return [];
+  }
+
+  const tournaments = await Tournament.find({
+    status: { $in: ["ongoing", "completed"] },
+    nationallyRanked: true,
+  })
     .select("games status")
     .lean();
 
@@ -56,6 +88,8 @@ export async function computeNationalRankings() {
 
   for (const tournament of tournaments) {
     for (const gameConfig of tournament.games || []) {
+      if (!gameIds.has(gameConfig.game?.toString())) continue;
+
       const allTeams = await Team.find({
         tournament: tournament._id,
         gameConfigId: gameConfig._id,
@@ -73,7 +107,7 @@ export async function computeNationalRankings() {
         }
       }
 
-      if (!["round_robin", "mesh", "standard"].includes(gameConfig.format)) continue;
+      if (!STANDINGS_ELIGIBLE_FORMATS.includes(gameConfig.format)) continue;
 
       const checkedInTeams = allTeams.filter((t) => t.checkedIn);
       if (checkedInTeams.length < 2) continue;
@@ -112,6 +146,24 @@ export async function computeNationalRankings() {
         }
       });
     }
+  }
+
+  // Fold in manually-entered awards for events run outside Tourney Tech --
+  // same player pool, same points/top4/history treatment as a native
+  // placement, so they sit in the same national ranking rather than a
+  // separate track.
+  const externalAwards = await ExternalRankingAward.find({ gameType: gameTypeName })
+    .populate("user", "firstname lastname username city")
+    .lean();
+
+  for (const award of externalAwards) {
+    if (!award.user?._id) continue;
+    const p = ensurePlayer(award.user);
+    p.totalTeamCount += 1;
+    p.checkedInCount += 1;
+    p.top4Count += 1;
+    p.totalPoints += award.points;
+    p.history.push({ completedAt: award.eventDate, points: award.points });
   }
 
   const rows = [...players.values()].map((p) => {

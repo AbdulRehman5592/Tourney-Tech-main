@@ -1,23 +1,23 @@
-import { Trophy, Users, Clock } from 'lucide-react';
+import { ClipboardCheck, Activity, TrendingUp } from 'lucide-react';
 
 const FEATURES = [
   {
-    icon: Trophy,
-    title: 'Live Bracket Updates',
+    icon: ClipboardCheck,
+    title: 'Registration & Check-In',
     description:
-      'Watch brackets update in real-time as scores are entered. Stay in sync with every match.',
+      'Simplify tournament day before play even begins. Players can register, select teammates or partners, complete tournament requirements, and check in when they arrive.',
   },
   {
-    icon: Users,
-    title: 'Team Management',
+    icon: Activity,
+    title: 'Live Scoring & Standings',
     description:
-      'Easily add players, assign teams, and track their performance with intuitive tools.',
+      'Save time calculating results and know where everyone stands as the tournament unfolds. Record scores and results while Tourney Tech updates wins, losses, points, standings, placements, and tournament progress.',
   },
   {
-    icon: Clock,
-    title: 'Schedule & Reminders',
+    icon: TrendingUp,
+    title: 'Player & Team Performance',
     description:
-      'Auto-generate match timings and notify players to keep your tournament running smoothly.',
+      'Turn every tournament into meaningful performance data. Track tournament history, statistics, attendance, results, and rankings for players and teams over time.',
   },
 ];
 
@@ -32,7 +32,7 @@ export default function Features() {
     >
       <div className="container mx-auto px-6 text-center">
         <h2 className="text-2xl md:text-3xl font-bold mb-10">
-          Why Choose Our Platform?
+          Why Choose Tourney Tech?
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

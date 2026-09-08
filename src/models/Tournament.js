@@ -132,7 +132,12 @@ const TournamentSchema = new Schema(
       // "draft" = no games added yet; enforced server-side (see
       // tournaments API routes) whenever games.length === 0, so a tournament
       // can never be "upcoming"/"ongoing"/"completed" with nothing to play.
-      enum: ["draft", "upcoming", "ongoing", "completed"],
+      // "registration_closed" is a manually-set staging point between
+      // "upcoming" and "ongoing": new registrations and player self-service
+      // cancellations both stop once a tournament reaches it (see POST
+      // /api/tournamentRegister and POST /api/tournamentRegister/cancel) --
+      // from there, changes go through the tournament director directly.
+      enum: ["draft", "upcoming", "registration_closed", "ongoing", "completed"],
       default: "upcoming",
     },
     games: {
@@ -141,6 +146,15 @@ const TournamentSchema = new Schema(
       type: [TournamentGameSchema],
     },
     staff: [TournamentStaffSchema],
+    // Whether this tournament's results count toward National Rankings.
+    // Independent of format -- Tourney Techs Staff can flag any tournament in
+    // or out, regardless of bracket/rotation type. Defaulted at creation time
+    // (see POST /api/tournaments) to whatever the old blanket rule would have
+    // given it -- true only if it already has a round_robin/mesh/standard
+    // game -- so existing behavior doesn't change until staff acts. From
+    // then on it's a plain staff-controlled flag; see PATCH
+    // /api/tournaments/[id]/ranked.
+    nationallyRanked: { type: Boolean, default: false },
     // Independent of `status` (play lifecycle) and `isPublic` (unused today) --
     // a tournament created by a promoted, non-admin director starts "pending"
     // and is excluded from every public listing until a Full Admin approves

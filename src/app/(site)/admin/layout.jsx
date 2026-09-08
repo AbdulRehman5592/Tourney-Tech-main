@@ -27,6 +27,8 @@ import {
   FileUp,
   CheckSquare,
   LayoutGrid,
+  Trophy,
+  Undo2,
 } from "lucide-react";
 
 // Change this to adminNavItems if needed
@@ -55,6 +57,8 @@ const adminNavItems = [
   { href: "/admin/all-tournaments", label: "All Tournaments", icon: ClipboardList },
   { href: "/admin/sitting", label: "Add Sittings", icon: SquareChartGantt },
   { href: "/admin/gallery", label: "Gallery", icon: ImageUp },
+  { href: "/admin/external-rankings", label: "Manual Ranking Awards", icon: Trophy },
+  { href: "/admin/refund-requests", label: "Cancellations & Refunds", icon: Undo2 },
   // {
   //   label: "Settings",
   //   icon: Settings,

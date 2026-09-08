@@ -21,6 +21,17 @@ export async function requireTournamentCreator() {
   return user;
 }
 
+// Global, admin-granted capability (User.isTourneyTechStaff) -- for people
+// entrusted with general Tourney Tech operations work, e.g. deciding which
+// tournaments count toward national rankings. A full admin always qualifies.
+export async function requireTourneyTechStaff() {
+  const user = await requireAuth();
+  if (user.role !== "admin" && !user.isTourneyTechStaff) {
+    throw new ApiError(403, "You are not authorized to perform this action");
+  }
+  return user;
+}
+
 export async function requireManager() {
   const user = await requireAuth();
   requireRole(user, "manager");

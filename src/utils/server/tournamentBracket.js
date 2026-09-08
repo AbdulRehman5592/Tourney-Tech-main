@@ -2,6 +2,13 @@ import { SingleElimination, DoubleElimination, RoundRobin } from "tournament-pai
 import { ApiError } from "@/utils/server/ApiError";
 import { seatingRegionOf } from "@/utils/server/teamNumbering";
 
+// Formats with an implemented "who placed 1st-4th" computation
+// (computeStandingsRoundRobin/Mesh below). single_elimination and
+// double_elimination have no such placement logic yet, so a tournament
+// using them can be flagged nationallyRanked but won't score points until
+// that's built.
+export const STANDINGS_ELIGIBLE_FORMATS = ["round_robin", "mesh", "standard"];
+
 function shuffleArray(array) {
   return array
     .map((value) => ({ value, sort: Math.random() }))

@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed:dummy-tournament": "node scripts/seed-dummy-tournament.js",
-    "cleanup:orphan-registrations": "node scripts/cleanup-orphan-registrations.js"
+    "cleanup:orphan-registrations": "node scripts/cleanup-orphan-registrations.js",
+    "backfill:nationally-ranked": "node scripts/backfill-nationally-ranked.js"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",

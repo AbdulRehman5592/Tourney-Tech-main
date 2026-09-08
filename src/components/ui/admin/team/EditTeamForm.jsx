@@ -5,97 +5,45 @@ import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
 import SearchableSelect from "@/components/ui/admin/team/Select";
 
+// Tournament and game are fixed at team creation (gameConfigId ties a team to
+// one specific scheduled instance that matches/brackets are already keyed
+// off of) -- editing only re-assigns members, never moves a team to a
+// different tournament/game.
 export default function EditTeamForm({ team, onClose, onUpdated }) {
-  const [tournaments, setTournaments] = useState([]);
-  const [games, setGames] = useState([]);
   const [users, setUsers] = useState([]);
 
   const [form, setForm] = useState({
-    tournament: null,
-    game: null,
-    members: [],
     tournamentTeamType: null,
+    members: [],
   });
-
-  // ✅ Load tournaments
-  useEffect(() => {
-    async function fetchTournaments() {
-      try {
-        const res = await api.get("/api/tournaments");
-        let fetchedTournaments =
-          (res.data?.data || []).map((t) => ({
-            value: t._id,
-            label: t.name || "Unnamed Tournament",
-            games: (t.games || []).map((g) => ({
-              value: g.game?._id,
-              label: g.game?.name || "Unknown Game",
-              tournamentTeamType: g.tournamentTeamType || "single_player",
-            })),
-          })) || [];
-
-        // ensure prefilled tournament is in options
-        if (
-          team?.tournament &&
-          !fetchedTournaments.some((t) => t.value === team.tournament._id)
-        ) {
-          fetchedTournaments.push({
-            value: team.tournament._id,
-            label: team.tournament.name,
-            games: (team.tournament.games || []).map((g) => ({
-              value: g.game?._id,
-              label: g.game?.name || "Unknown Game",
-              tournamentTeamType: g.tournamentTeamType,
-            })),
-          });
-        }
-
-        setTournaments(fetchedTournaments);
-      } catch {
-        toast.error("Failed to load tournaments");
-      }
-    }
-    fetchTournaments();
-  }, [team]);
 
   // ✅ Prefill form
   useEffect(() => {
     if (team) {
+      // Team documents don't carry tournamentTeamType directly -- it lives on
+      // the matching entry in tournament.games, keyed by gameConfigId (falling
+      // back to matching by game id if gameConfigId isn't available).
+      const gameConfig = team.tournament?.games?.find((g) =>
+        team.gameConfigId
+          ? g._id?.toString() === team.gameConfigId?.toString()
+          : g.game?.toString() === team.game?._id?.toString()
+      );
+      const resolvedTeamType = gameConfig?.tournamentTeamType;
+
       setForm({
-        tournament: team.tournament
-          ? { value: team.tournament._id, label: team.tournament.name }
-          : null,
-        game: team.game
+        tournamentTeamType: resolvedTeamType
           ? {
-              value: team.game._id,
-              label: team.game.name,
-              tournamentTeamType: team.tournamentTeamType,
-            }
-          : null,
-        members: team.members.map((m) => m._id),
-        tournamentTeamType: team.tournamentTeamType
-          ? {
-              value: team.tournamentTeamType,
+              value: resolvedTeamType,
               label:
-                team.tournamentTeamType === "single_player"
+                resolvedTeamType === "single_player"
                   ? "Single Player"
                   : "Double Player",
             }
           : null,
+        members: team.members.map((m) => m._id),
       });
     }
   }, [team]);
-
-  // ✅ Load games when tournament changes
-  useEffect(() => {
-    if (form.tournament) {
-      const selected = tournaments.find(
-        (t) => t.value === form.tournament.value
-      );
-      setGames(selected?.games || []);
-    } else {
-      setGames([]);
-    }
-  }, [form.tournament, tournaments]);
 
   // ✅ Load users
   useEffect(() => {
@@ -121,13 +69,8 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.tournament || !form.game || !form.tournamentTeamType) {
-      toast.error("Tournament, game, and team type required");
-      return;
-    }
-
     if (
-      form.tournamentTeamType.value === "double_player" &&
+      form.tournamentTeamType?.value === "double_player" &&
       form.members.length !== 2
     ) {
       toast.error("Exactly 2 members required");
@@ -135,7 +78,7 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
     }
 
     if (
-      form.tournamentTeamType.value === "single_player" &&
+      form.tournamentTeamType?.value === "single_player" &&
       form.members.length !== 1
     ) {
       toast.error("Exactly 1 member required");
@@ -144,8 +87,6 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
 
     try {
       const { data } = await api.patch(`/api/team/${team._id}`, {
-        tournament: form.tournament.value,
-        game: form.game.value,
         members: form.members,
       });
 
@@ -163,35 +104,19 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
         <h2 className="text-xl font-bold mb-4">Edit Team</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <SearchableSelect
-            label="Tournament"
-            options={tournaments}
-            value={form.tournament}
-            onChange={(val) => setForm({ ...form, tournament: val, game: null })}
-            placeholder="Select tournament"
-          />
+          <div>
+            <label className="block text-sm font-medium mb-1">Tournament</label>
+            <div className="p-2 rounded border border-[var(--border-color)] bg-[var(--secondary-color)] text-[var(--foreground)] opacity-80">
+              {team?.tournament?.name || "N/A"}
+            </div>
+          </div>
 
-          <SearchableSelect
-            label="Game"
-            options={games}
-            value={form.game}
-            onChange={(val) => {
-              setForm({
-                ...form,
-                game: val,
-                tournamentTeamType: val
-                  ? {
-                      value: val.tournamentTeamType,
-                      label:
-                        val.tournamentTeamType === "single_player"
-                          ? "Single Player"
-                          : "Double Player",
-                    }
-                  : null,
-              });
-            }}
-            placeholder="Select game"
-          />
+          <div>
+            <label className="block text-sm font-medium mb-1">Game</label>
+            <div className="p-2 rounded border border-[var(--border-color)] bg-[var(--secondary-color)] text-[var(--foreground)] opacity-80">
+              {team?.game?.name || "N/A"}
+            </div>
+          </div>
 
           <SearchableSelect
             label="Member 1 ( Team Leader )"

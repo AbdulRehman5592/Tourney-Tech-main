@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import api from "@/utils/axios"; // your axios instance
 
 function TournamentCard({ item }) {
@@ -45,10 +46,18 @@ function TournamentCard({ item }) {
         )}
       </div>
 
-      <p style={{ color: "#9CA3AF" }}>
+      <p className="mb-4" style={{ color: "#9CA3AF" }}>
         📅 {new Date(item.startDate).toLocaleDateString()} -{" "}
         {new Date(item.endDate).toLocaleDateString()}
       </p>
+
+      <Link
+        href={`/dashboard/tournament-details/${item._id}`}
+        className="inline-block px-4 py-2 rounded-lg font-medium text-sm"
+        style={{ backgroundColor: "var(--accent-color)", color: "black" }}
+      >
+        View Tournament
+      </Link>
     </div>
   );
 }
@@ -96,8 +105,8 @@ export default function UpcomingTournaments() {
           Upcoming Tournaments
         </h2>
         <p className="mb-10 max-w-xl mx-auto" style={{ color: "#9CA3AF" }}>
-          Join exciting tournaments and test your skills against top players.
-          Don’t miss out!
+          Find your next tournament. View dates, locations, and games at a
+          glance, then open a tournament for full details and registration.
         </p>
 
         {loading ? (

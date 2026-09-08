@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import DashboardNavbar from "@/components/ui/dashboard/DashboardNavbar";
 import DashboardSidebar from "@/components/ui/dashboard/DashboardSidebar";
 
-import { LayoutDashboard, Users, LogOut, BellDot,SquareChartGantt, Trophy, CheckSquare, LayoutGrid, BadgePlus, Award } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, BellDot,SquareChartGantt, Trophy, CheckSquare, LayoutGrid, BadgePlus, Award, ShieldCheck } from "lucide-react";
 
 import UserGuard from "@/components/gard/user/UserGard";
 
@@ -42,6 +42,7 @@ export default function DashboardLayout({ children }) {
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [isStaffOrAdmin, setIsStaffOrAdmin] = useState(false);
   const [canCreateTournaments, setCanCreateTournaments] = useState(false);
+  const [isTourneyTechStaff, setIsTourneyTechStaff] = useState(false);
 
   // Polled so the sidebar badge stays live even if the player never leaves
   // the dashboard -- same 5s cadence as the toast popup in RequestToaster.
@@ -86,6 +87,7 @@ export default function DashboardLayout({ children }) {
         const user = resUser.data?.data?.user;
         if (!user) return;
         if (!cancelled) setCanCreateTournaments(!!(user.role === "admin" || user.canCreateTournaments));
+        if (!cancelled) setIsTourneyTechStaff(!!(user.role === "admin" || user.isTourneyTechStaff));
         if (user.role === "admin") {
           if (!cancelled) setIsStaffOrAdmin(true);
           return;
@@ -117,6 +119,9 @@ export default function DashboardLayout({ children }) {
           { href: "/dashboard/check-in", label: "Check-In", icon: CheckSquare },
           { href: "/dashboard/live-tables", label: "Live Table Overview", icon: LayoutGrid },
         ]
+      : []),
+    ...(isTourneyTechStaff
+      ? [{ href: "/dashboard/ranked-tournaments", label: "Ranking Eligibility", icon: ShieldCheck }]
       : []),
   ];
 

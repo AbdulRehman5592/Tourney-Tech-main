@@ -1,23 +1,23 @@
 export default function HowItWorks() {
   const steps = [
     {
-      title: "1. Browse Tournaments",
-      description: "Explore ongoing and upcoming tournaments.",
+      title: "1. Find a Tournament",
+      description: "Browse upcoming tournaments and view event details, schedules, entry requirements, availability, and more.",
       emoji: "🔍",
     },
     {
-      title: "2. Register",
-      description: "Sign up for a tournament and select your teammate and doubles partner(s).",
+      title: "2. Register Your Team",
+      description: "Register for the tournament, select your teammate and/or doubles partner(s).",
       image: "/img/tourney-tech-3a-logo.png",
     },
     {
-      title: "3. Play & Compete",
-      description: "Play your matches on time, and compete with others for the best ranking.",
+      title: "3. Check In & Compete",
+      description: "Confirm your arrival, receive your tournament assignment, and compete.",
       image: "/img/tourney-tech-shield-logo.png",
     },
     {
-      title: "4. Track Progress",
-      description: "Follow your bracket, match history, and results — all in one place.",
+      title: "4. Track Results & Rankings",
+      description: "Follow live standings, wins and losses, scores, tournament results, player statistics, and rankings — all in one place.",
       emoji: "📊",
     },
   ];

@@ -31,6 +31,7 @@ export default function UserTable({ onEditUser, refreshKey }) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [updatingCreatorId, setUpdatingCreatorId] = useState(null);
+  const [updatingStaffId, setUpdatingStaffId] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -101,6 +102,30 @@ export default function UserTable({ onEditUser, refreshKey }) {
     }
   };
 
+  // Grant/revoke "Tourney Techs Staff" -- the general entrusted-operations
+  // capability (e.g. deciding which tournaments count toward national
+  // rankings). Same route/pattern as the Tournament Director toggle above.
+  const handleStaffToggle = async (id, isTourneyTechStaff) => {
+    setUpdatingStaffId(id);
+    try {
+      await api.patch(
+        `/api/users/${id}`,
+        { isTourneyTechStaff },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      toast.success(
+        isTourneyTechStaff ? "Granted Tourney Techs Staff access" : "Tourney Techs Staff access revoked"
+      );
+      setData((prev) =>
+        prev.map((u) => (u._id === id ? { ...u, isTourneyTechStaff } : u))
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update access");
+    } finally {
+      setUpdatingStaffId(null);
+    }
+  };
+
   const columns = useMemo(
     () => [
       { header: "#", cell: ({ row }) => row.index + 1 },
@@ -165,6 +190,30 @@ export default function UserTable({ onEditUser, refreshKey }) {
               />
               <span className="text-xs text-muted-foreground">
                 {user.role === "admin" ? "Full Admin" : user.canCreateTournaments ? "Yes" : "No"}
+              </span>
+            </label>
+          );
+        },
+      },
+      {
+        header: "Tourney Techs Staff",
+        accessorKey: "isTourneyTechStaff",
+        cell: ({ row }) => {
+          const user = row.original;
+          return (
+            <label
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={!!user.isTourneyTechStaff}
+                disabled={updatingStaffId === user._id || user.role === "admin"}
+                onChange={(e) => handleStaffToggle(user._id, e.target.checked)}
+                className="h-4 w-4 accent-[var(--accent-color)] disabled:opacity-50"
+              />
+              <span className="text-xs text-muted-foreground">
+                {user.role === "admin" ? "Full Admin" : user.isTourneyTechStaff ? "Yes" : "No"}
               </span>
             </label>
           );

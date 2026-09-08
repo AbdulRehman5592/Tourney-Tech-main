@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
-dotenv.config();
+// Only used when this file is imported directly by a standalone script (the
+// Next.js app itself already injects .env.local before any app code runs).
+// dotenv never overrides a variable that's already set, so this is a no-op
+// there -- it only matters for scripts run via plain `node`.
+dotenv.config({ path: ".env.local" });
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
