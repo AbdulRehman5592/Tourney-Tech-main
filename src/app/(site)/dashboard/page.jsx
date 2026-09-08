@@ -43,10 +43,16 @@ export default function TournamentListing() {
         const res = await api.get("/api/tournaments/my-tournaments");
         const myTournaments = res.data.data || [];
 
-        // Create a map of tournament ID to user's role
+        // Create a map of tournament ID to the user's role + (for players)
+        // payment-verification status, so this listing's cards stay
+        // consistent with My Tournaments instead of assuming "paid".
         const tournamentRoleMap = {};
         myTournaments.forEach((tournament) => {
-          tournamentRoleMap[tournament._id] = tournament.userRole;
+          tournamentRoleMap[tournament._id] = {
+            userRole: tournament.userRole,
+            paymentStatus: tournament.paymentStatus,
+            registrationCancelled: tournament.registrationCancelled,
+          };
         });
 
         setUserTournaments(tournamentRoleMap);
@@ -136,15 +142,20 @@ export default function TournamentListing() {
 
       {/* Tournament Cards */}
       <div className="grid grid-cols-1 gap-4">
-        {paginatedTournaments.map((tournament) => (
-          <TournamentCard
-            key={tournament._id}
-            {...tournament}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            userRole={userTournaments[tournament._id]} // Pass user's role in this tournament
-          />
-        ))}
+        {paginatedTournaments.map((tournament) => {
+          const mine = userTournaments[tournament._id] || {};
+          return (
+            <TournamentCard
+              key={tournament._id}
+              {...tournament}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              userRole={mine.userRole}
+              paymentStatus={mine.paymentStatus}
+              registrationCancelled={mine.registrationCancelled}
+            />
+          );
+        })}
       </div>
 
       {/* Pagination */}

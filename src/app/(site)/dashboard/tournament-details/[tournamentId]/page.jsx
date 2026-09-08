@@ -68,6 +68,8 @@ export default function TournamentDetailsPage() {
         return "var(--info-color)";
       case "upcoming":
         return "var(--accent-color)";
+      case "registration_closed":
+        return "var(--warning-color)";
       default:
         return "var(--accent-color)";
     }

@@ -27,7 +27,13 @@ const RANK_BADGE = {
   3: { backgroundColor: "#CD7F32", color: "var(--background)" },
 };
 
+const DEFAULT_GAME_TYPE = "Bid Whist";
+
 export default function NationalRankingsPage() {
+  const [gameTypes, setGameTypes] = useState([]);
+  const [selectedGameType, setSelectedGameType] = useState(null);
+  const [gameTypesLoading, setGameTypesLoading] = useState(true);
+
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,11 +44,43 @@ export default function NationalRankingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  // Rankings are kept strictly separate per game type (Bid Whist, Spades,
+  // Pinochle, Bridge, etc.) -- load the game type matrix once, then default
+  // to Bid Whist (falling back to the first type if it isn't in the list).
   useEffect(() => {
-    const fetchRankings = async () => {
+    const fetchGameTypes = async () => {
       try {
-        const res = await api.get("/api/rankings/national");
+        const res = await api.get("/api/game-types");
+        const fetchedTypes = res.data?.data || [];
+        setGameTypes(fetchedTypes);
+        if (fetchedTypes.length) {
+          const defaultType = fetchedTypes.find((t) => t.name === DEFAULT_GAME_TYPE);
+          setSelectedGameType((defaultType || fetchedTypes[0]).name);
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to load game types:", err);
+        setError(err?.response?.data?.message || "Failed to load game types");
+        setLoading(false);
+      } finally {
+        setGameTypesLoading(false);
+      }
+    };
+    fetchGameTypes();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedGameType) return;
+
+    const fetchRankings = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get("/api/rankings/national", {
+          params: { gameType: selectedGameType },
+        });
         setRankings(res.data?.data?.rankings || []);
+        setCurrentPage(1);
       } catch (err) {
         console.error("Failed to load national rankings:", err);
         setError(err?.response?.data?.message || "Failed to load rankings");
@@ -51,7 +89,7 @@ export default function NationalRankingsPage() {
       }
     };
     fetchRankings();
-  }, []);
+  }, [selectedGameType]);
 
   const cities = useMemo(
     () => [...new Set(rankings.map((r) => r.city).filter(Boolean))].sort(),
@@ -96,7 +134,7 @@ export default function NationalRankingsPage() {
     setCurrentPage(1);
   };
 
-  if (loading) {
+  if (gameTypesLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="animate-spin text-[var(--accent-color)] w-8 h-8" />
@@ -124,11 +162,37 @@ export default function NationalRankingsPage() {
               NATIONAL PLAYER RANKINGS
             </h1>
             <p className="text-sm md:text-base text-[var(--muted-foreground)] mt-1">
-              Ranked across every completed tournament on Tourney Tech
+              {selectedGameType
+                ? `Ranked across every completed ${selectedGameType} tournament on Tourney Tech`
+                : "Ranked across every completed tournament on Tourney Tech"}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Game type selector -- rankings never mix across game types */}
+      {gameTypes.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {gameTypes.map((gt) => (
+            <button
+              key={gt._id}
+              onClick={() => setSelectedGameType(gt.name)}
+              className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+              style={
+                selectedGameType === gt.name
+                  ? { backgroundColor: "var(--accent-color)", color: "var(--background)", borderColor: "var(--accent-color)" }
+                  : {
+                      backgroundColor: "var(--secondary-color)",
+                      color: "var(--foreground)",
+                      borderColor: "var(--border-color)",
+                    }
+              }
+            >
+              {gt.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div
@@ -236,11 +300,17 @@ export default function NationalRankingsPage() {
             </tr>
           </thead>
           <tbody style={{ backgroundColor: "var(--card-background)" }}>
-            {pagedRows.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="p-6 text-center">
+                  <Loader2 className="animate-spin text-[var(--accent-color)] w-6 h-6 mx-auto" />
+                </td>
+              </tr>
+            ) : pagedRows.length === 0 ? (
               <tr>
                 <td colSpan={8} className="p-6 text-center text-[var(--muted-foreground)]">
                   No ranked players yet -- rankings appear once round-robin, mesh, or standard
-                  tournaments finish.
+                  tournaments finish for {selectedGameType || "this game"}.
                 </td>
               </tr>
             ) : (

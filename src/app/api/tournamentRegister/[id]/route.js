@@ -9,7 +9,7 @@ import { requireAdmin } from "@/utils/server/roleGuards";
 
 export const PATCH = asyncHandler(async (req, context) => {
   await connectDB();
-  await requireAdmin();
+  const admin = await requireAdmin();
   const { id } = await context.params;
   if (!id) throw new ApiError(400, "ID parameter is missing");
 
@@ -29,6 +29,10 @@ export const PATCH = asyncHandler(async (req, context) => {
   if (status !== undefined) {
     update["gameRegistrationDetails.status"] = status;
     update["gameRegistrationDetails.paid"] = status === "approved";
+    // Audit trail for "Paid in Full" -- who verified the payment and when,
+    // captured automatically rather than as a separate admin step.
+    update.verifiedBy = status === "approved" ? admin._id : null;
+    update.verifiedAt = status === "approved" ? new Date() : null;
   }
   // Admin's private note (e.g. "paid Sarah cash at check-in") -- independent
   // of status so it can be jotted down without also having to touch the

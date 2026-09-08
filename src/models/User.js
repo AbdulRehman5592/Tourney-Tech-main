@@ -122,6 +122,12 @@ const UserSchema = new Schema(
     // through /api/users/[id]/role, which has its own separately-maintained
     // allowed-values list that already drifts from this schema's enum.
     canCreateTournaments: { type: Boolean, default: false },
+    // Global, admin-granted capability for people entrusted with general
+    // Tourney Tech operations work (product-facing name: "Tourney Techs
+    // Staff") -- e.g. deciding which tournaments count toward national
+    // rankings. Kept as its own boolean rather than a new `role` enum value,
+    // same reasoning as canCreateTournaments above.
+    isTourneyTechStaff: { type: Boolean, default: false },
     // Which admin/organizer created this account on someone else's behalf
     // (e.g. via Register Player, Import Users, or the admin Create User
     // form) -- null for a public self-signup. Backs the restricted user

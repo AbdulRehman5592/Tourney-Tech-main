@@ -301,6 +301,7 @@ export default function AdminAllTournamentsPage() {
           >
             <option value="all">All statuses</option>
             <option value="upcoming">Upcoming</option>
+            <option value="registration_closed">Registration Closed</option>
             <option value="ongoing">Ongoing</option>
             <option value="completed">Completed</option>
           </select>
@@ -407,6 +408,16 @@ export default function AdminAllTournamentsPage() {
                     <span className="rounded-full bg-[var(--secondary-color)] px-3 py-1 text-[var(--foreground)]">
                       {tournament.status || "N/A"}
                     </span>
+                    <span
+                      title="Set on the National Ranking Eligibility page"
+                      className={`rounded-full px-3 py-1 ${
+                        tournament.nationallyRanked
+                          ? "bg-[color-mix(in_srgb,var(--accent-color)_18%,transparent)] text-[var(--accent-color)]"
+                          : "bg-[var(--secondary-color)] text-muted-foreground"
+                      }`}
+                    >
+                      {tournament.nationallyRanked ? "Nationally Ranked" : "Not Ranked"}
+                    </span>
                     <span className="text-muted-foreground">{tournamentGames.length} game{tournamentGames.length === 1 ? "" : "s"}</span>
                     <span className="text-muted-foreground">{tournamentTeams.length} team{tournamentTeams.length === 1 ? "" : "s"}</span>
                     <span className="text-muted-foreground">{tournamentRegistrations.length} registrant{tournamentRegistrations.length === 1 ? "" : "s"}</span>
@@ -420,6 +431,7 @@ export default function AdminAllTournamentsPage() {
                       className="rounded-full border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1 text-[var(--foreground)] disabled:opacity-50"
                     >
                       <option value="upcoming">Upcoming</option>
+                      <option value="registration_closed">Registration Closed</option>
                       <option value="ongoing">Ongoing</option>
                       <option value="completed">Completed</option>
                     </select>

@@ -570,6 +570,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         >
           <option value="draft">Draft</option>
           <option value="upcoming">Upcoming</option>
+          <option value="registration_closed">Registration Closed</option>
           <option value="ongoing">Ongoing</option>
           <option value="completed">Completed</option>
         </select>

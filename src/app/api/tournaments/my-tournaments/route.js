@@ -31,11 +31,15 @@ export const GET = asyncHandler(async (req) => {
     tournamentsWithUserRole.map((tournament) => tournament._id.toString())
   );
 
-  // Find tournaments the user has an approved registration for, so an
-  // approved player also sees the tournament even without a staff role
-  const approvedRegistrations = await Registration.find({
+  // Find tournaments the user has registered for (pending or approved), so
+  // a player also sees the tournament even without a staff role -- and even
+  // before an admin has verified their payment. Rejected registrations are
+  // deliberately excluded, matching prior behavior. Cancelled ones are kept
+  // (rather than filtered out) so they can still surface under "Past
+  // Tournaments" -- see registrationCancelled below.
+  const myRegistrations = await Registration.find({
     user: user._id,
-    "gameRegistrationDetails.status": "approved",
+    "gameRegistrationDetails.status": { $in: ["pending", "approved"] },
   })
     .populate({
       path: "tournament",
@@ -43,13 +47,21 @@ export const GET = asyncHandler(async (req) => {
     })
     .lean();
 
-  for (const registration of approvedRegistrations) {
+  for (const registration of myRegistrations) {
     const tournament = registration.tournament;
     if (!tournament || staffTournamentIds.has(tournament._id.toString())) {
       continue;
     }
     staffTournamentIds.add(tournament._id.toString());
-    tournamentsWithUserRole.push({ ...tournament, userRole: "player" });
+    tournamentsWithUserRole.push({
+      ...tournament,
+      userRole: "player",
+      // Separate from tournament lifecycle status (upcoming/ongoing/etc) --
+      // this is purely "has an admin verified the payment yet."
+      paymentStatus:
+        registration.gameRegistrationDetails.status === "approved" ? "paid" : "pending",
+      registrationCancelled: !!registration.cancelled,
+    });
   }
 
   tournamentsWithUserRole.sort(

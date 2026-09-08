@@ -9,6 +9,7 @@ import { validateDoublesConfig } from "@/utils/server/doublesConfig";
 import { parseScheduledAt } from "@/utils/server/gameSchedule";
 import { findSchedulingConflict } from "@/utils/server/tournamentGames";
 import { Game } from "@/models/Game";
+import { STANDINGS_ELIGIBLE_FORMATS } from "@/utils/server/tournamentBracket";
 
 
 export const POST = asyncHandler(async (req) => {
@@ -151,6 +152,11 @@ for (const game of games) {
   // PATCH /api/tournaments/[id]).
   const approvalStatus = user.role === "admin" ? "approved" : "pending";
 
+  // Starting value for the staff-controlled national-ranking flag: matches
+  // what the old blanket format rule would have given this tournament, so
+  // nothing changes in the rankings until Tourney Techs Staff acts on it.
+  const nationallyRanked = acceptedGames.some((g) => STANDINGS_ELIGIBLE_FORMATS.includes(g.format));
+
   const tournament = await Tournament.create({
     name,
     description,
@@ -163,6 +169,7 @@ for (const game of games) {
     status: finalStatus,
     staff,
     approvalStatus,
+    nationallyRanked,
   });
 
   return Response.json(

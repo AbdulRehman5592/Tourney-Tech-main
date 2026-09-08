@@ -1,7 +1,104 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, X } from "lucide-react";
+import { toast } from "react-hot-toast";
+import api from "@/utils/axios";
 import TournamentGameList from "./TournamentGameList";
+
+function CancelRegistrationModal({ tournamentId, tournamentName, onClose, onCancelled }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      const { data } = await api.post("/api/tournamentRegister/cancel", {
+        tournamentId,
+      });
+      const refunded = data?.data?.refundStatus === "requested";
+      toast.success(
+        refunded
+          ? "Registration cancelled. Your refund request has been sent to the organizers."
+          : "Registration cancelled."
+      );
+      onCancelled();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to cancel registration");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl p-6"
+        style={{ backgroundColor: "var(--card-background)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={20} className="text-[var(--warning-color)]" />
+            <h3 className="text-lg font-bold">Cancel Registration?</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <X size={18} />
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-300 mb-4">
+          This will cancel your registration for <strong>{tournamentName}</strong>. If
+          you&apos;ve already paid, a refund request will be sent to the tournament
+          organizers to review. This cannot be undone from here -- you&apos;d need to
+          register again while registration is still open.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 py-2 rounded-lg font-semibold disabled:opacity-60"
+            style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+          >
+            Keep Registration
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting}
+            className="flex-1 py-2 rounded-lg font-semibold disabled:opacity-60"
+            style={{ backgroundColor: "var(--error-color)", color: "white" }}
+          >
+            {submitting ? "Cancelling..." : "Confirm Cancellation"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Payment-verification badge is a second, separate indicator from the
+// tournament lifecycle badge above it -- see the "My Tournaments -
+// Registration Status Design" spec. Only meaningful for a player's own
+// registration, not for staff/organizer views.
+function PaymentStatusBadge({ paymentStatus }) {
+  if (paymentStatus !== "pending" && paymentStatus !== "paid") return null;
+  const isPending = paymentStatus === "pending";
+  return (
+    <span
+      className="inline-block px-3 py-1 text-xs rounded-full font-semibold"
+      style={{
+        backgroundColor: isPending ? "var(--error-color)" : "var(--success-color)",
+        color: "white",
+      }}
+    >
+      {isPending ? "PENDING VERIFICATION" : "PAID IN FULL"}
+    </span>
+  );
+}
 
 export default function TournamentCard({
   _id,
@@ -16,12 +113,21 @@ export default function TournamentCard({
   selectedId,
   onSelect,
   userRole, // New prop to indicate if user is organizer/owner/admin
+  paymentStatus, // "pending" | "paid" -- player registrations only
+  registrationCancelled, // Seeds the cancelled state from the server
+  onCancelled, // Optional: parent can refetch its list after a cancellation
 }) {
   const isSelected = selectedId === _id;
-  // Completed tournaments are archived/view-only: greyed out and fully
-  // non-interactive for everyone, regardless of role -- pointer-events-none
-  // belt-and-braces on top of not rendering any of the action buttons below.
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelled, setCancelled] = useState(!!registrationCancelled);
+  const isPlayerRole = userRole === "player";
   const isCompleted = status === "completed";
+  // Completed tournaments are archived/view-only for staff/public viewers:
+  // greyed out and fully non-interactive, pointer-events-none belt-and-braces
+  // on top of not rendering any action buttons. Players get an active "View
+  // Results" button instead (handled in the player branch below), since
+  // that's still a real thing they'd want to click.
+  const greyOutCompleted = isCompleted && !isPlayerRole;
 
   const getStatusColor = () => {
     switch (status) {
@@ -31,6 +137,8 @@ export default function TournamentCard({
         return "var(--info-color)";
       case "upcoming":
         return "var(--accent-color)";
+      case "registration_closed":
+        return "var(--warning-color)";
       // default:
       //   return "var(--accent-color)";
     }
@@ -46,10 +154,16 @@ export default function TournamentCard({
         })
       : "N/A";
 
+  const handleCancelled = () => {
+    setShowCancelModal(false);
+    setCancelled(true);
+    onCancelled?.(_id);
+  };
+
   return (
     <div
       className={`flex flex-col sm:flex-row rounded-xl overflow-hidden shadow-lg transition-transform border border-gray-700 ${
-        isCompleted
+        greyOutCompleted
           ? "opacity-60 grayscale pointer-events-none select-none"
           : "hover:scale-[1.01]"
       }`}
@@ -67,15 +181,18 @@ export default function TournamentCard({
         {/* Header */}
         <div className="flex justify-between items-start flex-wrap gap-2">
             <h2 className="text-xl font-bold">{name}</h2>
-            <span
-              className="inline-block mt-1 px-3 py-1 text-xs rounded-full font-semibold"
-              style={{
-                backgroundColor: getStatusColor(),
-                color: "var(--background)",
-              }}
-            >
-              {status?.toUpperCase()}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="inline-block mt-1 px-3 py-1 text-xs rounded-full font-semibold"
+                style={{
+                  backgroundColor: getStatusColor(),
+                  color: "var(--background)",
+                }}
+              >
+                {status?.toUpperCase()}
+              </span>
+              {isPlayerRole && !cancelled && <PaymentStatusBadge paymentStatus={paymentStatus} />}
+            </div>
 
         </div>
 
@@ -102,7 +219,14 @@ export default function TournamentCard({
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
-          {isCompleted ? (
+          {cancelled ? (
+            <div
+              className="w-full py-2 rounded-lg font-semibold text-center"
+              style={{ backgroundColor: "var(--border-color)", color: "var(--foreground)" }}
+            >
+              Registration Cancelled
+            </div>
+          ) : greyOutCompleted ? (
             <div
               className="w-full py-2 rounded-lg font-semibold text-center"
               style={{
@@ -144,33 +268,11 @@ export default function TournamentCard({
                 </Link>
               )}
             </>
-          ) : userRole === "player" ? (
-            // ✅ Approved player: already registered, no need to register again
-            status === "ongoing" ? (
-              <Link href={`/dashboard/game-play/${_id}`} className="flex-1">
-                <button
-                  onClick={() => onSelect(_id)}
-                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
-                  style={{
-                    backgroundColor: "var(--info-color)",
-                    color: "white",
-                  }}
-                >
-                  Play Tournament
-                </button>
-              </Link>
-            ) : status === "upcoming" ? (
-              <button
-                disabled
-                className="w-full py-2 rounded-lg font-semibold cursor-not-allowed opacity-70"
-                style={{
-                  backgroundColor: "var(--accent-color)",
-                  color: "var(--background)",
-                }}
-              >
-                Registered ✓
-              </button>
-            ) : (
+          ) : isPlayerRole ? (
+            // Player button behavior keys off BOTH tournament status and
+            // payment-verification status, per the "Player-facing button
+            // behavior" table in the design spec.
+            status === "completed" ? (
               <Link href={`/dashboard/game-score/${_id}`} className="flex-1">
                 <button
                   onClick={() => onSelect(_id)}
@@ -180,9 +282,74 @@ export default function TournamentCard({
                     color: "white",
                   }}
                 >
-                  View ScoreBoard
+                  View Results
                 </button>
               </Link>
+            ) : status === "ongoing" ? (
+              <Link href={`/dashboard/game-play/${_id}`} className="flex-1">
+                <button
+                  onClick={() => onSelect(_id)}
+                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{
+                    backgroundColor: "var(--info-color)",
+                    color: "white",
+                  }}
+                >
+                  Enter Tournament
+                </button>
+              </Link>
+            ) : paymentStatus === "pending" ? (
+              <div className="w-full flex flex-col gap-2">
+                <Link href={`/dashboard/game-registration/${_id}`} className="w-full">
+                  <button
+                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                    style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+                  >
+                    View Registration
+                  </button>
+                </Link>
+                {status === "upcoming" && (
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    className="text-xs text-center text-[var(--muted-foreground)] hover:text-[var(--error-color)] underline"
+                  >
+                    Cancel Registration
+                  </button>
+                )}
+              </div>
+            ) : status === "upcoming" ? (
+              <div className="w-full flex flex-col sm:flex-row gap-3">
+                <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
+                  <button
+                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                    style={{ backgroundColor: "var(--success-color)", color: "white" }}
+                  >
+                    View Tournament
+                  </button>
+                </Link>
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="flex-1 py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+                >
+                  Manage Registration
+                </button>
+              </div>
+            ) : (
+              // registration_closed -- past the point of self-service cancel
+              <div className="w-full">
+                <Link href={`/dashboard/tournament-details/${_id}`} className="w-full">
+                  <button
+                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                    style={{ backgroundColor: "var(--success-color)", color: "white" }}
+                  >
+                    View Tournament
+                  </button>
+                </Link>
+                <p className="mt-2 text-xs text-center text-[var(--muted-foreground)]">
+                  Registration is closed. Contact the tournament director for changes.
+                </p>
+              </div>
             )
           ) : status === "upcoming" ? (
             // ✅ Show Register Now only for upcoming regular users
@@ -203,8 +370,8 @@ export default function TournamentCard({
                 Register Now
               </button>
             </Link>
-          ) : status === "ongoing" ? (
-            // ✅ Registration closed for ongoing tournaments the user isn't part of
+          ) : status === "ongoing" || status === "registration_closed" ? (
+            // ✅ Registration closed -- for ongoing/registration_closed tournaments the user isn't part of
             <div className="w-full">
               <button
                 disabled
@@ -214,7 +381,7 @@ export default function TournamentCard({
                   color: "white",
                 }}
               >
-                Play Tournament
+                {status === "ongoing" ? "Play Tournament" : "Registration Closed"}
               </button>
 
               <p className="mt-3 text-sm text-center text-[var(--accent-color)]">
@@ -239,6 +406,15 @@ export default function TournamentCard({
           )}
         </div>
       </div>
+
+      {showCancelModal && (
+        <CancelRegistrationModal
+          tournamentId={_id}
+          tournamentName={name}
+          onClose={() => setShowCancelModal(false)}
+          onCancelled={handleCancelled}
+        />
+      )}
     </div>
   );
 }

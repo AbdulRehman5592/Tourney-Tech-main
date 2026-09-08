@@ -49,6 +49,11 @@ const GameRegistrationSchema = new Schema({
   // Admin-only scratchpad -- e.g. "player paid Sarah in cash at check-in".
   // Never shown to the player, just a memory aid for whoever reviews payments.
   adminNote: { type: String, trim: true, default: "" },
+  // Who verified the payment and when -- set automatically the moment
+  // status flips to "approved" (see PATCH /api/tournamentRegister/[id]).
+  // Not player-editable; purely an audit trail for the admin side.
+  verifiedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  verifiedAt: { type: Date },
 });
 
 const RegistrationSchema = new Schema(
@@ -60,6 +65,22 @@ const RegistrationSchema = new Schema(
     },
     user: { type: Schema.Types.ObjectId, ref: "User", required: true }, // captain or solo player
     gameRegistrationDetails: GameRegistrationSchema,
+    // Player-initiated self-service cancellation (see POST
+    // /api/tournamentRegister/cancel). Soft-deleted rather than removed so
+    // there's a record for the refund queue and for organizers to see who
+    // dropped out and when.
+    cancelled: { type: Boolean, default: false },
+    cancelledAt: { type: Date },
+    // Only ever "requested" if gameRegistrationDetails.paid was true at the
+    // moment of cancellation -- an unpaid registration has nothing to refund.
+    refundStatus: {
+      type: String,
+      enum: ["not_applicable", "requested", "processed", "denied"],
+      default: "not_applicable",
+    },
+    // Admin note left when resolving a refund request (see PATCH
+    // /api/tournamentRegister/[id]/refund) -- e.g. "refunded via cash 9/10".
+    refundNote: { type: String, trim: true },
   },
   { timestamps: true }
 );

@@ -9,25 +9,39 @@ import { requireAuth } from "@/utils/server/auth";
 import { requireRole } from "@/utils/server/auth";
 import { requireAdmin } from "@/utils/server/roleGuards";
 
-// Admin-only: grant/revoke the global "may create their own tournaments"
-// capability. Deliberately a separate field/route from the role enum
-// (see requireTournamentCreator in roleGuards.js) rather than folding this
-// into /api/users/[id]/role, which has its own drifted allowed-values list.
+// Admin-only: grant/revoke global capability flags -- "may create their own
+// tournaments" and "Tourney Techs Staff" (general entrusted operations
+// work, e.g. deciding which tournaments count toward national rankings).
+// Deliberately separate fields/route from the role enum (see
+// requireTournamentCreator/requireTourneyTechStaff in roleGuards.js) rather
+// than folding these into /api/users/[id]/role, which has its own drifted
+// allowed-values list.
 export const PATCH = asyncHandler(async (req, { params }) => {
   await connectDB();
   await requireAdmin();
   const { id } = await params;
 
   const body = await req.json();
-  if (typeof body?.canCreateTournaments !== "boolean") {
-    throw new ApiError(400, "canCreateTournaments (boolean) is required");
+  const update = {};
+  if (body?.canCreateTournaments !== undefined) {
+    if (typeof body.canCreateTournaments !== "boolean") {
+      throw new ApiError(400, "canCreateTournaments must be a boolean");
+    }
+    update.canCreateTournaments = body.canCreateTournaments;
+  }
+  if (body?.isTourneyTechStaff !== undefined) {
+    if (typeof body.isTourneyTechStaff !== "boolean") {
+      throw new ApiError(400, "isTourneyTechStaff must be a boolean");
+    }
+    update.isTourneyTechStaff = body.isTourneyTechStaff;
+  }
+  if (Object.keys(update).length === 0) {
+    throw new ApiError(400, "canCreateTournaments or isTourneyTechStaff (boolean) is required");
   }
 
-  const user = await User.findByIdAndUpdate(
-    id,
-    { canCreateTournaments: body.canCreateTournaments },
-    { new: true }
-  ).select("-password -refreshToken -__v");
+  const user = await User.findByIdAndUpdate(id, update, { new: true }).select(
+    "-password -refreshToken -__v"
+  );
   if (!user) throw new ApiError(404, "User not found");
 
   return Response.json(new ApiResponse(200, user, "User updated successfully"));

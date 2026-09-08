@@ -113,6 +113,36 @@ export async function createOrUpdateRegistration({
     user: userId,
   });
 
+  if (existingRegistration?.cancelled) {
+    // A previously-cancelled registration is a clean slate, not something to
+    // merge game lists into -- re-registering starts fresh with just the
+    // newly-requested games, and clears the old cancellation/refund state.
+    const registration = await Registration.findByIdAndUpdate(
+      existingRegistration._id,
+      {
+        gameRegistrationDetails: {
+          games: validCatalogGameIds,
+          gameConfigIds: validGameConfigIds,
+          status: "pending",
+          paid: false,
+          paymentMethod: paymentMethod || "cash",
+          paymentDetails: buildPaymentDetails(
+            paymentMethod,
+            paymentDetails,
+            requireReceipt
+          ),
+        },
+        cancelled: false,
+        cancelledAt: null,
+        refundStatus: "not_applicable",
+        refundNote: null,
+      },
+      { new: true }
+    );
+
+    return { registration, created: false };
+  }
+
   if (existingRegistration) {
     const existingConfigIds = (
       existingRegistration.gameRegistrationDetails?.gameConfigIds || []
