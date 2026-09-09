@@ -149,7 +149,7 @@ export default function TournamentsTable({ tournaments, onEdit, onDelete, onAppr
                             className="flex min-h-[46px] flex-col gap-1"
                           >
                             <span className="bg-gray-700 text-xs px-2 py-1 rounded self-start">
-                              {g.game?.name || g.name || "Unnamed"}
+                              {g.eventTitle || g.game?.name || g.name || "Unnamed"}
                             </span>
                             <GameScheduleBadge
                               value={g.scheduledAt}

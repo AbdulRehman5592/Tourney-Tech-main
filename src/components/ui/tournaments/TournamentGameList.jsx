@@ -21,7 +21,7 @@ export default function TournamentGameList({ games }) {
               backgroundColor: "var(--background)",
             }}
           >
-            <strong>{g?.game?.name || "Unknown Game"}</strong>
+            <strong>{g?.eventTitle || g?.game?.name || "Unknown Game"}</strong>
             <span className="text-gray-400">
               ${g.entryFee ?? "0"} •{" "}
               {g.teamBased
