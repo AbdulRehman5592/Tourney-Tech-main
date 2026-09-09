@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata = {
-  title: "Terms & Conditions — Tourney Tech",
+  title: "Terms & Conditions — Tourney Techs",
 };
 
 export default function TermsPage() {
@@ -23,7 +23,7 @@ export default function TermsPage() {
 
         <div className="space-y-6 leading-relaxed">
           <p>
-            Welcome to Tourney Tech. By creating an account or registering
+            Welcome to Tourney Techs. By creating an account or registering
             for a tournament, you agree to these terms. Please read them
             carefully.
           </p>

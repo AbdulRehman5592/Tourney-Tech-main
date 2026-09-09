@@ -14,6 +14,7 @@ export default function GamePlay() {
   // gameId -> scheduledAt; the registration payload carries plain Game docs,
   // so the per-tournament schedule has to be looked up separately.
   const [scheduleByGame, setScheduleByGame] = useState({});
+  const [titleByGame, setTitleByGame] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,14 +28,19 @@ export default function GamePlay() {
             `/api/tournaments/${tournamentId}`
           );
           const scheduleMap = {};
+          const titleMap = {};
           (tournamentRes.data?.games || []).forEach((g) => {
             // Keyed by the specific scheduled instance (subdocument id), not
             // the catalog game id -- the same game can be scheduled more
             // than once with different times.
             const id = g._id;
-            if (id) scheduleMap[id.toString()] = g.scheduledAt || null;
+            if (id) {
+              scheduleMap[id.toString()] = g.scheduledAt || null;
+              titleMap[id.toString()] = g.eventTitle || null;
+            }
           });
           setScheduleByGame(scheduleMap);
+          setTitleByGame(titleMap);
         } catch (scheduleErr) {
           // A missing schedule shouldn't block playing -- cards fall back to TBA.
           console.error("Error fetching game schedule:", scheduleErr);
@@ -125,7 +131,9 @@ export default function GamePlay() {
 
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {orderedGames.map((game) => (
+      {orderedGames.map((game) => {
+        const displayName = titleByGame[game.gameConfigId] || game.name;
+        return (
         <div
           key={game.gameConfigId || game._id}
           className="rounded-2xl shadow-lg border overflow-hidden 
@@ -138,7 +146,7 @@ export default function GamePlay() {
           {/* Game Image */}
           <img
             src={game.coverImage || game.bannerUrl}
-            alt={game.name}
+            alt={displayName}
             className="w-full h-52 object-cover"
           />
 
@@ -150,7 +158,7 @@ export default function GamePlay() {
                 className="text-lg sm:text-xl font-extrabold tracking-wide capitalize"
                 style={{ color: "var(--foreground)" }}
               >
-                {game.name}
+                {displayName}
               </h2>
 
               {/* When this game is played */}
@@ -210,7 +218,8 @@ export default function GamePlay() {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

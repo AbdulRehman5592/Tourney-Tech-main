@@ -296,7 +296,9 @@ export default function TournamentStandingsPage() {
             </h1>
             <p className="text-sm md:text-base text-[var(--muted-foreground)] mt-1">
               {tournament?.name}
-              {gameConfig?.game?.name ? ` — ${gameConfig.game.name}` : ""}
+              {gameConfig?.eventTitle || gameConfig?.game?.name
+                ? ` — ${gameConfig?.eventTitle || gameConfig?.game?.name}`
+                : ""}
             </p>
           </div>
           <div className="text-right">

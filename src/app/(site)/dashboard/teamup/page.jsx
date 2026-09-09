@@ -351,7 +351,7 @@ export default function TeamUp() {
                       >
                         <option value="">Inviting for Team Up or Doubles?</option>
                         <option value="team">Team Up (form your team)</option>
-                        <option value="doubles">Doubles / Mixed Doubles (side pot)</option>
+                        <option value="doubles">Doubles / Mixed Doubles</option>
                       </select>
 
                       {/* 🎯 Tournament Select */}

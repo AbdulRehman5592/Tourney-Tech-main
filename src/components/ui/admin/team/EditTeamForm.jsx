@@ -114,7 +114,8 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
           <div>
             <label className="block text-sm font-medium mb-1">Game</label>
             <div className="p-2 rounded border border-[var(--border-color)] bg-[var(--secondary-color)] text-[var(--foreground)] opacity-80">
-              {team?.game?.name || "N/A"}
+              {team?.tournament?.games?.find((g) => g._id === team.gameConfigId)
+                ?.eventTitle || team?.game?.name || "N/A"}
             </div>
           </div>
 

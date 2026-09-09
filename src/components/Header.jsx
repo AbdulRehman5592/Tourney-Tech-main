@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 
-const logo = "/img/logo.jpg"; // You can swap to logo1.png anytime
+const logo = "/img/tourney-techs-icon.png";
 
 const NAV_LINKS = [
   { href: "#upcoming", label: "Tournaments" },
@@ -26,13 +26,13 @@ export default function Header() {
       <div className="container mx-auto px-4">
         <nav className="flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" aria-label="Tourney Tech Home">
+          <Link href="/" aria-label="Tourney Techs Home">
             <Image
               src={logo}
-              alt="Tourney Tech Logo"
+              alt="Tourney Techs Logo"
               width={60}
               height={60}
-              className="rounded-full"
+              className="object-contain"
             />
           </Link>
 

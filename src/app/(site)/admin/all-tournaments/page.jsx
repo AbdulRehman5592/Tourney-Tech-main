@@ -458,7 +458,7 @@ export default function AdminAllTournamentsPage() {
                             >
                               <p className="font-semibold text-[var(--foreground)]">
                                 <span className="text-muted-foreground">Game {index + 1}:</span>{" "}
-                                {game.game?.name || "Unnamed Game"}
+                                {game.eventTitle || game.game?.name || "Unnamed Game"}
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">
                                 ${game.entryFee ?? 0} •{" "}
@@ -614,7 +614,11 @@ export default function AdminAllTournamentsPage() {
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                 <p className="font-semibold text-[var(--foreground)]">{team.name}</p>
-                                <p className="text-sm text-muted-foreground">Game: {team.game?.name || "N/A"}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Game:{" "}
+                                  {tournamentGames.find((g) => g._id === team.gameConfigId)
+                                    ?.eventTitle || team.game?.name || "N/A"}
+                                </p>
                               </div>
                               <p className="text-sm text-muted-foreground">Serial: {team.serialNo}</p>
                             </div>

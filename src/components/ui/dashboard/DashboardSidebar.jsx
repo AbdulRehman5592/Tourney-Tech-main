@@ -10,7 +10,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { useRouter } from "next/navigation"; // ✅ add this
 
-const logo = "/img/logo.jpg";
+const logo = "/img/tourney-techs-icon.png";
 
 export default function DashboardSidebar({ isOpen, onClose, navItems, badges = {} }) {
   const [openMenu, setOpenMenu] = useState(null);
@@ -56,12 +56,12 @@ export default function DashboardSidebar({ isOpen, onClose, navItems, badges = {
           <div className="flex items-center gap-3">
             <Image
               src={logo}
-              alt="Tourney Tech Logo"
+              alt="Tourney Techs Logo"
               width={30}
               height={30}
-              className="rounded-full"
+              className="object-contain"
             />
-            <h2 className="text-lg font-bold">Tourney Tech</h2>
+            <h2 className="text-lg font-bold">Tourney Techs</h2>
           </div>
           <button onClick={onClose} className="lg:hidden text-xl">
             <X size={20} />

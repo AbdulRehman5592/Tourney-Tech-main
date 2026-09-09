@@ -39,7 +39,7 @@ function TournamentCard({ item }) {
           <ul className="list-disc list-inside space-y-1 mt-1">
             {games.map((g, idx) => (
               <li key={idx} className="capitalize" style={{ color: "#9CA3AF" }}>
-                {g.game?.name} — {g.tournamentTeamType}
+                {g.eventTitle || g.game?.name} — {g.tournamentTeamType}
               </li>
             ))}
           </ul>

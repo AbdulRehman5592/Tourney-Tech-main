@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Tourney Tech",
+  title: "Tourney Techs",
   description: "Create, schedule, and track tournaments like a pro.",
 };
 

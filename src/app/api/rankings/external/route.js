@@ -9,7 +9,7 @@ import { pointsForPlacement } from "@/utils/server/nationalRankings";
 import mongoose from "mongoose";
 
 // Manual entry point for ranking points earned at a tournament run outside
-// Tourney Tech (see the National Ranking & External Tournament Import
+// Tourney Techs (see the National Ranking & External Tournament Import
 // guide). Points are always derived here from tableCount + placement using
 // the same tier table as native events -- the caller can never submit a
 // raw point value.

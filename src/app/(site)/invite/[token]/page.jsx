@@ -134,7 +134,7 @@ export default function InvitePage() {
             ) : (
               <div className="flex flex-col gap-3">
                 <p className="text-sm opacity-75">
-                  Do you already have a Tourney Tech account?
+                  Do you already have a Tourney Techs account?
                 </p>
                 <Link
                   href={`/auth/login?redirect=${encodeURIComponent(`/invite/${token}`)}`}

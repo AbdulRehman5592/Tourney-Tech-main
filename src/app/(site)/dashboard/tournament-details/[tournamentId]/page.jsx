@@ -176,7 +176,7 @@ export default function TournamentDetailsPage() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <h3 className="text-lg font-semibold">
-                          {game.game?.name || `Game ${index + 1}`}
+                          {game.eventTitle || game.game?.name || `Game ${index + 1}`}
                         </h3>
                         <p className="text-sm text-[var(--muted-foreground)]">
                           {game.game?.icon || "No icon"}

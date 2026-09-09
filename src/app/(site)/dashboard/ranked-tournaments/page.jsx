@@ -113,7 +113,7 @@ function RankedTournamentsPageInner() {
                             className="text-xs px-2 py-0.5 rounded-full border border-[var(--border-color)]"
                             style={{ backgroundColor: "var(--secondary-color)" }}
                           >
-                            {g.game?.name || "Unknown"} &middot; {FORMAT_LABELS[g.format] || g.format}
+                            {g.eventTitle || g.game?.name || "Unknown"} &middot; {FORMAT_LABELS[g.format] || g.format}
                           </span>
                         ))}
                         {!t.games?.length && (

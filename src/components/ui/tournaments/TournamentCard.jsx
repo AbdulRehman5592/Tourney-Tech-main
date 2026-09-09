@@ -114,6 +114,7 @@ export default function TournamentCard({
   onSelect,
   userRole, // New prop to indicate if user is organizer/owner/admin
   paymentStatus, // "pending" | "paid" -- player registrations only
+  registeredGameConfigIds, // Which tournament games this player signed up for -- player registrations only
   registrationCancelled, // Seeds the cancelled state from the server
   onCancelled, // Optional: parent can refetch its list after a cancellation
 }) {
@@ -215,7 +216,11 @@ export default function TournamentCard({
         </div>
 
         {/* Games */}
-        <TournamentGameList games={games || []} />
+        <TournamentGameList
+          games={games || []}
+          registeredGameConfigIds={isPlayerRole ? registeredGameConfigIds : null}
+          paymentStatus={isPlayerRole ? paymentStatus : null}
+        />
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3">

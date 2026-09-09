@@ -25,7 +25,7 @@ export default function Footer() {
               className="text-2xl font-bold mb-2"
               style={{ color: "var(--accent-color)" }}
             >
-              Tourney Tech
+              Tourney Techs
             </h3>
             <p style={{ color: MUTED }}>
               Powering tournaments from registration to final standings.
@@ -83,7 +83,7 @@ export default function Footer() {
             color: MUTED,
           }}
         >
-          © {new Date().getFullYear()} Tourney Tech. All rights reserved.
+          © {new Date().getFullYear()} Tourney Techs. All rights reserved.
         </div>
       </div>
     </footer>

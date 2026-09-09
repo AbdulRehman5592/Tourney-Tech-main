@@ -362,7 +362,12 @@ export default function AdminRegistrationsTable() {
                 <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
                 <td className="py-2 px-4">
                   {r.gameRegistrationDetails?.games
-                    ?.map((g) => g.name)
+                    ?.map((g) => {
+                      const match = r.tournament?.games?.find(
+                        (tg) => tg._id === g._id || tg.game === g._id
+                      );
+                      return match?.eventTitle || g.name;
+                    })
                     .join(", ")}
                 </td>
                 <td className="py-2 px-4">

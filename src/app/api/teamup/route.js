@@ -107,7 +107,11 @@ export const GET = asyncHandler(async () => {
     const gameConfig = req.tournament?.games?.find(
       (g) => g._id?.toString() === req.gameId
     );
-    return { ...req, game: gameConfig?.game || null };
+    return {
+      ...req,
+      game: gameConfig?.game || null,
+      eventTitle: gameConfig?.eventTitle || null,
+    };
   });
 
   const userIds = [

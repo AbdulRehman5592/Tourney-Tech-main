@@ -25,9 +25,9 @@ export const POST = asyncHandler(async (req) => {
 
   // Send Email
   const emailContent = {
-    from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
+    from: `"Tourney Techs" <${process.env.EMAIL_USER}>`,
     to: email,
-    subject: "Password Reset OTP - Tourney Tech",
+    subject: "Password Reset OTP - Tourney Techs",
     html: `
       <h2>Hi ${user.firstname || "User"}!</h2>
       <p>Your password reset OTP is:</p>

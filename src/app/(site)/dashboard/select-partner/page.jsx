@@ -79,7 +79,7 @@ export default function SelectTeam() {
 
               games.push({
                 _id: gameConfigId,
-                name: gameObj?.name || g.game?.name || "Unknown Game",
+                name: g.eventTitle || gameObj?.name || g.game?.name || "Unknown Game",
               });
 
               seenGames.add(gameConfigId);

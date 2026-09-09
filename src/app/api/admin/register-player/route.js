@@ -11,7 +11,7 @@ import { buildImportRow, validateImportRow, slugify } from "@/utils/userImport";
 
 // Creates a brand-new player account AND registers it for a tournament's games
 // in one admin action — the case a tournament director hits when a walk-in
-// player has no Tourney Tech account yet.
+// player has no Tourney Techs account yet.
 //
 // The two steps are treated as one unit: if the registration fails, the account
 // created moments earlier is removed again, so a retry doesn't collide with a

@@ -61,6 +61,14 @@ export const GET = asyncHandler(async (req) => {
       paymentStatus:
         registration.gameRegistrationDetails.status === "approved" ? "paid" : "pending",
       registrationCancelled: !!registration.cancelled,
+      // Which of the tournament's games this player actually signed up for
+      // (Tournament.games[]._id) -- registration approval/payment status is
+      // one value for the whole submission, so every game here shares the
+      // paymentStatus above. Lets the UI mark registered games instead of
+      // showing every tournament game as if the player joined all of them.
+      registeredGameConfigIds: (registration.gameRegistrationDetails.gameConfigIds || []).map(
+        (id) => id.toString()
+      ),
     });
   }
 

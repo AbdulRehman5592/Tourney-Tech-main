@@ -41,7 +41,7 @@ function CheckInPageInner() {
   const selectedTournament = tournaments.find((t) => t._id === tournamentId);
   const tournamentGames = (selectedTournament?.games || []).map((entry) => ({
     id: entry?._id,
-    name: entry?.game?.name || entry?.eventTitle || "Unnamed game",
+    name: entry?.eventTitle || entry?.game?.name || "Unnamed game",
   }));
 
   const loadRoster = async () => {

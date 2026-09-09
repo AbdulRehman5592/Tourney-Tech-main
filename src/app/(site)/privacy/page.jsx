@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata = {
-  title: "Privacy Policy — Tourney Tech",
+  title: "Privacy Policy — Tourney Techs",
 };
 
 export default function PrivacyPage() {
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
 
         <div className="space-y-6 leading-relaxed">
           <p>
-            This policy explains what information Tourney Tech collects when
+            This policy explains what information Tourney Techs collects when
             you use the platform, and how it&apos;s used.
           </p>
           <section>

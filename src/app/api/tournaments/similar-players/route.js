@@ -45,7 +45,7 @@ export const GET = asyncHandler(async () => {
           // than once in one tournament as fully independent competitions,
           // and only the subdocument id tells those instances apart.
           _id: g._id,
-          name: g.game.name,
+          name: g.eventTitle || g.game.name,
           tournamentTeamType: g.tournamentTeamType,
           doublesEnabled: g.doublesEnabled,
           doublesCost: g.doublesCost,
