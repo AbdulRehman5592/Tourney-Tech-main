@@ -143,7 +143,7 @@ function LoginForm() {
             className="text-3xl font-bold mb-6 text-center"
             style={{ color: "var(--accent-color)" }}
           >
-            Login to Tourney Tech
+            Login to Tourney Techs
           </h1>
 
           {/* Error Message Display */}

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const { Schema, model, models } = mongoose;
 
 // A ranking award manually entered by an admin for a tournament that wasn't
-// run through Tourney Tech (see the National Ranking & External Tournament
+// run through Tourney Techs (see the National Ranking & External Tournament
 // Import guide). Points are always derived server-side from tableCount +
 // placement using the same tier table as native events -- never trusted as
 // a raw input -- so an admin can't accidentally create an arbitrary award.

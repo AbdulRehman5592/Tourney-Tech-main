@@ -52,6 +52,7 @@ export default function TournamentListing() {
             userRole: tournament.userRole,
             paymentStatus: tournament.paymentStatus,
             registrationCancelled: tournament.registrationCancelled,
+            registeredGameConfigIds: tournament.registeredGameConfigIds,
           };
         });
 
@@ -153,6 +154,7 @@ export default function TournamentListing() {
               userRole={mine.userRole}
               paymentStatus={mine.paymentStatus}
               registrationCancelled={mine.registrationCancelled}
+              registeredGameConfigIds={mine.registeredGameConfigIds}
             />
           );
         })}

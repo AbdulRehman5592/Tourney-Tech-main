@@ -37,7 +37,7 @@ export const GET = asyncHandler(async (_, context) => {
         inviterId: invite.inviter?._id,
         inviterName: `${invite.inviter?.firstname || ""} ${invite.inviter?.lastname || ""}`.trim(),
         tournamentName: invite.tournament?.name || "Tournament",
-        gameName: gameConfig?.game?.name || null,
+        gameName: gameConfig?.eventTitle || gameConfig?.game?.name || null,
         mode: invite.mode,
         message: invite.message || "",
       },

@@ -175,7 +175,7 @@ export default function ReceivedRequests() {
                 <strong>Game: </strong>
                 {req.game?.name ? (
                   <span className="text-[var(--info-color)]">
-                    {req.game.name} ({req.game.platform})
+                    {req.eventTitle || req.game.name} ({req.game.platform})
                   </span>
                 ) : (
                   <span className="opacity-70">Unknown game</span>

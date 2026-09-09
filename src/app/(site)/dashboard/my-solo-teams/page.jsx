@@ -48,7 +48,7 @@ export default function MySoloTeamsPage() {
               tournamentId: tournament._id,
               tournamentName: tournament.name,
               gameId: gameConfigId,
-              gameName: game.name,
+              gameName: gameConfig?.eventTitle || game.name,
               hasTeam: !!reg.gameRegistrationDetails?.team,
             });
           });

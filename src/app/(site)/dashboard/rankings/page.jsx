@@ -163,8 +163,8 @@ export default function NationalRankingsPage() {
             </h1>
             <p className="text-sm md:text-base text-[var(--muted-foreground)] mt-1">
               {selectedGameType
-                ? `Ranked across every completed ${selectedGameType} tournament on Tourney Tech`
-                : "Ranked across every completed tournament on Tourney Tech"}
+                ? `Ranked across every completed ${selectedGameType} tournament on Tourney Techs`
+                : "Ranked across every completed tournament on Tourney Techs"}
             </p>
           </div>
         </div>

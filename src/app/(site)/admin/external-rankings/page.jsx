@@ -129,7 +129,7 @@ export default function ExternalRankingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Manual Ranking Awards</h1>
         <p className="text-sm text-[var(--muted-foreground)]">
-          For tournaments played outside Tourney Tech. Points are calculated automatically
+          For tournaments played outside Tourney Techs. Points are calculated automatically
           from the table count and placement -- the same schedule used for native events -- so
           they can never be typed in directly.
         </p>

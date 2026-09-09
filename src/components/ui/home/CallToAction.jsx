@@ -16,7 +16,7 @@ export default function CallToAction() {
           Ready for Your Next Tournament?
         </h2>
         <p className="text-lg mb-8 max-w-2xl mx-auto">
-          Find an upcoming event, register your team, compete, and track your results — all with Tourney Tech.
+          Find an upcoming event, register your team, compete, and track your results — all with Tourney Techs.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <Link

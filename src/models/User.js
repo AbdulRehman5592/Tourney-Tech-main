@@ -123,7 +123,7 @@ const UserSchema = new Schema(
     // allowed-values list that already drifts from this schema's enum.
     canCreateTournaments: { type: Boolean, default: false },
     // Global, admin-granted capability for people entrusted with general
-    // Tourney Tech operations work (product-facing name: "Tourney Techs
+    // Tourney Techs operations work (product-facing name: "Tourney Techs
     // Staff") -- e.g. deciding which tournaments count toward national
     // rankings. Kept as its own boolean rather than a new `role` enum value,
     // same reasoning as canCreateTournaments above.

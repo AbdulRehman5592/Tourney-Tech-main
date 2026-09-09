@@ -102,7 +102,7 @@ export const POST = asyncHandler(async (req) => {
   if (staffEmails.length) {
     try {
       await sendEmail({
-        from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
+        from: `"Tourney Techs" <${process.env.EMAIL_USER}>`,
         to: staffEmails.join(", "),
         subject: `Registration Cancelled -- ${tournament.name}`,
         html: `

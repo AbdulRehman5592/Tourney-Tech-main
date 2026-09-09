@@ -35,7 +35,7 @@ export default function TeamForm() {
               // not the catalog game id -- the same catalog game can be
               // scheduled more than once as fully independent competitions.
               value: g._id,
-              label: g.game?.name || "Unknown Game",
+              label: g.eventTitle || g.game?.name || "Unknown Game",
               tournamentTeamType: g.tournamentTeamType || "single_player",
             })),
           }))

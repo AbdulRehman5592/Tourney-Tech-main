@@ -31,7 +31,7 @@ export const POST = asyncHandler(async (req) => {
   await user.save();
 
   const emailContent = {
-    from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
+    from: `"Tourney Techs" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "Resend: Your Email Verification OTP",
     html: `

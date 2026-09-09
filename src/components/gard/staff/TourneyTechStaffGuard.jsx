@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 
 // Gate for pages meant for "Tourney Techs Staff" -- the global,
 // admin-granted capability (User.isTourneyTechStaff) for people entrusted
-// with general Tourney Tech operations work, e.g. deciding which
+// with general Tourney Techs operations work, e.g. deciding which
 // tournaments count toward national rankings. Distinct from StaffGuard
 // (per-tournament owner/organizer/manager/support) -- this is a site-wide
 // capability, not scoped to any one tournament. A full admin always

@@ -53,10 +53,14 @@ export const GET = asyncHandler(async (req) => {
   const gameNameById = new Map(games.map((g) => [g._id.toString(), g.name]));
 
   const pairsWithGameName = pairs.map((p) => {
-    const catalogGameId = gameConfigFor(p)?.game?.toString();
+    const gameConfig = gameConfigFor(p);
+    const catalogGameId = gameConfig?.game?.toString();
     return {
       ...p,
-      gameName: (catalogGameId && gameNameById.get(catalogGameId)) || "Unknown game",
+      gameName:
+        gameConfig?.eventTitle ||
+        (catalogGameId && gameNameById.get(catalogGameId)) ||
+        "Unknown game",
     };
   });
 

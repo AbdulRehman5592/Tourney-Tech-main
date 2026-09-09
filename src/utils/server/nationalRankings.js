@@ -148,7 +148,7 @@ export async function computeNationalRankings(gameTypeName) {
     }
   }
 
-  // Fold in manually-entered awards for events run outside Tourney Tech --
+  // Fold in manually-entered awards for events run outside Tourney Techs --
   // same player pool, same points/top4/history treatment as a native
   // placement, so they sit in the same national ranking rather than a
   // separate track.

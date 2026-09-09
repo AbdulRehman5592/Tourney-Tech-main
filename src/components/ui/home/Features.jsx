@@ -11,7 +11,7 @@ const FEATURES = [
     icon: Activity,
     title: 'Live Scoring & Standings',
     description:
-      'Save time calculating results and know where everyone stands as the tournament unfolds. Record scores and results while Tourney Tech updates wins, losses, points, standings, placements, and tournament progress.',
+      'Save time calculating results and know where everyone stands as the tournament unfolds. Record scores and results while Tourney Techs updates wins, losses, points, standings, placements, and tournament progress.',
   },
   {
     icon: TrendingUp,
@@ -32,7 +32,7 @@ export default function Features() {
     >
       <div className="container mx-auto px-6 text-center">
         <h2 className="text-2xl md:text-3xl font-bold mb-10">
-          Why Choose Tourney Tech?
+          Why Choose Tourney Techs?
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

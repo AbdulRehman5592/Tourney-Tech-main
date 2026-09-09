@@ -71,7 +71,14 @@ export default function AllRegisteredPlayers() {
         header: "Games",
         id: "games",
         accessorFn: (row) =>
-          row.gameRegistrationDetails?.games?.map((g) => g.name).join(", ") || "",
+          row.gameRegistrationDetails?.games
+            ?.map((g) => {
+              const match = row.tournament?.games?.find(
+                (tg) => tg._id === g._id || tg.game === g._id
+              );
+              return match?.eventTitle || g.name;
+            })
+            .join(", ") || "",
         cell: ({ getValue }) =>
           getValue() ? (
             getValue()
@@ -124,7 +131,15 @@ export default function AllRegisteredPlayers() {
         User: `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim(),
         Email: r.user?.email || "",
         Tournament: r.tournament?.name || "",
-        Games: r.gameRegistrationDetails?.games?.map((g) => g.name).join(", ") || "No games",
+        Games:
+          r.gameRegistrationDetails?.games
+            ?.map((g) => {
+              const match = r.tournament?.games?.find(
+                (tg) => tg._id === g._id || tg.game === g._id
+              );
+              return match?.eventTitle || g.name;
+            })
+            .join(", ") || "No games",
         "Registered At": r.createdAt ? new Date(r.createdAt).toLocaleString() : "-",
       };
     });

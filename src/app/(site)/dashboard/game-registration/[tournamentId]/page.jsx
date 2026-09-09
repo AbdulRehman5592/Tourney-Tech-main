@@ -62,7 +62,7 @@ export default function GameRegistrationPage() {
         setGames(
           registeredGames.map((g) => ({
             _id: g?._id,
-            name: g?.game?.name,
+            name: g?.eventTitle || g?.game?.name,
             scheduledAt: g?.scheduledAt,
           }))
         );

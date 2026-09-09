@@ -67,12 +67,21 @@ export default function AdminTeamsTable() {
     );
   };
 
+  // The tournament's custom title for this team's specific scheduled game,
+  // falling back to the catalog game name when no title was set.
+  const teamGameLabel = (team) => {
+    const match = team.tournament?.games?.find(
+      (g) => g._id === team.gameConfigId
+    );
+    return match?.eventTitle || team.game?.name;
+  };
+
   // ✅ Search filter
   const filteredTeams = teams.filter((team) => {
     const term = searchTerm.toLowerCase();
     const teamName = team.name?.toLowerCase() || "";
     const tournamentName = team.tournament?.name?.toLowerCase() || "";
-    const gameName = team.game?.name?.toLowerCase() || "";
+    const gameName = teamGameLabel(team)?.toLowerCase() || "";
     const memberNames =
       team.members?.map((m) => m.username.toLowerCase()).join(", ") || "";
     return (
@@ -189,7 +198,7 @@ export default function AdminTeamsTable() {
                       {team.tournament?.name || "N/A"}
                     </td>
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
-                      {team?.game?.name || "N/A"}
+                      {teamGameLabel(team) || "N/A"}
                     </td>
                     <td className="py-2 px-4 border-b border-[var(--border-color)]">
                       {team.members?.map((m) => m.username).join(", ")}

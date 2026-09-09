@@ -132,7 +132,7 @@ export const POST = asyncHandler(async (req) => {
 
   // Email verification temporarily disabled
   // const emailContent = {
-  //   from: `"Tourney Tech" <${process.env.EMAIL_USER}>`,
+  //   from: `"Tourney Techs" <${process.env.EMAIL_USER}>`,
   //   to: email,
   //   subject: "Your Email Verification OTP",
   //   html: `

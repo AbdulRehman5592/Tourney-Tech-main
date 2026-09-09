@@ -225,11 +225,16 @@ export default function SentRequests() {
                 <strong>Games: </strong>
                 {req.toGames?.length > 0 ? (
                   <ul className="list-disc list-inside">
-                    {req.toGames.map((g) => (
-                      <li key={g._id} className="text-[var(--info-color)]">
-                        {g.name} ({g.platform})
-                      </li>
-                    ))}
+                    {req.toGames.map((g) => {
+                      const match = req.tournament?.games?.find(
+                        (tg) => tg._id === g._id || tg.game === g._id
+                      );
+                      return (
+                        <li key={g._id} className="text-[var(--info-color)]">
+                          {match?.eventTitle || g.name} ({g.platform})
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <span className="opacity-70">No games</span>

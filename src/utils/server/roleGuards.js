@@ -22,7 +22,7 @@ export async function requireTournamentCreator() {
 }
 
 // Global, admin-granted capability (User.isTourneyTechStaff) -- for people
-// entrusted with general Tourney Tech operations work, e.g. deciding which
+// entrusted with general Tourney Techs operations work, e.g. deciding which
 // tournaments count toward national rankings. A full admin always qualifies.
 export async function requireTourneyTechStaff() {
   const user = await requireAuth();

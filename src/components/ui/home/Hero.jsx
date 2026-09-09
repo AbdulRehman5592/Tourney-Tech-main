@@ -22,7 +22,7 @@ export default function Hero() {
             className="text-base mb-6"
             style={{ color: "var(--muted-foreground)" }}
           >
-            From registration to final standings, Tourney Tech brings tournament
+            From registration to final standings, Tourney Techs brings tournament
             directors, players, teams, scoring, and results together in one place.
           </p>
 

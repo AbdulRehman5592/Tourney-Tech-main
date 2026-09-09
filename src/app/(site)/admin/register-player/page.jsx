@@ -34,7 +34,7 @@ const initialNewPlayer = {
 };
 
 export default function AdminRegisterPlayerPage() {
-  // "existing" registers an account that is already in Tourney Tech;
+  // "existing" registers an account that is already in Tourney Techs;
   // "new" creates the account and registers it in the same submit.
   const [mode, setMode] = useState("existing");
 
@@ -109,7 +109,7 @@ export default function AdminRegisterPlayerPage() {
   // once in one tournament as fully independent competitions.
   const tournamentGames = (selectedTournament?.games || []).map((entry) => ({
     id: entry?._id,
-    name: entry?.game?.name || entry?.name,
+    name: entry?.eventTitle || entry?.game?.name || entry?.name,
   }));
 
   const handleChange = (e) => {
@@ -362,7 +362,7 @@ export default function AdminRegisterPlayerPage() {
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Register Player for Tournament</h1>
         <p className="mt-2 text-sm text-[var(--muted-foreground)]">
           Register a player for a tournament and its games — either an existing account,
-          or a new player who isn&apos;t in Tourney Tech yet.
+          or a new player who isn&apos;t in Tourney Techs yet.
         </p>
 
         {/* Mode switch */}
