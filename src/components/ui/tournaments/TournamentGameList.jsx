@@ -15,20 +15,37 @@ function RegistrationTag({ registered, paymentStatus }) {
       </span>
     );
   }
-  const pending = paymentStatus === "pending";
+  const bg =
+    paymentStatus === "pending"
+      ? "var(--warning-color)"
+      : paymentStatus === "rejected"
+        ? "var(--error-color)"
+        : "var(--success-color)";
+  const label =
+    paymentStatus === "pending"
+      ? "Registered • Pending Approval"
+      : paymentStatus === "rejected"
+        ? "Registered • Rejected"
+        : "Registered • Approved";
   return (
     <span
       className="text-xs px-2 py-0.5 rounded-full font-semibold text-white"
-      style={{
-        backgroundColor: pending ? "var(--warning-color)" : "var(--success-color)",
-      }}
+      style={{ backgroundColor: bg }}
     >
-      {pending ? "Registered • Pending Approval" : "Registered • Approved"}
+      {label}
     </span>
   );
 }
 
-export default function TournamentGameList({ games, registeredGameConfigIds, paymentStatus }) {
+export default function TournamentGameList({
+  games,
+  registeredGameConfigIds,
+  paymentStatus,
+  // (gameConfigId, gameLabel) => void -- provided only when this player can
+  // cancel individual games right now (upcoming tournament, not already
+  // fully cancelled). Omit/null to hide the per-game cancel link entirely.
+  onCancelGame,
+}) {
   // Scheduled games first, earliest to latest; anything still TBA sinks to the
   // bottom so the next thing being played is always the first thing read.
   const orderedGames = [...games].sort(compareByScheduledAt);
@@ -40,33 +57,45 @@ export default function TournamentGameList({ games, registeredGameConfigIds, pay
     <div className="col-span-2">
       <p className="font-semibold">🎮 Games:</p>
       <ul className="mt-2 space-y-2 text-sm">
-        {orderedGames.map((g, i) => (
-          <li
-            key={g._id || i}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2"
-            style={{
-              borderColor: "var(--border-color)",
-              backgroundColor: "var(--background)",
-            }}
-          >
-            <strong>{g?.eventTitle || g?.game?.name || "Unknown Game"}</strong>
-            <span className="text-gray-400">
-              ${g.entryFee ?? "0"} •{" "}
-              {g.teamBased
-                ? g.tournamentTeamType === "double_player"
-                  ? "Team of 2 players"
-                  : "Single player team"
-                : "Individual"}
-            </span>
-            {showRegistrationTags && (
-              <RegistrationTag
-                registered={registeredGameConfigIds.includes(g._id?.toString())}
-                paymentStatus={paymentStatus}
-              />
-            )}
-            <GameScheduleBadge value={g.scheduledAt} className="ml-auto" />
-          </li>
-        ))}
+        {orderedGames.map((g, i) => {
+          const label = g?.eventTitle || g?.game?.name || "Unknown Game";
+          const registered = showRegistrationTags
+            ? registeredGameConfigIds.includes(g._id?.toString())
+            : false;
+          return (
+            <li
+              key={g._id || i}
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2"
+              style={{
+                borderColor: "var(--border-color)",
+                backgroundColor: "var(--background)",
+              }}
+            >
+              <strong>{label}</strong>
+              <span className="text-gray-400">
+                ${g.entryFee ?? "0"} •{" "}
+                {g.teamBased
+                  ? g.tournamentTeamType === "double_player"
+                    ? "Team of 2 players"
+                    : "Single player team"
+                  : "Individual"}
+              </span>
+              {showRegistrationTags && (
+                <RegistrationTag registered={registered} paymentStatus={paymentStatus} />
+              )}
+              {registered && onCancelGame && (
+                <button
+                  type="button"
+                  onClick={() => onCancelGame(g._id?.toString(), label)}
+                  className="text-xs text-[var(--muted-foreground)] hover:text-[var(--error-color)] underline"
+                >
+                  Cancel
+                </button>
+              )}
+              <GameScheduleBadge value={g.scheduledAt} className="ml-auto" />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

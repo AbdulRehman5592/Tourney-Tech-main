@@ -18,12 +18,17 @@ const TeamSchema = new Schema(
     // bracket scoping, since the same catalog game can be scheduled more
     // than once in one tournament as fully independent competitions.
     gameConfigId: { type: Schema.Types.ObjectId, required: true },
-    members: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "User",
+    members: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      // Last line of defense against a duplicate player filling two member
+      // slots on the same team -- the actual UX/validation lives in the
+      // create/edit team forms and the /api/team routes, this just makes
+      // sure it can never happen even via a direct write.
+      validate: {
+        validator: (v) => new Set((v || []).map(String)).size === (v || []).length,
+        message: "The same player can't fill more than one member slot on a team",
       },
-    ],
+    },
     partner: { type: Schema.Types.ObjectId, ref: "User" },
     serialNo: { type: String, required: true },
 
