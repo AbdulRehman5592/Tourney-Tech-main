@@ -11,6 +11,7 @@ import UserGuard from "@/components/gard/user/UserGard";
 
 import RequestToaster from "@/components/ui/dashboard/RequestToaster";
 import api from "@/utils/axios";
+import { adminNavItems } from "@/constants/adminNavItems";
 
 // Change this to adminNavItems if needed
 const userNavItems = [
@@ -20,7 +21,7 @@ const userNavItems = [
   { href: "/dashboard/profile", label: "Profile", icon: Users },
   { href: "/dashboard/teamup", label: "Team Up", icon: Users },
    {
-      label: "Notifications",
+      label: "Partnerships",
       icon: BellDot,
       children: [
         { href: "/dashboard/received-requests", label: "Received Request" },
@@ -41,6 +42,7 @@ export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [isStaffOrAdmin, setIsStaffOrAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [canCreateTournaments, setCanCreateTournaments] = useState(false);
   const [isTourneyTechStaff, setIsTourneyTechStaff] = useState(false);
 
@@ -90,6 +92,7 @@ export default function DashboardLayout({ children }) {
         if (!cancelled) setIsTourneyTechStaff(!!(user.role === "admin" || user.isTourneyTechStaff));
         if (user.role === "admin") {
           if (!cancelled) setIsStaffOrAdmin(true);
+          if (!cancelled) setIsAdmin(true);
           return;
         }
 
@@ -125,13 +128,20 @@ export default function DashboardLayout({ children }) {
       : []),
   ];
 
-  const navItems = extraNavItems.length
-    ? [
-        ...userNavItems.slice(0, -1),
-        ...extraNavItems,
-        userNavItems[userNavItems.length - 1],
-      ]
-    : userNavItems;
+  // Check-In and Live Table Overview live under /dashboard (staff without
+  // the admin role need them here too), so an admin clicking either link
+  // from the admin sidebar lands in this layout. Show the full admin nav
+  // in that case instead of the shorter player-facing one, so it doesn't
+  // look like most of the menu just vanished.
+  const navItems = isAdmin
+    ? adminNavItems
+    : extraNavItems.length
+      ? [
+          ...userNavItems.slice(0, -1),
+          ...extraNavItems,
+          userNavItems[userNavItems.length - 1],
+        ]
+      : userNavItems;
 
   return (
     <UserGuard>
@@ -143,7 +153,7 @@ export default function DashboardLayout({ children }) {
           onClose={() => setIsSidebarOpen(false)}
           navItems={navItems}
           badges={{
-            Notifications: pendingRequestCount,
+            Partnerships: pendingRequestCount,
             "Received Request": pendingRequestCount,
           }}
         />

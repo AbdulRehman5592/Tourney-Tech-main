@@ -85,6 +85,15 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
       return;
     }
 
+    if (
+      form.members.length === 2 &&
+      form.members[0] &&
+      form.members[0] === form.members[1]
+    ) {
+      toast.error("Member 1 and Member 2 must be different players");
+      return;
+    }
+
     try {
       const { data } = await api.patch(`/api/team/${team._id}`, {
         members: form.members,
@@ -121,7 +130,7 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
 
           <SearchableSelect
             label="Member 1 ( Team Leader )"
-            options={users}
+            options={users.filter((u) => u.value !== form.members[1])}
             value={users.find((u) => u.value === form.members[0]) || null}
             onChange={(val) =>
               setForm({
@@ -137,7 +146,8 @@ export default function EditTeamForm({ team, onClose, onUpdated }) {
           {form.tournamentTeamType?.value === "double_player" && (
             <SearchableSelect
               label="Member 2"
-              options={users}
+              // Can't be the same player already picked as Member 1.
+              options={users.filter((u) => u.value !== form.members[0])}
               value={users.find((u) => u.value === form.members[1]) || null}
               onChange={(val) =>
                 setForm({

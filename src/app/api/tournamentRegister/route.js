@@ -106,7 +106,11 @@ export const GET = asyncHandler(async (req) => {
     );
   }
 
-  const registrations = await Registration.find()
+  // A fully cancelled registration belongs in the Refund Requests /
+  // cancellation log (GET /api/tournamentRegister/cancelled), not in the
+  // active approve/reject queue -- otherwise it keeps showing here as if it
+  // still needed a decision.
+  const registrations = await Registration.find({ cancelled: { $ne: true } })
     .populate("tournament")
     .populate("user", "username email")
     .populate({

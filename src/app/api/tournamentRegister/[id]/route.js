@@ -19,10 +19,10 @@ export const PATCH = asyncHandler(async (req, context) => {
   const adminNote = fields.adminNote?.toString();
 
   if (status !== undefined && !["pending", "approved", "rejected"].includes(status)) {
-    return Response.json(new ApiResponse(400, null, "Invalid status value"));
+    return Response.json(new ApiResponse(400, null, "Invalid status value"), { status: 400 });
   }
   if (status === undefined && adminNote === undefined) {
-    return Response.json(new ApiResponse(400, null, "Nothing to update"));
+    return Response.json(new ApiResponse(400, null, "Nothing to update"), { status: 400 });
   }
 
   const update = {};
@@ -52,7 +52,7 @@ export const PATCH = asyncHandler(async (req, context) => {
     .lean();
 
   if (!registration) {
-    return Response.json(new ApiResponse(404, null, "Registration not found"));
+    return Response.json(new ApiResponse(404, null, "Registration not found"), { status: 404 });
   }
 
   return Response.json(

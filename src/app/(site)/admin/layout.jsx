@@ -7,65 +7,7 @@ import DashboardSidebar from "@/components/ui/dashboard/DashboardSidebar";
 
 import AdminGuard from "@/components/gard/admin/AdminGard";
 
-import {
-  LayoutDashboard,
-  Users,
-  // Settings,
-  LogOut,
-  BadgePlus,
-  Gamepad2,
-  Banknote,
-  PlusCircle,
-  ArrowLeftRight,
-  UserPlus2,
-  SquareChartGantt,
-  ImageUp,
-  ClipboardList,
-  Spade,
-  Handshake,
-  MapPin,
-  FileUp,
-  CheckSquare,
-  LayoutGrid,
-  Trophy,
-  Undo2,
-} from "lucide-react";
-
-// Change this to adminNavItems if needed
-const adminNavItems = [
-  { href: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard", label: "Switch To User", icon: ArrowLeftRight },
-  { href: "/admin/users", label: "Manage Users", icon: Users },
-  { href: "/admin/register-player", label: "Register Player", icon: UserPlus2 },
-  { href: "/admin/import-users", label: "Import Users (Excel)", icon: FileUp },
-  { href: "/admin/add-games", label: "Add Game", icon: Gamepad2 },
-  { href: "/admin/game-types", label: "Game Types", icon: Spade },
-  { href: "/admin/signup-options", label: "Signup Options", icon: MapPin },
-  {
-    href: "/admin/create-tournament",
-    label: "Create and Edit Tournament",
-    icon: BadgePlus,
-  },
-  { href: "/admin/add-bank-details", label: "Add Bank Details", icon: Banknote },
-  { href: "/admin/registration-requests", label: "Registration Requests", icon: UserPlus2 },
-  { href: "/admin/all-registered-players", label: "All Registered Players", icon: Users },
-  { href: "/dashboard/check-in", label: "Check-In", icon: CheckSquare },
-  { href: "/dashboard/live-tables", label: "Live Table Overview", icon: LayoutGrid },
-  { href: "/admin/doubles-tracking", label: "Doubles Tracking", icon: Handshake },
-  { href: "/admin/create-team", label: "Create Team", icon: PlusCircle },
-  { href: "/admin/all-teams", label: "All Teams", icon: Users },
-  { href: "/admin/all-tournaments", label: "All Tournaments", icon: ClipboardList },
-  { href: "/admin/sitting", label: "Add Sittings", icon: SquareChartGantt },
-  { href: "/admin/gallery", label: "Gallery", icon: ImageUp },
-  { href: "/admin/external-rankings", label: "Manual Ranking Awards", icon: Trophy },
-  { href: "/admin/refund-requests", label: "Cancellations & Refunds", icon: Undo2 },
-  // {
-  //   label: "Settings",
-  //   icon: Settings,
-  //   children: [{ href: "/admin/settings/profile", label: "Profile Settings" }],
-  // },
-  { href: "/logout", label: "Logout", icon: LogOut },
-];
+import { adminNavItems } from "@/constants/adminNavItems";
 
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

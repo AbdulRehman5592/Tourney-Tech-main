@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
-import { ClipboardList, Search, ChevronDown, ChevronRight } from "lucide-react";
+import { ClipboardList, Search, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
+import EditTeamForm from "@/components/ui/admin/team/EditTeamForm";
 
 const DEFAULT_SECTIONS = { games: true, players: false, teams: false };
 
@@ -61,6 +62,11 @@ export default function AdminAllTournamentsPage() {
   // table instead of retyping names on the separate Create Team page.
   const [teamFormState, setTeamFormState] = useState({});
   const [creatingTeamFor, setCreatingTeamFor] = useState(null);
+  // Organizers manage teams from within each tournament's own panel far more
+  // than from the separate All Teams page, so editing/removing a team is
+  // offered right here too -- same EditTeamForm modal and delete flow as
+  // All Teams, just triggered from this tournament-scoped list.
+  const [editingTeamId, setEditingTeamId] = useState(null);
 
   const handleStatusChange = async (tournamentId, newStatus) => {
     setUpdatingId(tournamentId);
@@ -158,6 +164,50 @@ export default function AdminAllTournamentsPage() {
     } finally {
       setCreatingTeamFor(null);
     }
+  };
+
+  const refetchTeams = async () => {
+    try {
+      const teamRes = await api.get("/api/team");
+      setTeams(teamRes.data?.data || []);
+    } catch (err) {
+      console.error("Failed to refresh teams:", err);
+    }
+  };
+
+  const handleDeleteTeam = (id) => {
+    toast(
+      (t) => (
+        <div className="flex flex-col space-y-2">
+          <p className="text-sm">Are you sure you want to delete this team?</p>
+          <div className="flex space-x-2">
+            <button
+              onClick={async () => {
+                try {
+                  const { data } = await api.delete(`/api/team/${id}`);
+                  toast.success(data.message || "Team deleted");
+                  refetchTeams();
+                } catch (error) {
+                  toast.error(error?.response?.data?.message || "Delete failed");
+                } finally {
+                  toast.dismiss(t.id);
+                }
+              }}
+              className="px-3 py-1 bg-red-600 text-white rounded"
+            >
+              Yes, Delete
+            </button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1 bg-gray-500 text-white rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 4000 }
+    );
   };
 
   useEffect(() => {
@@ -605,28 +655,31 @@ export default function AdminAllTournamentsPage() {
                       hasItems={tournamentTeams.length > 0}
                       emptyMessage="No teams registered for this tournament yet."
                     >
-                      <div className="space-y-4">
-                        {tournamentTeams.map((team) => (
-                          <div
-                            key={team._id}
-                            className="rounded-3xl border border-[var(--border-color)] bg-[var(--background)] p-4"
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="font-semibold text-[var(--foreground)]">{team.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Game:{" "}
+                      <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-medium">Team</th>
+                              <th className="px-4 py-2 text-left font-medium">Game</th>
+                              <th className="px-4 py-2 text-left font-medium">Members</th>
+                              <th className="px-4 py-2 text-left font-medium">Created By</th>
+                              <th className="px-4 py-2 text-left font-medium">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-[var(--background)] text-[var(--foreground)]">
+                            {tournamentTeams.map((team) => (
+                              <tr key={team._id} className="border-t border-[var(--border-color)]">
+                                <td className="px-4 py-2 font-medium">
+                                  {team.name}
+                                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                    #{team.serialNo}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2">
                                   {tournamentGames.find((g) => g._id === team.gameConfigId)
                                     ?.eventTitle || team.game?.name || "N/A"}
-                                </p>
-                              </div>
-                              <p className="text-sm text-muted-foreground">Serial: {team.serialNo}</p>
-                            </div>
-
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                              <div>
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Members</p>
-                                <p className="mt-2 text-sm text-[var(--foreground)]">
+                                </td>
+                                <td className="px-4 py-2">
                                   {team.members?.length > 0
                                     ? team.members
                                         .map(
@@ -634,20 +687,37 @@ export default function AdminAllTournamentsPage() {
                                             member.username || `${member.firstname || ""} ${member.lastname || ""}`
                                         )
                                         .join(", ")
-                                    : "No members"
-                                  }
-                                </p>
-                              </div>
-
-                              <div>
-                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Created by</p>
-                                <p className="mt-2 text-sm text-[var(--foreground)]">
-                                  {team.createdBy?.username || `${team.createdBy?.firstname || ""} ${team.createdBy?.lastname || ""}` || "N/A"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                                    : "No members"}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {team.createdBy?.username ||
+                                    `${team.createdBy?.firstname || ""} ${team.createdBy?.lastname || ""}` ||
+                                    "N/A"}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingTeamId(team._id)}
+                                      className="text-muted-foreground transition hover:text-[var(--accent-color)]"
+                                      aria-label={`Edit ${team.name}`}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTeam(team._id)}
+                                      className="text-muted-foreground transition hover:text-red-500"
+                                      aria-label={`Delete ${team.name}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </CollapsibleSection>
                   </div>
@@ -656,6 +726,14 @@ export default function AdminAllTournamentsPage() {
             );
           })}
         </div>
+      )}
+
+      {editingTeamId && (
+        <EditTeamForm
+          team={teams.find((t) => t._id === editingTeamId)}
+          onClose={() => setEditingTeamId(null)}
+          onUpdated={refetchTeams}
+        />
       )}
     </div>
   );

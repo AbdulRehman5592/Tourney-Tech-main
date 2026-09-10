@@ -39,7 +39,7 @@ export default function NationalRankingsPage() {
   const [error, setError] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [cityFilter, setCityFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -91,8 +91,8 @@ export default function NationalRankingsPage() {
     fetchRankings();
   }, [selectedGameType]);
 
-  const cities = useMemo(
-    () => [...new Set(rankings.map((r) => r.city).filter(Boolean))].sort(),
+  const states = useMemo(
+    () => [...new Set(rankings.map((r) => r.state).filter(Boolean))].sort(),
     [rankings]
   );
 
@@ -100,9 +100,9 @@ export default function NationalRankingsPage() {
     const term = searchTerm.trim().toLowerCase();
     let rows = rankings.filter((r) => {
       const matchesTerm =
-        !term || r.name?.toLowerCase().includes(term) || r.city?.toLowerCase().includes(term);
-      const matchesCity = cityFilter === "all" || r.city === cityFilter;
-      return matchesTerm && matchesCity;
+        !term || r.name?.toLowerCase().includes(term) || r.state?.toLowerCase().includes(term);
+      const matchesState = stateFilter === "all" || r.state === stateFilter;
+      return matchesTerm && matchesState;
     });
 
     const sorters = {
@@ -113,7 +113,7 @@ export default function NationalRankingsPage() {
     };
     rows = [...rows].sort(sorters[sortBy] || sorters.rank);
     return rows;
-  }, [rankings, searchTerm, cityFilter, sortBy]);
+  }, [rankings, searchTerm, stateFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
   const pagedRows = filteredRows.slice(
@@ -233,7 +233,7 @@ export default function NationalRankingsPage() {
           />
           <input
             type="text"
-            placeholder="Search players or city"
+            placeholder="Search players or state"
             value={searchTerm}
             onChange={(e) => handleFilterChange(setSearchTerm)(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg border text-sm"
@@ -246,8 +246,8 @@ export default function NationalRankingsPage() {
         </div>
         <div className="flex gap-2">
           <select
-            value={cityFilter}
-            onChange={(e) => handleFilterChange(setCityFilter)(e.target.value)}
+            value={stateFilter}
+            onChange={(e) => handleFilterChange(setStateFilter)(e.target.value)}
             className="px-3 py-2 rounded-lg border text-sm"
             style={{
               backgroundColor: "var(--secondary-color)",
@@ -255,10 +255,10 @@ export default function NationalRankingsPage() {
               color: "var(--foreground)",
             }}
           >
-            <option value="all">All Cities</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            <option value="all">All States</option>
+            {states.map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>
@@ -295,7 +295,7 @@ export default function NationalRankingsPage() {
               <th className="p-3 text-left">Overall Pts</th>
               <th className="p-3 text-left">Events</th>
               <th className="p-3 text-left">Top 4</th>
-              <th className="p-3 text-left">City</th>
+              <th className="p-3 text-left">State</th>
               <th className="p-3 text-left">Trend</th>
             </tr>
           </thead>
@@ -335,7 +335,7 @@ export default function NationalRankingsPage() {
                   </td>
                   <td className="p-3">{row.events}</td>
                   <td className="p-3">{row.top4}</td>
-                  <td className="p-3">{row.city || "--"}</td>
+                  <td className="p-3">{row.state || "--"}</td>
                   <td className="p-3">
                     {row.trend === "up" ? (
                       <TrendingUp size={18} className="text-[var(--success-color)]" />
@@ -387,12 +387,6 @@ export default function NationalRankingsPage() {
           </button>
         </div>
       )}
-
-      <p className="text-xs text-[var(--muted-foreground)] text-center">
-        Points are awarded per tournament by table count -- 5-9 tables: 8/6/4/2, 10-19 tables:
-        20/15/10/5, 20+ tables: 25/20/15/10 for 1st/2nd/3rd/4th place. Only round-robin, mesh, and
-        standard-format events count toward ranking points.
-      </p>
     </div>
   );
 }
