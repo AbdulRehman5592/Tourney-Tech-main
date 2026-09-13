@@ -7,22 +7,37 @@ import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 import TournamentGameList from "./TournamentGameList";
 
-function CancelRegistrationModal({ tournamentId, tournamentName, onClose, onCancelled }) {
+// `gameConfigId` + `gameLabel` narrow this to cancelling just that one game
+// instead of the whole tournament registration -- both the request payload
+// and the copy shown adjust accordingly.
+function CancelRegistrationModal({
+  tournamentId,
+  tournamentName,
+  gameConfigId,
+  gameLabel,
+  onClose,
+  onCancelled,
+}) {
   const [submitting, setSubmitting] = useState(false);
+  const isSingleGame = Boolean(gameConfigId);
 
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
       const { data } = await api.post("/api/tournamentRegister/cancel", {
         tournamentId,
+        ...(isSingleGame ? { gameConfigId } : {}),
       });
-      const refunded = data?.data?.refundStatus === "requested";
+      const fullyCancelled = data?.data?.fullyCancelled ?? true;
+      const refunded = data?.data?.registration?.refundStatus === "requested";
       toast.success(
         refunded
           ? "Registration cancelled. Your refund request has been sent to the organizers."
-          : "Registration cancelled."
+          : isSingleGame
+            ? `Cancelled your registration for ${gameLabel}.`
+            : "Registration cancelled."
       );
-      onCancelled();
+      onCancelled(fullyCancelled);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to cancel registration");
     } finally {
@@ -43,7 +58,9 @@ function CancelRegistrationModal({ tournamentId, tournamentName, onClose, onCanc
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle size={20} className="text-[var(--warning-color)]" />
-            <h3 className="text-lg font-bold">Cancel Registration?</h3>
+            <h3 className="text-lg font-bold">
+              {isSingleGame ? "Cancel This Game?" : "Cancel Registration?"}
+            </h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
             <X size={18} />
@@ -51,10 +68,18 @@ function CancelRegistrationModal({ tournamentId, tournamentName, onClose, onCanc
         </div>
 
         <p className="text-sm text-gray-300 mb-4">
-          This will cancel your registration for <strong>{tournamentName}</strong>. If
-          you&apos;ve already paid, a refund request will be sent to the tournament
-          organizers to review. This cannot be undone from here -- you&apos;d need to
-          register again while registration is still open.
+          {isSingleGame ? (
+            <>
+              This will cancel your registration for <strong>{gameLabel}</strong> in{" "}
+              <strong>{tournamentName}</strong>. Your registration for any other games in this
+              tournament is not affected.
+            </>
+          ) : (
+            <>This will cancel your registration for <strong>{tournamentName}</strong>, every game included.</>
+          )}{" "}
+          If you&apos;ve already paid, the organizers will be notified to sort out a refund.
+          This cannot be undone from here -- you&apos;d need to register again while
+          registration is still open.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -85,17 +110,25 @@ function CancelRegistrationModal({ tournamentId, tournamentName, onClose, onCanc
 // Registration Status Design" spec. Only meaningful for a player's own
 // registration, not for staff/organizer views.
 function PaymentStatusBadge({ paymentStatus }) {
-  if (paymentStatus !== "pending" && paymentStatus !== "paid") return null;
-  const isPending = paymentStatus === "pending";
+  if (!["pending", "paid", "rejected"].includes(paymentStatus)) return null;
+  const bg =
+    paymentStatus === "pending"
+      ? "var(--error-color)"
+      : paymentStatus === "rejected"
+        ? "var(--warning-color)"
+        : "var(--success-color)";
+  const label =
+    paymentStatus === "pending"
+      ? "PENDING VERIFICATION"
+      : paymentStatus === "rejected"
+        ? "REGISTRATION REJECTED"
+        : "PAID IN FULL";
   return (
     <span
       className="inline-block px-3 py-1 text-xs rounded-full font-semibold"
-      style={{
-        backgroundColor: isPending ? "var(--error-color)" : "var(--success-color)",
-        color: "white",
-      }}
+      style={{ backgroundColor: bg, color: "white" }}
     >
-      {isPending ? "PENDING VERIFICATION" : "PAID IN FULL"}
+      {label}
     </span>
   );
 }
@@ -119,7 +152,9 @@ export default function TournamentCard({
   onCancelled, // Optional: parent can refetch its list after a cancellation
 }) {
   const isSelected = selectedId === _id;
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  // null = no modal open. {} = cancelling the whole tournament registration.
+  // { gameConfigId, gameLabel } = cancelling just that one game.
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelled, setCancelled] = useState(!!registrationCancelled);
   const isPlayerRole = userRole === "player";
   const isCompleted = status === "completed";
@@ -155,9 +190,12 @@ export default function TournamentCard({
         })
       : "N/A";
 
-  const handleCancelled = () => {
-    setShowCancelModal(false);
-    setCancelled(true);
+  const handleCancelled = (fullyCancelled) => {
+    setCancelTarget(null);
+    // Only the whole card flips to "Registration Cancelled" when nothing is
+    // left registered -- dropping one game out of several just needs the
+    // parent to refetch so the per-game tags below update.
+    if (fullyCancelled) setCancelled(true);
     onCancelled?.(_id);
   };
 
@@ -197,6 +235,12 @@ export default function TournamentCard({
 
         </div>
 
+        {isPlayerRole && !cancelled && paymentStatus === "rejected" && (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Contact your tournament director for next steps.
+          </p>
+        )}
+
         {/* Description */}
         {description && (
           <p className="text-gray-400 text-sm line-clamp-3">{description}</p>
@@ -218,18 +262,43 @@ export default function TournamentCard({
         {/* Games */}
         <TournamentGameList
           games={games || []}
-          registeredGameConfigIds={isPlayerRole ? registeredGameConfigIds : null}
-          paymentStatus={isPlayerRole ? paymentStatus : null}
+          // Once the whole registration is cancelled, none of these games
+          // are actually registered anymore -- don't keep showing stale
+          // "Registered" tags from before the cancellation.
+          registeredGameConfigIds={isPlayerRole && !cancelled ? registeredGameConfigIds : null}
+          paymentStatus={isPlayerRole && !cancelled ? paymentStatus : null}
+          onCancelGame={
+            isPlayerRole && !cancelled && status === "upcoming"
+              ? (gameConfigId, gameLabel) => setCancelTarget({ gameConfigId, gameLabel })
+              : null
+          }
         />
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 mt-3">
           {cancelled ? (
-            <div
-              className="w-full py-2 rounded-lg font-semibold text-center"
-              style={{ backgroundColor: "var(--border-color)", color: "var(--foreground)" }}
-            >
-              Registration Cancelled
+            <div className="w-full flex flex-col sm:flex-row gap-3">
+              <div
+                className="flex-1 py-2 rounded-lg font-semibold text-center"
+                style={{ backgroundColor: "var(--border-color)", color: "var(--foreground)" }}
+              >
+                Registration Cancelled
+              </div>
+              {/* Cancelling starts a clean slate server-side (see
+                  createOrUpdateRegistration) -- submitting here always comes
+                  back as a fresh "pending" registration for whatever games
+                  are picked, never merged with the cancelled ones. Only
+                  offered while the tournament is still open for signups. */}
+              {status === "upcoming" && (
+                <Link href={`/dashboard/game-registration/${_id}`} className="flex-1">
+                  <button
+                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                    style={{ backgroundColor: "var(--accent-color)", color: "var(--background)" }}
+                  >
+                    Register Again
+                  </button>
+                </Link>
+              )}
             </div>
           ) : greyOutCompleted ? (
             <div
@@ -303,6 +372,19 @@ export default function TournamentCard({
                   Enter Tournament
                 </button>
               </Link>
+            ) : paymentStatus === "rejected" ? (
+              // Rejected registrations don't get the pending/upcoming
+              // "register for more games" flow -- the badge and note above
+              // already explain what happened, this is just a way back to
+              // the tournament itself.
+              <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
+                <button
+                  className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                  style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+                >
+                  View Tournament
+                </button>
+              </Link>
             ) : paymentStatus === "pending" ? (
               <div className="w-full flex flex-col gap-2">
                 <Link href={`/dashboard/game-registration/${_id}`} className="w-full">
@@ -310,12 +392,12 @@ export default function TournamentCard({
                     className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
                     style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
                   >
-                    View Registration
+                    View / Register for Games
                   </button>
                 </Link>
                 {status === "upcoming" && (
                   <button
-                    onClick={() => setShowCancelModal(true)}
+                    onClick={() => setCancelTarget({})}
                     className="text-xs text-center text-[var(--muted-foreground)] hover:text-[var(--error-color)] underline"
                   >
                     Cancel Registration
@@ -323,21 +405,34 @@ export default function TournamentCard({
                 )}
               </div>
             ) : status === "upcoming" ? (
-              <div className="w-full flex flex-col sm:flex-row gap-3">
-                <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
-                  <button
-                    className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
-                    style={{ backgroundColor: "var(--success-color)", color: "white" }}
-                  >
-                    View Tournament
-                  </button>
-                </Link>
+              <div className="w-full flex flex-col gap-2">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href={`/dashboard/tournament-details/${_id}`} className="flex-1">
+                    <button
+                      className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                      style={{ backgroundColor: "var(--success-color)", color: "white" }}
+                    >
+                      View Tournament
+                    </button>
+                  </Link>
+                  {/* Registration stays open for additional games right up until
+                      the tournament starts, no matter this player's existing
+                      games are already approved -- this is the only way back to
+                      that page once payment on the first batch is verified. */}
+                  <Link href={`/dashboard/game-registration/${_id}`} className="flex-1">
+                    <button
+                      className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
+                      style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+                    >
+                      Register for More Games
+                    </button>
+                  </Link>
+                </div>
                 <button
                   onClick={() => setShowCancelModal(true)}
-                  className="flex-1 py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
-                  style={{ backgroundColor: "var(--secondary-color)", color: "var(--foreground)" }}
+                  className="text-xs text-center text-[var(--muted-foreground)] hover:text-[var(--error-color)] underline"
                 >
-                  Manage Registration
+                  Cancel Registration
                 </button>
               </div>
             ) : (
@@ -412,11 +507,13 @@ export default function TournamentCard({
         </div>
       </div>
 
-      {showCancelModal && (
+      {cancelTarget && (
         <CancelRegistrationModal
           tournamentId={_id}
           tournamentName={name}
-          onClose={() => setShowCancelModal(false)}
+          gameConfigId={cancelTarget.gameConfigId}
+          gameLabel={cancelTarget.gameLabel}
+          onClose={() => setCancelTarget(null)}
           onCancelled={handleCancelled}
         />
       )}

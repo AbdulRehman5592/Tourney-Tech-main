@@ -32,6 +32,10 @@ export const PATCH = asyncHandler(async (req, { params }) => {
       throw new ApiResponse(400, null, "Invalid member IDs");
     }
 
+    if (new Set(members.map(String)).size !== members.length) {
+      throw new ApiResponse(400, null, "The same player can't fill more than one member slot on a team");
+    }
+
     // Team size is dictated by the game's configured tournamentTeamType --
     // single_player games form a solo "team" of 1, double_player games need a
     // pair (mirrors the check in POST /api/team, which was missing here).

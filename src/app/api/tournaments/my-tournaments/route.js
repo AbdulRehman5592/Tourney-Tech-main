@@ -31,15 +31,16 @@ export const GET = asyncHandler(async (req) => {
     tournamentsWithUserRole.map((tournament) => tournament._id.toString())
   );
 
-  // Find tournaments the user has registered for (pending or approved), so
-  // a player also sees the tournament even without a staff role -- and even
-  // before an admin has verified their payment. Rejected registrations are
-  // deliberately excluded, matching prior behavior. Cancelled ones are kept
-  // (rather than filtered out) so they can still surface under "Past
-  // Tournaments" -- see registrationCancelled below.
+  // Find tournaments the user has registered for, so a player also sees the
+  // tournament even without a staff role -- and even before an admin has
+  // acted on it. Rejected registrations are kept (not excluded) so the
+  // player still sees the tournament and why, instead of it silently
+  // disappearing from their list with no explanation. Cancelled ones are
+  // kept too, so they can still surface under "Past Tournaments" -- see
+  // registrationCancelled below.
   const myRegistrations = await Registration.find({
     user: user._id,
-    "gameRegistrationDetails.status": { $in: ["pending", "approved"] },
+    "gameRegistrationDetails.status": { $in: ["pending", "approved", "rejected"] },
   })
     .populate({
       path: "tournament",
@@ -57,9 +58,13 @@ export const GET = asyncHandler(async (req) => {
       ...tournament,
       userRole: "player",
       // Separate from tournament lifecycle status (upcoming/ongoing/etc) --
-      // this is purely "has an admin verified the payment yet."
+      // this is purely "has an admin acted on the payment yet, and how."
       paymentStatus:
-        registration.gameRegistrationDetails.status === "approved" ? "paid" : "pending",
+        registration.gameRegistrationDetails.status === "approved"
+          ? "paid"
+          : registration.gameRegistrationDetails.status === "rejected"
+            ? "rejected"
+            : "pending",
       registrationCancelled: !!registration.cancelled,
       // Which of the tournament's games this player actually signed up for
       // (Tournament.games[]._id) -- registration approval/payment status is

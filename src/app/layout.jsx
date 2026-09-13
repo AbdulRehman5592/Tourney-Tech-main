@@ -13,6 +13,18 @@ const inter = Inter({
 export const metadata = {
   title: "Tourney Techs",
   description: "Create, schedule, and track tournaments like a pro.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Tourney Techs",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#1e3a8a",
 };
 
 export default function RootLayout({ children }) {

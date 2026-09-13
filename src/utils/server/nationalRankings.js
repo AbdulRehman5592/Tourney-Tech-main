@@ -75,7 +75,9 @@ export async function computeNationalRankings(gameTypeName) {
       players.set(id, {
         userId: id,
         name: playerName(user),
-        city: user.city || "",
+        // State, not city -- a single city is too small a pool to rank
+        // players against meaningfully.
+        state: user.stateCode || "",
         totalPoints: 0,
         checkedInCount: 0,
         totalTeamCount: 0,
@@ -94,7 +96,7 @@ export async function computeNationalRankings(gameTypeName) {
         tournament: tournament._id,
         gameConfigId: gameConfig._id,
       })
-        .populate("members", "firstname lastname username city")
+        .populate("members", "firstname lastname username stateCode")
         .lean();
       if (!allTeams.length) continue;
 
@@ -153,7 +155,7 @@ export async function computeNationalRankings(gameTypeName) {
   // placement, so they sit in the same national ranking rather than a
   // separate track.
   const externalAwards = await ExternalRankingAward.find({ gameType: gameTypeName })
-    .populate("user", "firstname lastname username city")
+    .populate("user", "firstname lastname username stateCode")
     .lean();
 
   for (const award of externalAwards) {
@@ -175,7 +177,7 @@ export async function computeNationalRankings(gameTypeName) {
     return {
       userId: p.userId,
       name: p.name,
-      city: p.city,
+      state: p.state,
       overallPoints: p.totalPoints,
       events: p.checkedInCount,
       top4: p.top4Count,

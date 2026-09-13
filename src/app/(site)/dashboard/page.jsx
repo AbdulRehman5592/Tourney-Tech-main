@@ -37,31 +37,31 @@ export default function TournamentListing() {
     fetchTournaments();
   }, []);
 
+  const fetchUserTournaments = async () => {
+    try {
+      const res = await api.get("/api/tournaments/my-tournaments");
+      const myTournaments = res.data.data || [];
+
+      // Create a map of tournament ID to the user's role + (for players)
+      // payment-verification status, so this listing's cards stay
+      // consistent with My Tournaments instead of assuming "paid".
+      const tournamentRoleMap = {};
+      myTournaments.forEach((tournament) => {
+        tournamentRoleMap[tournament._id] = {
+          userRole: tournament.userRole,
+          paymentStatus: tournament.paymentStatus,
+          registrationCancelled: tournament.registrationCancelled,
+          registeredGameConfigIds: tournament.registeredGameConfigIds,
+        };
+      });
+
+      setUserTournaments(tournamentRoleMap);
+    } catch (err) {
+      console.error("Failed to fetch user tournaments:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchUserTournaments = async () => {
-      try {
-        const res = await api.get("/api/tournaments/my-tournaments");
-        const myTournaments = res.data.data || [];
-
-        // Create a map of tournament ID to the user's role + (for players)
-        // payment-verification status, so this listing's cards stay
-        // consistent with My Tournaments instead of assuming "paid".
-        const tournamentRoleMap = {};
-        myTournaments.forEach((tournament) => {
-          tournamentRoleMap[tournament._id] = {
-            userRole: tournament.userRole,
-            paymentStatus: tournament.paymentStatus,
-            registrationCancelled: tournament.registrationCancelled,
-            registeredGameConfigIds: tournament.registeredGameConfigIds,
-          };
-        });
-
-        setUserTournaments(tournamentRoleMap);
-      } catch (err) {
-        console.error("Failed to fetch user tournaments:", err);
-      }
-    };
-
     fetchUserTournaments();
   }, []);
 
@@ -155,6 +155,7 @@ export default function TournamentListing() {
               paymentStatus={mine.paymentStatus}
               registrationCancelled={mine.registrationCancelled}
               registeredGameConfigIds={mine.registeredGameConfigIds}
+              onCancelled={fetchUserTournaments}
             />
           );
         })}

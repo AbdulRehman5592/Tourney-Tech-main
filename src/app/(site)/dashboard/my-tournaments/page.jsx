@@ -14,10 +14,13 @@ const APPROVAL_BADGE = {
 // Payment-verification status is deliberately separate from tournament
 // lifecycle status (upcoming/ongoing/completed) -- see the "My Tournaments
 // - Registration Status Design" spec. A player entry falls into exactly one
-// of these three buckets.
+// of these four buckets.
 function categorize(tournament) {
   if (tournament.registrationCancelled || tournament.status === "completed") {
     return "past";
+  }
+  if (tournament.paymentStatus === "rejected") {
+    return "rejected";
   }
   return tournament.paymentStatus === "pending" ? "pending" : "paid";
 }
@@ -28,6 +31,12 @@ const SECTIONS = [
     title: "Pending Verification",
     subtitle: "Registration submitted. Payment is awaiting administrator verification.",
     color: "var(--error-color)",
+  },
+  {
+    key: "rejected",
+    title: "Registration Rejected",
+    subtitle: "Contact your tournament director for next steps.",
+    color: "var(--warning-color)",
   },
   {
     key: "paid",

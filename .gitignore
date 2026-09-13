@@ -18,6 +18,12 @@
 /.next/
 /out/
 
+# serwist (generated service worker, rebuilt on every production build)
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js
+/public/swe-worker-*.js.map
+
 # production
 /build
 

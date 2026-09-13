@@ -11,7 +11,7 @@ export default function AdminRegistrationsTable() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
-  const rowsPerPage = 10;
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   // Local drafts for the Notes column -- typed as the admin edits, only
   // sent to the server on blur so we're not firing a request per keystroke.
   const [noteDrafts, setNoteDrafts] = useState({});
@@ -114,56 +114,66 @@ export default function AdminRegistrationsTable() {
   // Bulk approve/reject -- fans out to the same per-row PATCH the dropdown
   // already uses (no new bulk API needed) and reports success/failure per
   // row, same shape as the Register Player bulk-result panel.
-  const handleBulkStatusUpdate = async (status) => {
-    const ids = [...bulkSelection.selected];
-    if (!ids.length) {
-      toast.error("Select at least one registration");
-      return;
+  //
+  // Requests go out in small concurrent batches rather than all at once --
+  // firing dozens of individual multipart PATCHes in parallel from a mobile
+  // connection is exactly the kind of thing that gets one of them dropped
+  // by a flaky network or a browser connection-limit queue timeout, which
+  // otherwise shows up as an unexplained "N failed" with no way to recover
+  // short of re-selecting rows by hand.
+  const BULK_CONCURRENCY = 5;
+
+  const patchOne = async (id, status) => {
+    const formData = new FormData();
+    formData.append("status", status);
+    const res = await api.patch(`/api/tournamentRegister/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    // A 200 with an unexpected body shape (e.g. the registration vanished
+    // between page load and this click) should surface as a failure here,
+    // not throw later while patching local state and silently abort the
+    // rest of the batch.
+    const updated = res.data?.data?.gameRegistrationDetails;
+    if (!updated) {
+      throw new Error(res.data?.message || "Unexpected response from server");
     }
+    return updated;
+  };
 
+  const runBulkUpdate = async (ids, status) => {
     setBulkUpdating(true);
-    setBulkResult(null);
     try {
-      const results = await Promise.allSettled(
-        ids.map((id) => {
-          const formData = new FormData();
-          formData.append("status", status);
-          return api.patch(`/api/tournamentRegister/${id}`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-          });
-        })
-      );
-
       const succeeded = [];
       const failed = [];
-      results.forEach((result, i) => {
-        const id = ids[i];
-        const registration = registrations.find((r) => r._id === id);
-        const label = registration?.user?.username || registration?.user?.email || id;
 
-        if (result.status === "fulfilled") {
-          succeeded.push(id);
-          setRegistrations((prev) =>
-            prev.map((r) =>
-              r._id === id
-                ? {
-                    ...r,
-                    gameRegistrationDetails: {
-                      ...r.gameRegistrationDetails,
-                      status: result.value.data.data.gameRegistrationDetails.status,
-                      paid: result.value.data.data.gameRegistrationDetails.paid,
-                    },
-                  }
-                : r
-            )
-          );
-        } else {
-          failed.push({
-            label,
-            message: result.reason?.response?.data?.message || "Failed to update",
-          });
-        }
-      });
+      for (let i = 0; i < ids.length; i += BULK_CONCURRENCY) {
+        const batch = ids.slice(i, i + BULK_CONCURRENCY);
+        const results = await Promise.allSettled(batch.map((id) => patchOne(id, status)));
+
+        results.forEach((result, j) => {
+          const id = batch[j];
+          const registration = registrations.find((r) => r._id === id);
+          const label = registration?.user?.username || registration?.user?.email || id;
+
+          if (result.status === "fulfilled") {
+            succeeded.push(id);
+            const { status: newStatus, paid } = result.value;
+            setRegistrations((prev) =>
+              prev.map((r) =>
+                r._id === id
+                  ? { ...r, gameRegistrationDetails: { ...r.gameRegistrationDetails, status: newStatus, paid } }
+                  : r
+              )
+            );
+          } else {
+            failed.push({
+              id,
+              label,
+              message: result.reason?.response?.data?.message || result.reason?.message || "Failed to update",
+            });
+          }
+        });
+      }
 
       setBulkResult({ status, succeeded: succeeded.length, failed });
 
@@ -174,11 +184,27 @@ export default function AdminRegistrationsTable() {
       } else {
         toast(`${succeeded.length} updated, ${failed.length} failed`, { icon: "⚠️" });
       }
-
-      bulkSelection.clear();
     } finally {
       setBulkUpdating(false);
     }
+  };
+
+  const handleBulkStatusUpdate = async (status) => {
+    const ids = [...bulkSelection.selected];
+    if (!ids.length) {
+      toast.error("Select at least one registration");
+      return;
+    }
+    await runBulkUpdate(ids, status);
+    bulkSelection.clear();
+  };
+
+  const handleRetryFailed = async () => {
+    if (!bulkResult?.failed?.length) return;
+    await runBulkUpdate(
+      bulkResult.failed.map((f) => f.id),
+      bulkResult.status
+    );
   };
 
   // Save the note only if it actually changed since the last saved value --
@@ -231,11 +257,11 @@ export default function AdminRegistrationsTable() {
     <div className="max-w-full">
       <div className="flex items-center justify-between flex-wrap">
         <h1 className="text-2xl font-bold text-[var(--accent-color)] md:mb-0 mb-4">
-          Players Registration
+          Player Registration
         </h1>
 
-        {/* Search input */}
-        <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          {/* Search input */}
           <input
             type="text"
             placeholder="Search by user, email, or tournament"
@@ -243,6 +269,22 @@ export default function AdminRegistrationsTable() {
             onChange={(e) => setSearch(e.target.value)}
             className="p-2 rounded border border-[var(--border-color)] bg-[var(--card-background)] text-white w-full sm:w-64"
           />
+
+          {/* Rows per page */}
+          <select
+            value={rowsPerPage}
+            onChange={(e) => {
+              setRowsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-2 py-2 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
+          >
+            {[10, 25, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n} per page
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -286,10 +328,22 @@ export default function AdminRegistrationsTable() {
 
       {bulkResult && (
         <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] p-3 text-sm">
-          <p className="font-semibold text-[var(--foreground)]">
-            {bulkResult.succeeded} marked {bulkResult.status}
-            {bulkResult.failed.length > 0 && `, ${bulkResult.failed.length} failed`}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-semibold text-[var(--foreground)]">
+              {bulkResult.succeeded} marked {bulkResult.status}
+              {bulkResult.failed.length > 0 && `, ${bulkResult.failed.length} failed`}
+            </p>
+            {bulkResult.failed.length > 0 && (
+              <button
+                type="button"
+                disabled={bulkUpdating}
+                onClick={handleRetryFailed}
+                className="rounded-lg border border-[var(--border-color)] px-3 py-1 text-xs font-semibold text-[var(--foreground)] disabled:opacity-40"
+              >
+                {bulkUpdating ? "Retrying..." : `Retry ${bulkResult.failed.length} Failed`}
+              </button>
+            )}
+          </div>
           {bulkResult.failed.length > 0 && (
             <ul className="mt-1 space-y-0.5 text-[var(--muted-foreground)]">
               {bulkResult.failed.map((f, i) => (
