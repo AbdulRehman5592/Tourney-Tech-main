@@ -14,6 +14,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 import PasswordInput from "@/components/ui/signup/PasswordInput";
+import Reveal from "@/components/motion/Reveal";
 
 export default function SignUpPage() {
   return (
@@ -137,7 +138,7 @@ function SignUpForm() {
           color: "var(--foreground)",
         }}
       >
-        <div
+        <Reveal
           className="w-full max-w-2xl p-8 rounded-xl shadow-md"
           style={{ backgroundColor: "var(--card-background)" }}
         >
@@ -312,7 +313,7 @@ function SignUpForm() {
               Log In
             </Link>
           </p>
-        </div>
+        </Reveal>
       </main>
     </>
   );

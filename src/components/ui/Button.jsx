@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
+
+const MotionLink = motion.create(Link);
 
 const BASE =
   "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition " +
@@ -37,18 +42,24 @@ export default function Button({
   ...props
 }) {
   const classes = `${BASE} ${SIZES[size] || SIZES.md} ${VARIANTS[variant] || VARIANTS.primary} ${className}`;
+  const tapFeedback = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.97 } };
 
   if (href) {
     return (
-      <Link href={href} className={classes} {...props}>
+      <MotionLink href={href} className={classes} {...tapFeedback} {...props}>
         {children}
-      </Link>
+      </MotionLink>
     );
   }
 
   return (
-    <button type="button" className={classes} {...props}>
+    <motion.button
+      type="button"
+      className={classes}
+      {...(props.disabled ? {} : tapFeedback)}
+      {...props}
+    >
       {children}
-    </button>
+    </motion.button>
   );
 }
