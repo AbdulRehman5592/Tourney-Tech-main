@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/utils/axios"; // your axios instance
+import Reveal from "@/components/motion/Reveal";
+import { StaggerContainer, StaggerItem } from "@/components/motion/Stagger";
 
 function TournamentCard({ item }) {
   const [gamesExpanded, setGamesExpanded] = useState(false);
@@ -10,7 +12,7 @@ function TournamentCard({ item }) {
 
   return (
     <div
-      className="p-6 rounded-xl shadow hover:shadow-lg transition"
+      className="p-6 rounded-xl shadow hover:shadow-lg hover:-translate-y-1 transition"
       style={{ backgroundColor: "var(--card-background)" }}
     >
       <h3
@@ -101,26 +103,30 @@ export default function UpcomingTournaments() {
       }}
     >
       <div className="container mx-auto px-6 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold mb-8">
-          Upcoming Tournaments
-        </h2>
-        <p className="mb-10 max-w-xl mx-auto" style={{ color: "#9CA3AF" }}>
-          Find your next tournament. View dates, locations, and games at a
-          glance, then open a tournament for full details and registration.
-        </p>
+        <Reveal>
+          <h2 className="text-3xl md:text-4xl font-bold mb-8">
+            Upcoming Tournaments
+          </h2>
+          <p className="mb-10 max-w-xl mx-auto" style={{ color: "#9CA3AF" }}>
+            Find your next tournament. View dates, locations, and games at a
+            glance, then open a tournament for full details and registration.
+          </p>
+        </Reveal>
 
         {loading ? (
           <p style={{ color: "#9CA3AF" }}>Loading tournaments...</p>
         ) : tournaments.length === 0 ? (
           <p style={{ color: "#9CA3AF" }}>No upcoming tournaments found.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
             {displayedTournaments.map((item, index) => (
-              <TournamentCard key={item._id || index} item={item} />
+              <StaggerItem key={item._id || index}>
+                <TournamentCard item={item} />
+              </StaggerItem>
             ))}
 
             {!showAllCards && hasMore && (
-              <div
+              <StaggerItem
                 className="flex flex-col items-center justify-center p-6 rounded-xl shadow hover:shadow-lg transition text-center"
                 style={{ backgroundColor: "var(--card-background)" }}
               >
@@ -130,7 +136,7 @@ export default function UpcomingTournaments() {
                 <button
                   type="button"
                   onClick={() => setShowAllCards(true)}
-                  className="px-4 py-2 rounded-lg font-medium"
+                  className="px-4 py-2 rounded-lg font-medium transition hover:scale-105"
                   style={{
                     backgroundColor: "var(--accent-color)",
                     color: "black",
@@ -138,9 +144,9 @@ export default function UpcomingTournaments() {
                 >
                   View More
                 </button>
-              </div>
+              </StaggerItem>
             )}
-          </div>
+          </StaggerContainer>
         )}
       </div>
     </section>

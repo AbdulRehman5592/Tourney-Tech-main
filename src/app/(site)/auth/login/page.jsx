@@ -8,6 +8,7 @@ import Loader from "@/components/Loader";
 
 import PasswordInput from "@/components/ui/signup/PasswordInput";
 import Button from "@/components/ui/Button";
+import Reveal from "@/components/motion/Reveal";
 
 import { toast } from "react-hot-toast";
 
@@ -132,7 +133,7 @@ function LoginForm() {
           color: "var(--foreground)",
         }}
       >
-        <div
+        <Reveal
           className="w-full max-w-md p-8 rounded-xl shadow-md"
           style={{
             backgroundColor: "var(--card-background)",
@@ -249,7 +250,7 @@ function LoginForm() {
               </span>
             </Link>
           </p>
-        </div>
+        </Reveal>
       </main>
     </>
   );

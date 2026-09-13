@@ -5,6 +5,7 @@ import {
   Instagram,
   Linkedin,
 } from "lucide-react"; // Ensure lucide-react is installed
+import Reveal from "@/components/motion/Reveal";
 
 const MUTED = "var(--muted-foreground)";
 
@@ -18,6 +19,7 @@ export default function Footer() {
       }}
     >
       <div className="container mx-auto px-6">
+        <Reveal y={16}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo & Intro */}
           <div>
@@ -85,6 +87,7 @@ export default function Footer() {
         >
           © {new Date().getFullYear()} Tourney Techs. All rights reserved.
         </div>
+        </Reveal>
       </div>
     </footer>
   );

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "react-hot-toast";
 import Loader from "@/components/Loader";
 import api from "@/utils/axios";
+import Reveal from "@/components/motion/Reveal";
+import PasswordInput from "@/components/ui/signup/PasswordInput";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -60,7 +62,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[var(--background)]">
-      <div className="w-full max-w-md bg-[var(--card-background)] p-8 rounded-2xl shadow-lg border border-[var(--border-color)]">
+      <Reveal className="w-full max-w-md bg-[var(--card-background)] p-8 rounded-2xl shadow-lg border border-[var(--border-color)]">
         <h1 className="text-2xl font-bold text-center mb-2 text-[var(--accent-color)]">
           Forgot Password
         </h1>
@@ -168,7 +170,7 @@ export default function ForgotPasswordPage() {
             Back to Login
           </a>
         </div>
-      </div>
+      </Reveal>
     </div>
   );
 }

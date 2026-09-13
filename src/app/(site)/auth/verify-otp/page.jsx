@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
+import Reveal from "@/components/motion/Reveal";
 
 export default function VerifyOtpPage() {
   const [otp, setOtp] = useState("");
@@ -66,7 +67,7 @@ export default function VerifyOtpPage() {
           color: "var(--foreground)",
         }}
       >
-        <div
+        <Reveal
           className="w-full max-w-md p-8 rounded-xl shadow-lg"
           style={{
             backgroundColor: "var(--card-background)",
@@ -152,7 +153,7 @@ export default function VerifyOtpPage() {
               Resend
             </span>
           </p>
-        </div>
+        </Reveal>
       </main>
     </>
   );

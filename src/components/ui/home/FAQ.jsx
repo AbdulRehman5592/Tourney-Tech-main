@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { faqs } from "@/constants/home/faqData";
+import Reveal from "@/components/motion/Reveal";
+import { StaggerContainer, StaggerItem } from "@/components/motion/Stagger";
 
 export default function FAQ() {
   const [openIndex, setOpenIndex] = useState(null);
@@ -21,16 +24,18 @@ export default function FAQ() {
       }}
     >
       <div className="container mx-auto px-6 max-w-3xl">
-        <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
-          Frequently Asked Questions
-        </h2>
+        <Reveal>
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
+            Frequently Asked Questions
+          </h2>
+        </Reveal>
 
-        <div className="space-y-4">
+        <StaggerContainer className="space-y-4">
           {faqs.map((item, index) => {
             const isOpen = openIndex === index;
             const panelId = `faq-panel-${index}`;
             return (
-              <div
+              <StaggerItem
                 key={index}
                 className="rounded-xl transition"
                 style={{
@@ -46,21 +51,38 @@ export default function FAQ() {
                   className="w-full text-left p-4 flex justify-between items-center gap-4 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] rounded-xl"
                 >
                   <span>{item.question}</span>
-                  <span aria-hidden="true">{isOpen ? "−" : "+"}</span>
-                </button>
-                {isOpen && (
-                  <p
-                    id={panelId}
-                    style={{ color: "#9CA3AF" }}
-                    className="px-4 pb-4 -mt-1"
+                  <motion.span
+                    aria-hidden="true"
+                    animate={{ rotate: isOpen ? 45 : 0 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    {item.answer}
-                  </p>
-                )}
-              </div>
+                    +
+                  </motion.span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <p
+                        id={panelId}
+                        style={{ color: "#9CA3AF" }}
+                        className="px-4 pb-4 -mt-1"
+                      >
+                        {item.answer}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

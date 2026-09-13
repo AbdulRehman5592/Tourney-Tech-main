@@ -1,4 +1,6 @@
 import { ClipboardCheck, Activity, TrendingUp } from 'lucide-react';
+import Reveal from '@/components/motion/Reveal';
+import { StaggerContainer, StaggerItem } from '@/components/motion/Stagger';
 
 const FEATURES = [
   {
@@ -31,15 +33,17 @@ export default function Features() {
       }}
     >
       <div className="container mx-auto px-6 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold mb-10">
-          Why Choose Tourney Techs?
-        </h2>
+        <Reveal>
+          <h2 className="text-2xl md:text-3xl font-bold mb-10">
+            Why Choose Tourney Techs?
+          </h2>
+        </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {FEATURES.map(({ icon: Icon, title, description }) => (
-            <div
+            <StaggerItem
               key={title}
-              className="p-6 rounded-xl border text-left transition hover:shadow-lg"
+              className="p-6 rounded-xl border text-left transition hover:shadow-lg hover:-translate-y-1"
               style={{
                 backgroundColor: 'var(--card-background)',
                 borderColor: 'var(--border-color)',
@@ -60,9 +64,9 @@ export default function Features() {
               >
                 {description}
               </p>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

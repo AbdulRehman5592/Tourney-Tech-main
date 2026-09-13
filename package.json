@@ -30,6 +30,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.0",
     "formidable": "^3.5.4",
+    "framer-motion": "^13.2.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.525.0",
     "mongoose": "^8.16.2",

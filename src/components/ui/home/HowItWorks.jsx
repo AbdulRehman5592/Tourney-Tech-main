@@ -1,3 +1,6 @@
+import Reveal from "@/components/motion/Reveal";
+import { StaggerContainer, StaggerItem } from "@/components/motion/Stagger";
+
 export default function HowItWorks() {
   const steps = [
     {
@@ -32,15 +35,17 @@ export default function HowItWorks() {
       }}
     >
       <div className="container mx-auto px-6 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold mb-12">
-          How It Works
-        </h2>
+        <Reveal>
+          <h2 className="text-3xl md:text-4xl font-bold mb-12">
+            How It Works
+          </h2>
+        </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-left">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-left">
           {steps.map((step, index) => (
-            <div
+            <StaggerItem
               key={index}
-              className="p-6 rounded-xl shadow hover:shadow-lg transition"
+              className="p-6 rounded-xl shadow hover:shadow-lg hover:-translate-y-1 transition"
               style={{
                 backgroundColor: "var(--card-background)",
                 color: "var(--foreground)",
@@ -53,9 +58,9 @@ export default function HowItWorks() {
               )}
               <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
               <p style={{ color: "#9CA3AF" }}>{step.description}</p>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );
