@@ -7,35 +7,56 @@ import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
 import TournamentGameList from "./TournamentGameList";
 
-// `gameConfigId` + `gameLabel` narrow this to cancelling just that one game
-// instead of the whole tournament registration -- both the request payload
-// and the copy shown adjust accordingly.
+// `registeredGames` is every game this player is currently registered for in
+// this tournament ([{gameConfigId, label}]); `initialSelectedIds` seeds which
+// of those start checked (the whole set for the "Cancel Registration" entry
+// point, just one for a per-game "Cancel" link). The player can then check or
+// uncheck freely -- a la carte, right up until the tournament closes
+// registration -- so someone running late for an early game can drop just
+// that one and stay in for the rest, or someone worn out can drop the later
+// games while keeping what they already played.
 function CancelRegistrationModal({
   tournamentId,
   tournamentName,
-  gameConfigId,
-  gameLabel,
+  registeredGames,
+  initialSelectedIds,
   onClose,
   onCancelled,
 }) {
+  const [selected, setSelected] = useState(new Set(initialSelectedIds));
   const [submitting, setSubmitting] = useState(false);
-  const isSingleGame = Boolean(gameConfigId);
+  const showChecklist = registeredGames.length > 1;
+  const allSelected = registeredGames.length > 0 && selected.size === registeredGames.length;
+
+  const toggle = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleConfirm = async () => {
+    if (selected.size === 0) {
+      toast.error("Select at least one game to cancel");
+      return;
+    }
     setSubmitting(true);
     try {
+      const gameConfigIds = [...selected];
       const { data } = await api.post("/api/tournamentRegister/cancel", {
         tournamentId,
-        ...(isSingleGame ? { gameConfigId } : {}),
+        gameConfigIds,
       });
       const fullyCancelled = data?.data?.fullyCancelled ?? true;
       const refunded = data?.data?.registration?.refundStatus === "requested";
       toast.success(
         refunded
           ? "Registration cancelled. Your refund request has been sent to the organizers."
-          : isSingleGame
-            ? `Cancelled your registration for ${gameLabel}.`
-            : "Registration cancelled."
+          : fullyCancelled
+            ? "Registration cancelled."
+            : `Cancelled ${gameConfigIds.length} game${gameConfigIds.length > 1 ? "s" : ""}.`
       );
       onCancelled(fullyCancelled);
     } catch (err) {
@@ -58,29 +79,60 @@ function CancelRegistrationModal({
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle size={20} className="text-[var(--warning-color)]" />
-            <h3 className="text-lg font-bold">
-              {isSingleGame ? "Cancel This Game?" : "Cancel Registration?"}
-            </h3>
+            <h3 className="text-lg font-bold">Cancel Registration?</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
             <X size={18} />
           </button>
         </div>
 
-        <p className="text-sm text-gray-300 mb-4">
-          {isSingleGame ? (
+        <p className="text-sm text-gray-300 mb-3">
+          {showChecklist ? (
             <>
-              This will cancel your registration for <strong>{gameLabel}</strong> in{" "}
-              <strong>{tournamentName}</strong>. Your registration for any other games in this
-              tournament is not affected.
+              Choose which game{registeredGames.length > 1 ? "s" : ""} to cancel in{" "}
+              <strong>{tournamentName}</strong>. Anything you leave unchecked stays registered.
             </>
           ) : (
-            <>This will cancel your registration for <strong>{tournamentName}</strong>, every game included.</>
+            <>
+              This will cancel your registration for{" "}
+              <strong>{registeredGames[0]?.label || tournamentName}</strong>.
+            </>
           )}{" "}
           If you&apos;ve already paid, the organizers will be notified to sort out a refund.
-          This cannot be undone from here -- you&apos;d need to register again while
+          This cannot be undone from here -- you&apos;d need to register while
           registration is still open.
         </p>
+
+        {showChecklist && (
+          <div className="mb-4 space-y-1.5">
+            {registeredGames.map((g) => (
+              <label
+                key={g.gameConfigId}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                style={{ borderColor: "var(--border-color)" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(g.gameConfigId)}
+                  onChange={() => toggle(g.gameConfigId)}
+                  className="h-4 w-4"
+                />
+                {g.label}
+              </label>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setSelected(
+                  allSelected ? new Set() : new Set(registeredGames.map((g) => g.gameConfigId))
+                )
+              }
+              className="text-xs text-[var(--muted-foreground)] underline hover:text-[var(--foreground)]"
+            >
+              {allSelected ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3">
           <button
@@ -93,11 +145,15 @@ function CancelRegistrationModal({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={submitting}
+            disabled={submitting || selected.size === 0}
             className="flex-1 py-2 rounded-lg font-semibold disabled:opacity-60"
             style={{ backgroundColor: "var(--error-color)", color: "white" }}
           >
-            {submitting ? "Cancelling..." : "Confirm Cancellation"}
+            {submitting
+              ? "Cancelling..."
+              : allSelected
+                ? "Confirm Cancellation"
+                : `Cancel ${selected.size} Selected`}
           </button>
         </div>
       </div>
@@ -148,14 +204,26 @@ export default function TournamentCard({
   userRole, // New prop to indicate if user is organizer/owner/admin
   paymentStatus, // "pending" | "paid" -- player registrations only
   registeredGameConfigIds, // Which tournament games this player signed up for -- player registrations only
+  checkedInGameConfigIds, // Which of those this player's team has already checked into -- player registrations only
   registrationCancelled, // Seeds the cancelled state from the server
   onCancelled, // Optional: parent can refetch its list after a cancellation
+  onCheckedIn, // Optional: parent can refetch its list after a self check-in
 }) {
   const isSelected = selectedId === _id;
-  // null = no modal open. {} = cancelling the whole tournament registration.
-  // { gameConfigId, gameLabel } = cancelling just that one game.
+  // null = no modal open. {} = open with every registered game pre-checked
+  // (the "Cancel Registration" entry point). { gameConfigId } = open with
+  // just that one game pre-checked (a per-game "Cancel" link) -- either way
+  // the modal shows the full checklist so the player can still adjust which
+  // game(s) actually get cancelled before confirming.
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelled, setCancelled] = useState(!!registrationCancelled);
+  const [checkingInGameConfigId, setCheckingInGameConfigId] = useState(null);
+  const registeredGames = (games || [])
+    .filter((g) => (registeredGameConfigIds || []).includes(g._id?.toString()))
+    .map((g) => ({
+      gameConfigId: g._id?.toString(),
+      label: g?.eventTitle || g?.game?.name || "Unknown Game",
+    }));
   const isPlayerRole = userRole === "player";
   const isCompleted = status === "completed";
   // Completed tournaments are archived/view-only for staff/public viewers:
@@ -197,6 +265,19 @@ export default function TournamentCard({
     // parent to refetch so the per-game tags below update.
     if (fullyCancelled) setCancelled(true);
     onCancelled?.(_id);
+  };
+
+  const handleCheckIn = async (gameConfigId, gameLabel) => {
+    setCheckingInGameConfigId(gameConfigId);
+    try {
+      await api.post("/api/team/checkin/self", { tournamentId: _id, gameConfigId });
+      toast.success(`Checked in for ${gameLabel}`);
+      onCheckedIn?.(_id);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to check in");
+    } finally {
+      setCheckingInGameConfigId(null);
+    }
   };
 
   return (
@@ -272,6 +353,9 @@ export default function TournamentCard({
               ? (gameConfigId, gameLabel) => setCancelTarget({ gameConfigId, gameLabel })
               : null
           }
+          checkedInGameConfigIds={isPlayerRole && !cancelled ? checkedInGameConfigIds : null}
+          onCheckIn={isPlayerRole && !cancelled ? handleCheckIn : null}
+          checkingInGameConfigId={checkingInGameConfigId}
         />
 
         {/* Buttons */}
@@ -295,7 +379,7 @@ export default function TournamentCard({
                     className="w-full py-2 rounded-lg font-semibold transition hover:scale-[1.01]"
                     style={{ backgroundColor: "var(--accent-color)", color: "var(--background)" }}
                   >
-                    Register Again
+                    Register
                   </button>
                 </Link>
               )}
@@ -429,7 +513,7 @@ export default function TournamentCard({
                   </Link>
                 </div>
                 <button
-                  onClick={() => setShowCancelModal(true)}
+                  onClick={() => setCancelTarget({})}
                   className="text-xs text-center text-[var(--muted-foreground)] hover:text-[var(--error-color)] underline"
                 >
                   Cancel Registration
@@ -511,8 +595,12 @@ export default function TournamentCard({
         <CancelRegistrationModal
           tournamentId={_id}
           tournamentName={name}
-          gameConfigId={cancelTarget.gameConfigId}
-          gameLabel={cancelTarget.gameLabel}
+          registeredGames={registeredGames}
+          initialSelectedIds={
+            cancelTarget.gameConfigId
+              ? [cancelTarget.gameConfigId]
+              : registeredGames.map((g) => g.gameConfigId)
+          }
           onClose={() => setCancelTarget(null)}
           onCancelled={handleCancelled}
         />

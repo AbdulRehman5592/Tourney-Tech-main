@@ -53,7 +53,7 @@ export default function DashboardSidebar({ isOpen, onClose, navItems, badges = {
           className="flex justify-between items-center h-16 px-4 py-4"
           style={{ borderBottom: "1px solid var(--card-hover)" }}
         >
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3" onClick={onClose}>
             <Image
               src={logo}
               alt="Tourney Techs Logo"
@@ -62,7 +62,7 @@ export default function DashboardSidebar({ isOpen, onClose, navItems, badges = {
               className="object-contain"
             />
             <h2 className="text-lg font-bold">Tourney Techs</h2>
-          </div>
+          </Link>
           <button onClick={onClose} className="lg:hidden text-xl">
             <X size={20} />
           </button>

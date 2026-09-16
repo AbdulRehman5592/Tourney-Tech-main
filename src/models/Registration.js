@@ -56,6 +56,31 @@ const GameRegistrationSchema = new Schema({
   verifiedAt: { type: Date },
 });
 
+// One entry per admin-initiated change to what a player owes after their
+// original registration -- today that's only ever a game-to-game move (see
+// PATCH /api/tournamentRegister/[id]/move-game), which can raise or lower
+// the entry fee. `amount` is signed (toGame.entryFee - fromGame.entryFee);
+// this is a lightweight log for the Finance page, not a payment ledger --
+// it never touches gameRegistrationDetails.paid, and collecting/refunding
+// the difference is a manual admin step same as cash payments already are.
+const FinancialAdjustmentSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ["game_move"],
+      required: true,
+      default: "game_move",
+    },
+    fromGameConfigId: { type: Schema.Types.ObjectId, required: true },
+    toGameConfigId: { type: Schema.Types.ObjectId, required: true },
+    amount: { type: Number, required: true },
+    reason: { type: String, trim: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const RegistrationSchema = new Schema(
   {
     tournament: {
@@ -81,6 +106,7 @@ const RegistrationSchema = new Schema(
     // Admin note left when resolving a refund request (see PATCH
     // /api/tournamentRegister/[id]/refund) -- e.g. "refunded via cash 9/10".
     refundNote: { type: String, trim: true },
+    financialAdjustments: { type: [FinancialAdjustmentSchema], default: [] },
   },
   { timestamps: true }
 );

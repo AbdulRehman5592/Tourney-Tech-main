@@ -64,6 +64,7 @@ export default function TournamentPage() {
   const [showSeatingChart, setShowSeatingChart] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
   const [standings, setStandings] = useState(null);
+  const [notEnoughCheckedIn, setNotEnoughCheckedIn] = useState(false);
   const intervalRef = useRef(null);
 
   const hasRewardBye =
@@ -94,13 +95,16 @@ export default function TournamentPage() {
   // 🔹 Teams for this tournament+game -- only needed to populate the
   // protected-seed picker before generating a reward-bye bracket.
   const fetchTeams = async () => {
-    if (!tournamentId || !gameId) return;
+    if (!tournamentId || !gameId) return [];
     try {
       const query = new URLSearchParams({ tournament: tournamentId, gameConfigId: gameId });
       const res = await api.get(`/api/team?${query.toString()}`);
-      setTeams(res.data?.data || []);
+      const list = res.data?.data || [];
+      setTeams(list);
+      return list;
     } catch (err) {
       console.error("Error fetching teams:", err);
+      return [];
     }
   };
 
@@ -179,14 +183,24 @@ export default function TournamentPage() {
 
         // Fetched unconditionally: also feeds the optional reward-bye picker
         // on the playoff-decision panel for score-based formats.
-        await fetchTeams();
+        const teamsList = await fetchTeams();
+        const checkedInCount = teamsList.filter((t) => t.checkedIn).length;
 
         if (allMatches.length === 0 && needsProtectedSeedPick) {
           // Wait for the admin to pick a protected seed below before generating.
+          setNotEnoughCheckedIn(checkedInCount < 2);
+        } else if (allMatches.length === 0 && checkedInCount < 2) {
+          // Skip the doomed POST -- /api/matches only seeds checked-in teams
+          // and 400s below 2, so avoid firing it (and the noisy console error)
+          // until there's actually enough to build a bracket from.
+          setNotEnoughCheckedIn(true);
         } else if (allMatches.length === 0) {
+          setNotEnoughCheckedIn(false);
           await api.post("/api/matches", { tournamentId, gameId });
           res = await api.get(`/api/matches?${query.toString()}`);
           allMatches = res.data?.data || [];
+        } else {
+          setNotEnoughCheckedIn(false);
         }
 
         setRound1Matches(allMatches.filter((m) => m.stage === "round1"));
@@ -349,6 +363,8 @@ export default function TournamentPage() {
     round1Matches.length > 0 &&
     round1Matches.every((m) => m.status === "completed");
 
+  const checkedInTeamsCount = teams.filter((t) => t.checkedIn).length;
+
   // Non-power-of-2 elimination brackets run a preliminary "play-in" round
   // (round 0) to trim the field before the main bracket -- rendered as its own
   // flat section since the bracket-tree view only handles power-of-2 columns.
@@ -367,8 +383,24 @@ export default function TournamentPage() {
 
   return (
     <div className="p-4 space-y-12">
+      {/* WAITING ON CHECK-INS -- /api/matches only seeds checked-in teams and
+          needs at least 2, so explain the block instead of leaving the page
+          looking broken. */}
+      {notEnoughCheckedIn && round1Matches.length === 0 && playoffMatches.length === 0 && (
+        <section className="p-4 rounded-lg border border-yellow-500 bg-gray-900 space-y-2">
+          <h3 className="text-lg font-bold text-yellow-400">Waiting on check-ins</h3>
+          <p className="text-sm text-gray-400">
+            {checkedInTeamsCount} of {teams.length} registered team
+            {teams.length === 1 ? "" : "s"} checked in. At least 2 teams need
+            to be checked in for this game before the bracket can be
+            generated — check them in from the tournament's Teams tab, then
+            come back here.
+          </p>
+        </section>
+      )}
+
       {/* REWARD BYE: PICK PROTECTED SEED BEFORE GENERATING THE BRACKET */}
-      {hasRewardBye && round1Matches.length === 0 && playoffMatches.length === 0 && (
+      {hasRewardBye && !notEnoughCheckedIn && round1Matches.length === 0 && playoffMatches.length === 0 && (
         <section className="p-4 rounded-lg border border-purple-500 bg-gray-900 space-y-3">
           <h3 className="text-xl font-bold text-purple-400">
             Reward Bye: {byeLabel} — pick the protected team
@@ -674,7 +706,7 @@ export default function TournamentPage() {
         </section>
       )}
 
-      {!round1Matches.length && !playoffMatches.length && (
+      {!notEnoughCheckedIn && !hasRewardBye && !round1Matches.length && !playoffMatches.length && (
         <p className="text-center text-gray-400">
           No matches found for this tournament & game.
         </p>

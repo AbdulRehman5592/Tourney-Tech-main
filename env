@@ -6,7 +6,7 @@ REFRESH_TOKEN_SECRET=2566ea6484d8d83bd068e978b188f85a581fa1cc65bf34a598e424cc46b
 
 # JWT Token Expiry (optional - defaults shown)
 ACCESS_TOKEN_EXPIRY=15m
-REFRESH_TOKEN_EXPIRY=7d
+REFRESH_TOKEN_EXPIRY=30d
 
 # Email credentials (currently disabled - email verification is commented out in code)
 # EMAIL_USER=mazharballoch74372@gmail.com

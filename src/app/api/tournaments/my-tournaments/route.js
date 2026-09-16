@@ -1,5 +1,6 @@
 import { Tournament } from "@/models/Tournament";
 import { Registration } from "@/models/Registration";
+import { Team } from "@/models/Team";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
@@ -48,6 +49,27 @@ export const GET = asyncHandler(async (req) => {
     })
     .lean();
 
+  // This player's own teams across every tournament they're registered in --
+  // fetched once, up front, so the per-tournament loop below can just look up
+  // which of their games are already checked in instead of round-tripping
+  // per card. Scoped to `members: user._id` (not staff-gated) since a player
+  // is always allowed to see their own team's check-in status.
+  const myTournamentIds = myRegistrations
+    .map((r) => r.tournament?._id)
+    .filter(Boolean);
+  const myTeams = await Team.find({
+    tournament: { $in: myTournamentIds },
+    members: user._id,
+  })
+    .select("tournament gameConfigId checkedIn")
+    .lean();
+  const checkedInGameConfigIdsByTournament = {};
+  for (const team of myTeams) {
+    if (!team.checkedIn) continue;
+    const key = team.tournament.toString();
+    (checkedInGameConfigIdsByTournament[key] ||= []).push(team.gameConfigId.toString());
+  }
+
   for (const registration of myRegistrations) {
     const tournament = registration.tournament;
     if (!tournament || staffTournamentIds.has(tournament._id.toString())) {
@@ -74,6 +96,10 @@ export const GET = asyncHandler(async (req) => {
       registeredGameConfigIds: (registration.gameRegistrationDetails.gameConfigIds || []).map(
         (id) => id.toString()
       ),
+      // Which of those registered games this player's team has already
+      // checked into -- lets the UI offer "Check In" only for the ones still
+      // pending, and show a confirmed badge for the rest.
+      checkedInGameConfigIds: checkedInGameConfigIdsByTournament[tournament._id.toString()] || [],
     });
   }
 

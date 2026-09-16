@@ -1,39 +1,13 @@
 import { connectDB } from "@/lib/mongoose";
 import { Registration } from "@/models/Registration";
 import { Tournament } from "@/models/Tournament";
-import { Team } from "@/models/Team";
 import { ApiError } from "@/utils/server/ApiError";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAuth } from "@/utils/server/auth";
 import { requireAdmin } from "@/utils/server/roleGuards";
+import { removeFromTeams } from "@/utils/server/teamMembership";
 import sendEmail from "@/constants/EmailProvider";
-
-// Removes the cancelling player from any team formed for the games they were
-// registered for in this tournament. A now-empty or now-solo team (the
-// cancelling player was its only member) is deleted outright; a doubles team
-// just loses that member, leaving the partner on record for the organizer to
-// sort out -- the email alert below is what surfaces that to them, not
-// automated re-matching.
-async function removeFromTeams(tournamentId, userId, gameConfigIds) {
-  if (!gameConfigIds?.length) return;
-
-  const teams = await Team.find({
-    tournament: tournamentId,
-    gameConfigId: { $in: gameConfigIds },
-    members: userId,
-  });
-
-  for (const team of teams) {
-    const remainingMembers = team.members.filter((m) => m.toString() !== userId.toString());
-    if (remainingMembers.length === 0) {
-      await Team.findByIdAndDelete(team._id);
-    } else {
-      team.members = remainingMembers;
-      await team.save();
-    }
-  }
-}
 
 export const POST = asyncHandler(async (req) => {
   await connectDB();
@@ -42,10 +16,17 @@ export const POST = asyncHandler(async (req) => {
   const body = await req.json();
   const tournamentId = body?.tournamentId;
   const requestedUserId = body?.userId;
-  // Optional: cancel just this one scheduled game (Tournament.games[]._id)
-  // instead of the whole registration. Omit to cancel everything, same as
-  // before.
-  const gameConfigId = body?.gameConfigId;
+  // Optional: cancel just specific scheduled game(s) (Tournament.games[]._id)
+  // instead of the whole registration -- an a la carte drop, so a player who
+  // registered for several games in one tournament can back out of only
+  // some of them (e.g. running late for the early game but still playing
+  // the later one). Accepts either a single `gameConfigId` (legacy) or a
+  // `gameConfigIds` array; omit both to cancel everything, same as before.
+  const gameConfigIdsInput = Array.isArray(body?.gameConfigIds)
+    ? body.gameConfigIds
+    : body?.gameConfigId
+      ? [body.gameConfigId]
+      : null;
   const userId = requestedUserId || requester._id.toString();
 
   if (!tournamentId) {
@@ -94,14 +75,14 @@ export const POST = asyncHandler(async (req) => {
   let remainingGameConfigIds;
   let remainingGames;
 
-  if (gameConfigId) {
-    const idx = allGameConfigIds.findIndex((id) => id.toString() === gameConfigId.toString());
-    if (idx === -1) {
-      throw new ApiError(404, "You are not registered for that game in this tournament.");
+  if (gameConfigIdsInput && gameConfigIdsInput.length > 0) {
+    const targets = gameConfigIdsInput.map((id) => id.toString());
+    droppedGameConfigIds = allGameConfigIds.filter((id) => targets.includes(id.toString()));
+    if (droppedGameConfigIds.length === 0) {
+      throw new ApiError(404, "You are not registered for the selected game(s) in this tournament.");
     }
-    droppedGameConfigIds = [allGameConfigIds[idx]];
-    remainingGameConfigIds = allGameConfigIds.filter((_, i) => i !== idx);
-    remainingGames = allGames.filter((_, i) => i !== idx);
+    remainingGameConfigIds = allGameConfigIds.filter((id) => !targets.includes(id.toString()));
+    remainingGames = allGames.filter((_, i) => !targets.includes(allGameConfigIds[i].toString()));
   } else {
     droppedGameConfigIds = allGameConfigIds;
     remainingGameConfigIds = [];
