@@ -7,6 +7,7 @@ import { ClipboardList, Search, ChevronDown, ChevronRight, Pencil, Trash2 } from
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
 import EditTeamForm from "@/components/ui/admin/team/EditTeamForm";
+import { formatGameConfigLabel } from "@/utils/gameConfigLabel";
 
 const DEFAULT_SECTIONS = { games: true, players: false, teams: false };
 
@@ -544,8 +545,7 @@ export default function AdminAllTournamentsPage() {
                           <option value="">Select a game...</option>
                           {tournamentGames.map((g) => (
                             <option key={g._id} value={g._id}>
-                              {g.game?.name || "Unnamed Game"}
-                              {g.eventTitle ? ` — ${g.eventTitle}` : ""}
+                              {formatGameConfigLabel(g)}
                             </option>
                           ))}
                         </select>
@@ -629,8 +629,13 @@ export default function AdminAllTournamentsPage() {
                                   </td>
                                   <td className="px-4 py-2">{registration.user?.email || "-"}</td>
                                   <td className="px-4 py-2">
-                                    {registration.gameRegistrationDetails?.games
-                                      ?.map((g) => g.name)
+                                    {(registration.gameRegistrationDetails?.gameConfigIds || [])
+                                      .map(String)
+                                      .map((configId) =>
+                                        tournamentGames.find((g) => g._id === configId)
+                                      )
+                                      .filter(Boolean)
+                                      .map(formatGameConfigLabel)
                                       .join(", ") || "-"}
                                   </td>
                                   <td className="px-4 py-2">

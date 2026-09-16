@@ -15,7 +15,7 @@ import { adminNavItems } from "@/constants/adminNavItems";
 
 // Change this to adminNavItems if needed
 const userNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Events", icon: LayoutDashboard },
   { href: "/dashboard/my-tournaments", label: "My Tournaments", icon: Trophy },
   { href: "/dashboard/rankings", label: "National Rankings", icon: Award },
   { href: "/dashboard/profile", label: "Profile", icon: Users },

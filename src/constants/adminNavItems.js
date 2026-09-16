@@ -18,8 +18,8 @@ import {
   CheckSquare,
   LayoutGrid,
   Trophy,
-  Undo2,
   Award,
+  Wallet,
 } from "lucide-react";
 
 // Shared between the admin layout and the dashboard layout -- Check-In and
@@ -50,12 +50,12 @@ export const adminNavItems = [
   { href: "/admin/doubles-tracking", label: "Doubles Tracking", icon: Handshake },
   { href: "/admin/create-team", label: "Create Team", icon: PlusCircle },
   { href: "/admin/all-teams", label: "All Teams", icon: Users },
-  { href: "/admin/all-tournaments", label: "All Tournaments", icon: ClipboardList },
+  { href: "/admin/tournaments", label: "Tournaments", icon: ClipboardList },
   { href: "/dashboard/rankings", label: "National Rankings", icon: Award },
   { href: "/admin/sitting", label: "Add Sittings", icon: SquareChartGantt },
   { href: "/admin/gallery", label: "Gallery", icon: ImageUp },
   { href: "/admin/external-rankings", label: "Manual Ranking Awards", icon: Trophy },
-  { href: "/admin/refund-requests", label: "Cancellations & Refunds", icon: Undo2 },
+  { href: "/admin/finance", label: "Finance", icon: Wallet },
   // {
   //   label: "Settings",
   //   icon: Settings,

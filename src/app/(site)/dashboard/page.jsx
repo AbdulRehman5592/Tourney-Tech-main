@@ -52,6 +52,7 @@ export default function TournamentListing() {
           paymentStatus: tournament.paymentStatus,
           registrationCancelled: tournament.registrationCancelled,
           registeredGameConfigIds: tournament.registeredGameConfigIds,
+          checkedInGameConfigIds: tournament.checkedInGameConfigIds,
         };
       });
 
@@ -129,7 +130,7 @@ export default function TournamentListing() {
         className="text-4xl font-extrabold text-center mb-6"
         style={{ color: "var(--accent-color)" }}
       >
-        🎮 Explore Tournaments
+        All Events
       </h1>
 
       {/* Filters + Search */}
@@ -155,7 +156,9 @@ export default function TournamentListing() {
               paymentStatus={mine.paymentStatus}
               registrationCancelled={mine.registrationCancelled}
               registeredGameConfigIds={mine.registeredGameConfigIds}
+              checkedInGameConfigIds={mine.checkedInGameConfigIds}
               onCancelled={fetchUserTournaments}
+              onCheckedIn={fetchUserTournaments}
             />
           );
         })}

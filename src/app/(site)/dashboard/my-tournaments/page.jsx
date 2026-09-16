@@ -121,7 +121,9 @@ export default function MyTournaments() {
           userRole={tournament.userRole}
           paymentStatus={tournament.paymentStatus}
           registrationCancelled={tournament.registrationCancelled}
+          checkedInGameConfigIds={tournament.checkedInGameConfigIds}
           onCancelled={fetchMyTournaments}
+          onCheckedIn={fetchMyTournaments}
         />
       </div>
     );

@@ -11,6 +11,7 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import { ApiError } from "@/utils/server/ApiError";
 import { ApiResponse } from "@/utils/server/ApiResponse";
 import { hasRejectedRegistration } from "@/utils/server/registrationEligibility";
+import { createSoloTeam } from "@/utils/server/soloTeam";
 
 export const POST = asyncHandler(async (req) => {
   const user = await requireAuth(req);
@@ -30,11 +31,18 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "Check-in is not open for this game yet");
   }
 
-  const team = await Team.findOne({
+  let team = await Team.findOne({
     tournament: tournamentId,
     gameConfigId,
     members: user._id,
   });
+  // Solo games have no partner to wait on -- create the one-person team on
+  // the fly instead of blocking check-in on a separate manual step (same
+  // shortcut the admin bulk check-in route already takes). Doubles still
+  // requires an existing team, since that means they haven't paired up yet.
+  if (!team && gameConfig.tournamentTeamType === "single_player") {
+    team = await createSoloTeam({ tournament, gameConfigId, userId: user._id });
+  }
   if (!team) {
     throw new ApiError(
       400,
