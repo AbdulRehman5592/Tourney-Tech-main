@@ -26,13 +26,17 @@ export default function RoundOneMatches({ matches, onUpdate, pageSize = 12 }) {
     fetchUser();
   }, []);
 
-  // Search filter (everyone can see all matches)
+  // Search filter (everyone can see all matches). Matches whose teams
+  // aren't assigned yet (e.g. future mesh rounds awaiting routing) are
+  // excluded rather than shown as "TBD" -- nothing to search/edit yet.
   const filteredMatches = useMemo(() => {
-    return matches.filter(
-      (m) =>
-        m.teamA.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.teamB.name.toLowerCase().includes(search.toLowerCase())
-    );
+    return matches
+      .filter((m) => m.teamA && m.teamB)
+      .filter(
+        (m) =>
+          m.teamA.name.toLowerCase().includes(search.toLowerCase()) ||
+          m.teamB.name.toLowerCase().includes(search.toLowerCase())
+      );
   }, [matches, search]);
 
   const totalPages = Math.ceil(filteredMatches.length / pageSize);
