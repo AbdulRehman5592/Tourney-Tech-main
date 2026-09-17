@@ -365,7 +365,21 @@ export default function AdminRegistrationsTable() {
               <th className="py-2 px-4 text-left sticky left-24 z-20 bg-[var(--secondary-color)]">User</th>
               <th className="py-2 px-4 text-left">User Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
-              <th className="py-2 px-4 text-left">Games</th>
+              <th className="py-2 px-4 text-left">Select</th>
+              <th className="py-2 px-4 text-left">Game</th>
+              <th className="py-2 px-4 text-left">Entry Fee</th>
+              <th className="py-2 px-4 text-left">Current Status</th>
+              <th className="py-2 px-4 text-left">Actions</th>
+              <th className="py-2 px-4 text-left">Notes</th>
+              <th className="py-2 px-4 text-left">Players</th>
+              <th className="py-2 px-4 text-left">Paid</th>
+              <th className="py-2 px-4 text-left">Payment Method</th>
+              <th className="py-2 px-4 text-left">Registered At</th>
+              <th className="py-2 px-4 text-left">Bank Name</th>
+              <th className="py-2 px-4 text-left">Player Account Name</th>
+              <th className="py-2 px-4 text-left">Player Transaction ID</th>
+              <th className="py-2 px-4 text-left">Receipt</th>
+              <th className="py-2 px-4 text-left">Player Payment Memo</th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
@@ -394,7 +408,7 @@ export default function AdminRegistrationsTable() {
                     </td>
                     <td className="py-2 px-4">{r.user?.email}</td>
                     <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
-                    <td className="py-2 px-4">
+                    <td className="py-2 px-4" colSpan={15}>
                       {entries.length} game{entries.length === 1 ? "" : "s"}
                     </td>
                   </tr>
@@ -412,110 +426,104 @@ export default function AdminRegistrationsTable() {
                           <td className="sticky left-0 z-10 bg-[var(--card-background)]"></td>
                           <td className="sticky left-10 z-10 bg-[var(--card-background)]"></td>
                           <td className="sticky left-24 z-10 bg-[var(--card-background)]"></td>
-                          <td colSpan={3} className="p-0">
-                            <table className="w-full">
-                              <tbody>
-                                <tr>
-                                  <td className="py-2 px-4 w-10">
-                                    <input
-                                      type="checkbox"
-                                      checked={bulkSelection.isSelected({ registrationId: r._id, entryId: entry._id })}
-                                      onChange={() =>
-                                        bulkSelection.toggle({ registrationId: r._id, entryId: entry._id })
-                                      }
-                                      className="h-4 w-4 accent-[var(--accent-color)]"
-                                    />
-                                  </td>
-                                  <td className="py-2 px-4">{gameLabelFor(r, entry)}</td>
-                                  <td className="py-2 px-4">
-                                    {r.tournament?.games?.find(
-                                      (g) => String(g._id) === String(entry.gameConfigId)
-                                    )?.entryFee ?? 0}
-                                  </td>
-                                  <td
-                                    className={`text-center capitalize px-4 ${
-                                      entry.status === "approved"
-                                        ? "text-[var(--success-color)]"
-                                        : entry.status === "rejected"
-                                        ? "text-[var(--warning-color)]"
-                                        : "text-white"
-                                    }`}
-                                  >
-                                    {entry.status}
-                                  </td>
-                                  <td className="py-2 px-4">
-                                    <select
-                                      value={entry.status}
-                                      onChange={(e) => handleStatusUpdate(r._id, entry._id, e.target.value)}
-                                      className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
-                                    >
-                                      <option value="pending">Pending</option>
-                                      <option value="approved">Approved</option>
-                                      <option value="rejected">Rejected</option>
-                                    </select>
-                                  </td>
-                                  <td className="py-2 px-4">
-                                    <input
-                                      type="text"
-                                      placeholder="Add a reminder note..."
-                                      value={noteValue}
-                                      onChange={(e) =>
-                                        setNoteDrafts((prev) => ({ ...prev, [entry._id]: e.target.value }))
-                                      }
-                                      onBlur={() => handleNoteBlur(r, entry)}
-                                      disabled={savingNoteId === entry._id}
-                                      className="min-w-[200px] px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)] disabled:opacity-50"
-                                    />
-                                  </td>
-                                  <td className="py-2 px-4">{teamTypeLabelFor(r, entry)}</td>
-                                  <td className="py-2 px-4">
-                                    {entry.paid ? (
-                                      <span className="text-[var(--success-color)]">Yes</span>
-                                    ) : (
-                                      <span className="text-[var(--error-color)]">No</span>
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-4">{entry.paymentMethod}</td>
-                                  <td className="py-2 px-4 whitespace-nowrap">
-                                    {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}
-                                  </td>
-                                  <td className="py-2 px-4">{entry.paymentDetails?.bankId?.bankName || "-"}</td>
-                                  <td className="py-2 px-4">{entry.paymentDetails?.accountName || "-"}</td>
-                                  <td className="py-2 px-4">
-                                    <span
-                                      className={
-                                        entry.paymentDetails?.isDuplicateTransactionId
-                                          ? "rounded px-1.5 py-0.5 bg-[var(--error-color)] text-white"
-                                          : ""
-                                      }
-                                      title={
-                                        entry.paymentDetails?.isDuplicateTransactionId
-                                          ? "This transaction ID is used by more than one game entry"
-                                          : undefined
-                                      }
-                                    >
-                                      {entry.paymentDetails?.transactionId || "-"}
-                                      {entry.paymentDetails?.isDuplicateTransactionId && " ⚠ Duplicate"}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-4">
-                                    {entry.paymentDetails?.receiptUrl ? (
-                                      <a href={entry.paymentDetails.receiptUrl} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={entry.paymentDetails.receiptUrl}
-                                          alt="Payment receipt"
-                                          className="h-12 w-12 object-cover rounded border border-[var(--border-color)]"
-                                        />
-                                      </a>
-                                    ) : (
-                                      "-"
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-4 min-w-[200px]">{entry.paymentDetails?.note || "-"}</td>
-                                </tr>
-                              </tbody>
-                            </table>
+                          <td></td>
+                          <td></td>
+                          <td className="py-2 px-4">
+                            <input
+                              type="checkbox"
+                              checked={bulkSelection.isSelected({ registrationId: r._id, entryId: entry._id })}
+                              onChange={() =>
+                                bulkSelection.toggle({ registrationId: r._id, entryId: entry._id })
+                              }
+                              className="h-4 w-4 accent-[var(--accent-color)]"
+                            />
                           </td>
+                          <td className="py-2 px-4 whitespace-nowrap">{gameLabelFor(r, entry)}</td>
+                          <td className="py-2 px-4">
+                            {r.tournament?.games?.find(
+                              (g) => String(g._id) === String(entry.gameConfigId)
+                            )?.entryFee ?? 0}
+                          </td>
+                          <td
+                            className={`text-center capitalize px-4 ${
+                              entry.status === "approved"
+                                ? "text-[var(--success-color)]"
+                                : entry.status === "rejected"
+                                ? "text-[var(--warning-color)]"
+                                : "text-white"
+                            }`}
+                          >
+                            {entry.status}
+                          </td>
+                          <td className="py-2 px-4">
+                            <select
+                              value={entry.status}
+                              onChange={(e) => handleStatusUpdate(r._id, entry._id, e.target.value)}
+                              className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="approved">Approved</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                          </td>
+                          <td className="py-2 px-4">
+                            <input
+                              type="text"
+                              placeholder="Add a reminder note..."
+                              value={noteValue}
+                              onChange={(e) =>
+                                setNoteDrafts((prev) => ({ ...prev, [entry._id]: e.target.value }))
+                              }
+                              onBlur={() => handleNoteBlur(r, entry)}
+                              disabled={savingNoteId === entry._id}
+                              className="min-w-[200px] px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)] disabled:opacity-50"
+                            />
+                          </td>
+                          <td className="py-2 px-4 whitespace-nowrap">{teamTypeLabelFor(r, entry)}</td>
+                          <td className="py-2 px-4">
+                            {entry.paid ? (
+                              <span className="text-[var(--success-color)]">Yes</span>
+                            ) : (
+                              <span className="text-[var(--error-color)]">No</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-4">{entry.paymentMethod}</td>
+                          <td className="py-2 px-4 whitespace-nowrap">
+                            {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}
+                          </td>
+                          <td className="py-2 px-4">{entry.paymentDetails?.bankId?.bankName || "-"}</td>
+                          <td className="py-2 px-4">{entry.paymentDetails?.accountName || "-"}</td>
+                          <td className="py-2 px-4">
+                            <span
+                              className={
+                                entry.paymentDetails?.isDuplicateTransactionId
+                                  ? "rounded px-1.5 py-0.5 bg-[var(--error-color)] text-white"
+                                  : ""
+                              }
+                              title={
+                                entry.paymentDetails?.isDuplicateTransactionId
+                                  ? "This transaction ID is used by more than one game entry"
+                                  : undefined
+                              }
+                            >
+                              {entry.paymentDetails?.transactionId || "-"}
+                              {entry.paymentDetails?.isDuplicateTransactionId && " ⚠ Duplicate"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4">
+                            {entry.paymentDetails?.receiptUrl ? (
+                              <a href={entry.paymentDetails.receiptUrl} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={entry.paymentDetails.receiptUrl}
+                                  alt="Payment receipt"
+                                  className="h-12 w-12 object-cover rounded border border-[var(--border-color)]"
+                                />
+                              </a>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="py-2 px-4 min-w-[200px]">{entry.paymentDetails?.note || "-"}</td>
                         </tr>
                       );
                     })}
