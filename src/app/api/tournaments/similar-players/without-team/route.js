@@ -11,7 +11,7 @@ export const GET = asyncHandler(async (req) => {
 
   // ✅ Get all approved registrations
   const registrations = await Registration.find({
-    "gameRegistrationDetails.status": "approved",
+    gameEntries: { $elemMatch: { status: "approved", removed: { $ne: true } } },
   }).populate({
     path: "user",
     model: "User",

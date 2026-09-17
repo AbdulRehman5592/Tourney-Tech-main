@@ -41,7 +41,7 @@ export const GET = asyncHandler(async (req) => {
   // registrationCancelled below.
   const myRegistrations = await Registration.find({
     user: user._id,
-    "gameRegistrationDetails.status": { $in: ["pending", "approved", "rejected"] },
+    gameEntries: { $elemMatch: { removed: { $ne: true } } },
   })
     .populate({
       path: "tournament",
@@ -76,26 +76,33 @@ export const GET = asyncHandler(async (req) => {
       continue;
     }
     staffTournamentIds.add(tournament._id.toString());
+
+    const activeEntries = (registration.gameEntries || []).filter(
+      (e) => !e.removed && !e.cancelled
+    );
+    // Separate from tournament lifecycle status (upcoming/ongoing/etc) --
+    // this is purely "has an admin acted on the payment yet, and how." Each
+    // game now has its own approval status, so this collapses them to one
+    // badge for the tournament card: "paid" only once every game is
+    // approved, "rejected" only once every game was rejected, "pending"
+    // for anything in between (including a mix of approved/rejected games).
+    const paymentStatus =
+      activeEntries.length > 0 && activeEntries.every((e) => e.status === "approved")
+        ? "paid"
+        : activeEntries.length > 0 && activeEntries.every((e) => e.status === "rejected")
+          ? "rejected"
+          : "pending";
+
     tournamentsWithUserRole.push({
       ...tournament,
       userRole: "player",
-      // Separate from tournament lifecycle status (upcoming/ongoing/etc) --
-      // this is purely "has an admin acted on the payment yet, and how."
-      paymentStatus:
-        registration.gameRegistrationDetails.status === "approved"
-          ? "paid"
-          : registration.gameRegistrationDetails.status === "rejected"
-            ? "rejected"
-            : "pending",
+      paymentStatus,
       registrationCancelled: !!registration.cancelled,
       // Which of the tournament's games this player actually signed up for
-      // (Tournament.games[]._id) -- registration approval/payment status is
-      // one value for the whole submission, so every game here shares the
-      // paymentStatus above. Lets the UI mark registered games instead of
-      // showing every tournament game as if the player joined all of them.
-      registeredGameConfigIds: (registration.gameRegistrationDetails.gameConfigIds || []).map(
-        (id) => id.toString()
-      ),
+      // (Tournament.games[]._id) and is still active in -- lets the UI mark
+      // registered games instead of showing every tournament game as if the
+      // player joined all of them.
+      registeredGameConfigIds: activeEntries.map((e) => e.gameConfigId.toString()),
       // Which of those registered games this player's team has already
       // checked into -- lets the UI offer "Check In" only for the ones still
       // pending, and show a confirmed badge for the rest.

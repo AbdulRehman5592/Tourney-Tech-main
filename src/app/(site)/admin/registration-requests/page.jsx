@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, useMemo } from "react";
 import api from "@/utils/axios";
 import { toast } from "react-hot-toast";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+
+const entryKey = (registrationId, entryId) => `${registrationId}:${entryId}`;
 
 export default function AdminRegistrationsTable() {
   const [registrations, setRegistrations] = useState([]);
@@ -12,15 +15,17 @@ export default function AdminRegistrationsTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [expanded, setExpanded] = useState(new Set());
   // Local drafts for the Notes column -- typed as the admin edits, only
   // sent to the server on blur so we're not firing a request per keystroke.
+  // Keyed by entry id since notes are per-game now.
   const [noteDrafts, setNoteDrafts] = useState({});
   const [savingNoteId, setSavingNoteId] = useState(null);
 
   // Bulk approve/reject -- for when an admin has just bulk-registered a
   // group of players (Register Player / Excel import) and doesn't want to
-  // click the status dropdown one row at a time.
-  const bulkSelection = useBulkSelection((r) => r._id);
+  // click the status dropdown one game at a time.
+  const bulkSelection = useBulkSelection((row) => entryKey(row.registrationId, row.entryId));
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
 
@@ -31,13 +36,17 @@ export default function AdminRegistrationsTable() {
     approved: 3,
   };
 
+  const activeEntriesOf = (registration) =>
+    (registration.gameEntries || []).filter((e) => !e.removed && !e.cancelled);
+
   // Fetch registrations
   useEffect(() => {
     async function fetchRegistrations() {
       try {
         const res = await api.get(`/api/tournamentRegister`);
-        setRegistrations(res.data.data || []);
-        setFiltered(res.data.data || []);
+        const data = (res.data.data || []).filter((r) => activeEntriesOf(r).length > 0);
+        setRegistrations(data);
+        setFiltered(data);
       } catch (err) {
         console.error(err);
         toast.error("Failed to fetch registrations");
@@ -62,15 +71,14 @@ export default function AdminRegistrationsTable() {
       );
     });
 
-    const sortedData = filteredData.sort((a, b) => {
-      const statusA = a.gameRegistrationDetails?.status || "pending";
-      const statusB = b.gameRegistrationDetails?.status || "pending";
+    // Registrations with a game still awaiting a decision sort first.
+    const worstPriority = (r) =>
+      Math.min(...activeEntriesOf(r).map((e) => statusPriority[e.status] ?? 1));
 
-      if (statusA !== statusB) {
-        return statusPriority[statusA] - statusPriority[statusB];
-      }
-
-      // If both same status → sort by newest first
+    const sortedData = [...filteredData].sort((a, b) => {
+      const pa = worstPriority(a);
+      const pb = worstPriority(b);
+      if (pa !== pb) return pa - pb;
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
 
@@ -78,42 +86,38 @@ export default function AdminRegistrationsTable() {
     setCurrentPage(1);
   }, [search, registrations]);
 
+  const applyUpdatedRegistration = (updated) => {
+    setRegistrations((prev) => prev.map((r) => (r._id === updated._id ? updated : r)));
+  };
+
+  const patchEntry = async (registrationId, entryId, fields) => {
+    const formData = new FormData();
+    Object.entries(fields).forEach(([k, v]) => formData.append(k, v));
+    const res = await api.patch(
+      `/api/tournamentRegister/${registrationId}/game-entries/${entryId}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    const updated = res.data?.data;
+    if (!updated) throw new Error(res.data?.message || "Unexpected response from server");
+    return updated;
+  };
+
   // Approve/Reject handler
-  const handleStatusUpdate = async (id, status) => {
+  const handleStatusUpdate = async (registrationId, entryId, status) => {
     try {
-      const formData = new FormData();
-      formData.append("status", status);
-
-      const res = await api.patch(`/api/tournamentRegister/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setRegistrations((prev) =>
-        prev.map((r) =>
-          r._id === id
-            ? {
-                ...r,
-                gameRegistrationDetails: {
-                  ...r.gameRegistrationDetails,
-                  status: res.data.data.gameRegistrationDetails.status,
-                  paid: res.data.data.gameRegistrationDetails.paid,
-                },
-                updatedAt: res.data.data.updatedAt, // ✅ update timestamp too
-              }
-            : r
-        )
-      );
-
-      toast.success(`Registration ${status}`);
+      const updated = await patchEntry(registrationId, entryId, { status });
+      applyUpdatedRegistration(updated);
+      toast.success(`Game ${status}`);
     } catch (err) {
       console.error(err);
       toast.error("Failed to update status");
     }
   };
 
-  // Bulk approve/reject -- fans out to the same per-row PATCH the dropdown
+  // Bulk approve/reject -- fans out to the same per-entry PATCH the dropdown
   // already uses (no new bulk API needed) and reports success/failure per
-  // row, same shape as the Register Player bulk-result panel.
+  // game, same shape as the Register Player bulk-result panel.
   //
   // Requests go out in small concurrent batches rather than all at once --
   // firing dozens of individual multipart PATCHes in parallel from a mobile
@@ -123,51 +127,29 @@ export default function AdminRegistrationsTable() {
   // short of re-selecting rows by hand.
   const BULK_CONCURRENCY = 5;
 
-  const patchOne = async (id, status) => {
-    const formData = new FormData();
-    formData.append("status", status);
-    const res = await api.patch(`/api/tournamentRegister/${id}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    // A 200 with an unexpected body shape (e.g. the registration vanished
-    // between page load and this click) should surface as a failure here,
-    // not throw later while patching local state and silently abort the
-    // rest of the batch.
-    const updated = res.data?.data?.gameRegistrationDetails;
-    if (!updated) {
-      throw new Error(res.data?.message || "Unexpected response from server");
-    }
-    return updated;
-  };
-
-  const runBulkUpdate = async (ids, status) => {
+  const runBulkUpdate = async (rows, status) => {
     setBulkUpdating(true);
     try {
       const succeeded = [];
       const failed = [];
 
-      for (let i = 0; i < ids.length; i += BULK_CONCURRENCY) {
-        const batch = ids.slice(i, i + BULK_CONCURRENCY);
-        const results = await Promise.allSettled(batch.map((id) => patchOne(id, status)));
+      for (let i = 0; i < rows.length; i += BULK_CONCURRENCY) {
+        const batch = rows.slice(i, i + BULK_CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map((row) => patchEntry(row.registrationId, row.entryId, { status }))
+        );
 
         results.forEach((result, j) => {
-          const id = batch[j];
-          const registration = registrations.find((r) => r._id === id);
-          const label = registration?.user?.username || registration?.user?.email || id;
+          const row = batch[j];
+          const registration = registrations.find((r) => r._id === row.registrationId);
+          const label = registration?.user?.username || registration?.user?.email || row.registrationId;
 
           if (result.status === "fulfilled") {
-            succeeded.push(id);
-            const { status: newStatus, paid } = result.value;
-            setRegistrations((prev) =>
-              prev.map((r) =>
-                r._id === id
-                  ? { ...r, gameRegistrationDetails: { ...r.gameRegistrationDetails, status: newStatus, paid } }
-                  : r
-              )
-            );
+            succeeded.push(row);
+            applyUpdatedRegistration(result.value);
           } else {
             failed.push({
-              id,
+              ...row,
               label,
               message: result.reason?.response?.data?.message || result.reason?.message || "Failed to update",
             });
@@ -178,9 +160,9 @@ export default function AdminRegistrationsTable() {
       setBulkResult({ status, succeeded: succeeded.length, failed });
 
       if (failed.length === 0) {
-        toast.success(`${succeeded.length} registration(s) marked ${status}`);
+        toast.success(`${succeeded.length} game(s) marked ${status}`);
       } else if (succeeded.length === 0) {
-        toast.error(`Failed to update ${failed.length} registration(s)`);
+        toast.error(`Failed to update ${failed.length} game(s)`);
       } else {
         toast(`${succeeded.length} updated, ${failed.length} failed`, { icon: "⚠️" });
       }
@@ -189,54 +171,57 @@ export default function AdminRegistrationsTable() {
     }
   };
 
+  const currentRegistrations = useMemo(() => {
+    const indexOfLast = currentPage * rowsPerPage;
+    const indexOfFirst = indexOfLast - rowsPerPage;
+    return filtered.slice(indexOfFirst, indexOfLast);
+  }, [filtered, currentPage, rowsPerPage]);
+
+  const currentRows = useMemo(
+    () =>
+      currentRegistrations.flatMap((r) =>
+        activeEntriesOf(r).map((entry) => ({ registrationId: r._id, entryId: entry._id }))
+      ),
+    [currentRegistrations]
+  );
+
   const handleBulkStatusUpdate = async (status) => {
-    const ids = [...bulkSelection.selected];
-    if (!ids.length) {
-      toast.error("Select at least one registration");
+    const keys = bulkSelection.selected;
+    const rows = currentRows.filter((row) => keys.has(entryKey(row.registrationId, row.entryId)));
+    if (!rows.length) {
+      toast.error("Select at least one game");
       return;
     }
-    await runBulkUpdate(ids, status);
+    await runBulkUpdate(rows, status);
     bulkSelection.clear();
   };
 
   const handleRetryFailed = async () => {
     if (!bulkResult?.failed?.length) return;
-    await runBulkUpdate(
-      bulkResult.failed.map((f) => f.id),
-      bulkResult.status
-    );
+    await runBulkUpdate(bulkResult.failed, bulkResult.status);
+  };
+
+  const toggleExpanded = (registrationId) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(registrationId)) next.delete(registrationId);
+      else next.add(registrationId);
+      return next;
+    });
   };
 
   // Save the note only if it actually changed since the last saved value --
   // avoids a pointless request every time the field is just clicked into and
   // out of.
-  const handleNoteBlur = async (registration) => {
-    const draft = noteDrafts[registration._id];
-    const saved = registration.gameRegistrationDetails?.adminNote || "";
+  const handleNoteBlur = async (registration, entry) => {
+    const draft = noteDrafts[entry._id];
+    const saved = entry.adminNote || "";
     if (draft === undefined || draft === saved) return;
 
-    setSavingNoteId(registration._id);
+    setSavingNoteId(entry._id);
     try {
-      const formData = new FormData();
-      formData.append("adminNote", draft);
-
-      await api.patch(`/api/tournamentRegister/${registration._id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setRegistrations((prev) =>
-        prev.map((r) =>
-          r._id === registration._id
-            ? {
-                ...r,
-                gameRegistrationDetails: {
-                  ...r.gameRegistrationDetails,
-                  adminNote: draft,
-                },
-              }
-            : r
-        )
-      );
+      const updated = await patchEntry(registration._id, entry._id, { adminNote: draft });
+      applyUpdatedRegistration(updated);
     } catch (err) {
       console.error(err);
       toast.error("Failed to save note");
@@ -245,10 +230,22 @@ export default function AdminRegistrationsTable() {
     }
   };
 
-  // Pagination logic
-  const indexOfLast = currentPage * rowsPerPage;
-  const indexOfFirst = indexOfLast - rowsPerPage;
-  const currentRows = filtered.slice(indexOfFirst, indexOfLast);
+  const gameLabelFor = (registration, entry) => {
+    const match = registration.tournament?.games?.find(
+      (tg) => String(tg._id) === String(entry.gameConfigId)
+    );
+    return match?.eventTitle || entry.game?.name || "Unknown game";
+  };
+
+  const teamTypeLabelFor = (registration, entry) => {
+    const match = registration.tournament?.games?.find(
+      (tg) => String(tg._id) === String(entry.gameConfigId)
+    );
+    if (!match) return "-";
+    if (match.teamBased) return match.tournamentTeamType ? match.tournamentTeamType.replace("_", " ") : "Team Based";
+    return "Single Player";
+  };
+
   const totalPages = Math.ceil(filtered.length / rowsPerPage);
 
   if (loading) return <p className="text-center mt-10">Loading...</p>;
@@ -291,7 +288,7 @@ export default function AdminRegistrationsTable() {
       {/* Bulk approve/reject -- for a batch of admin-added registrants */}
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--card-background)] p-3">
         <span className="text-sm font-medium text-[var(--foreground)]">
-          {bulkSelection.size} selected
+          {bulkSelection.size} game(s) selected
         </span>
         <button
           type="button"
@@ -363,210 +360,168 @@ export default function AdminRegistrationsTable() {
         >
           <thead className="bg-[var(--secondary-color)] text-[var(--foreground)]">
             <tr>
-              <th className="py-2 px-4 text-left sticky left-0 z-20 bg-[var(--secondary-color)] w-14">Sr No.</th>
-              <th className="py-2 px-4 text-left sticky left-14 z-20 bg-[var(--secondary-color)]">User</th>
-              <th className="py-2 px-4 text-left">Select</th>
+              <th className="py-2 px-4 text-left sticky left-0 z-20 bg-[var(--secondary-color)] w-10"></th>
+              <th className="py-2 px-4 text-left sticky left-10 z-20 bg-[var(--secondary-color)] w-14">Sr No.</th>
+              <th className="py-2 px-4 text-left sticky left-24 z-20 bg-[var(--secondary-color)]">User</th>
               <th className="py-2 px-4 text-left">User Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
-              <th className="py-2 px-4 text-left">Game</th>
-              <th className="py-2 px-4 text-left">Entry Fee</th>
-              <th className="py-2 px-4 text-left">Current Status</th>
-              <th className="py-2 px-4 text-left">Actions</th>
-              <th className="py-2 px-4 text-left">Notes</th>
-              <th className="py-2 px-4 text-left">Players</th>
-              <th className="py-2 px-4 text-left">Paid</th>
-              <th className="py-2 px-4 text-left">Payment Method</th>
-              <th className="py-2 px-4 text-left">Registered At</th>
-              <th className="py-2 px-4 text-left">Bank Name</th>
-              <th className="py-2 px-4 text-left">Player Account Name</th>
-              <th className="py-2 px-4 text-left">Player Transaction ID</th>
-              <th className="py-2 px-4 text-left">Receipt</th>
-              <th className="py-2 px-4 text-left">Player Payment Memo</th>
+              <th className="py-2 px-4 text-left">Games</th>
             </tr>
           </thead>
           <tbody className="bg-[var(--card-background)] text-[var(--foreground)]">
-            {currentRows.map((r, i) => (
-              <tr
-                key={r._id}
-                className="border-b border-[var(--border-color)] hover:bg-[var(--secondary-hover)]"
-              >
-                <td className="py-2 px-4 sticky left-0 z-10 bg-[var(--card-background)] w-14">
-                  {indexOfFirst + i + 1}
-                </td>
-                <td
-                  className={`py-2 px-4 sticky left-14 z-10 bg-[var(--card-background)] font-semibold ${
-                    r.gameRegistrationDetails?.status === "approved"
-                      ? "text-[var(--success-color)]"
-                      : r.gameRegistrationDetails?.status === "rejected"
-                      ? "text-[var(--warning-color)]"
-                      : "text-[var(--error-color)]"
-                  }`}
-                >
-                  {r.user?.username}
-                </td>
-                <td className="py-2 px-4">
-                  <input
-                    type="checkbox"
-                    checked={bulkSelection.isSelected(r)}
-                    onChange={() => bulkSelection.toggle(r)}
-                    className="h-4 w-4 accent-[var(--accent-color)]"
-                  />
-                </td>
-                <td className="py-2 px-4">{r.user?.email}</td>
-                <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.games
-                    ?.map((g) => {
-                      const match = r.tournament?.games?.find(
-                        (tg) => tg._id === g._id || tg.game === g._id
-                      );
-                      return match?.eventTitle || g.name;
-                    })
-                    .join(", ")}
-                </td>
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.games?.reduce(
-                    (total, regGame) => {
-                      const match = r.tournament?.games?.find(
-                        (g) => g._id === regGame._id || g.game === regGame._id
-                      );
-                      return total + (match?.entryFee || 0);
-                    },
-                    0
-                  )}
-                </td>
+            {currentRegistrations.map((r, i) => {
+              const entries = activeEntriesOf(r);
+              const isOpen = expanded.has(r._id);
 
-                <td
-                  className={`text-center capitalize ${
-                    r.gameRegistrationDetails?.status === "approved"
-                      ? "text-[var(--success-color)]"
-                      : r.gameRegistrationDetails?.status === "rejected"
-                      ? "text-[var(--warning-color)]"
-                      : "text-white"
-                  }`}
-                >
-                  {r.gameRegistrationDetails?.status}
-                </td>
-
-                <td className="py-2 px-4">
-                  <select
-                    value={r.gameRegistrationDetails?.status || "pending"}
-                    onChange={(e) => handleStatusUpdate(r._id, e.target.value)}
-                    className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
+              return (
+                <Fragment key={r._id}>
+                  <tr
+                    className="cursor-pointer border-b border-[var(--border-color)] hover:bg-[var(--secondary-hover)]"
+                    onClick={() => toggleExpanded(r._id)}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </td>
+                    <td className="py-2 px-4 sticky left-0 z-10 bg-[var(--card-background)] w-10">
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </td>
+                    <td className="py-2 px-4 sticky left-10 z-10 bg-[var(--card-background)] w-14">
+                      {(currentPage - 1) * rowsPerPage + i + 1}
+                    </td>
+                    <td className="py-2 px-4 sticky left-24 z-10 bg-[var(--card-background)] font-semibold">
+                      {r.user?.username}
+                    </td>
+                    <td className="py-2 px-4">{r.user?.email}</td>
+                    <td className="py-2 px-4">{r.tournament?.name || "-"}</td>
+                    <td className="py-2 px-4">
+                      {entries.length} game{entries.length === 1 ? "" : "s"}
+                    </td>
+                  </tr>
 
-                <td className="py-2 px-4">
-                  <input
-                    type="text"
-                    placeholder="Add a reminder note..."
-                    value={
-                      noteDrafts[r._id] !== undefined
-                        ? noteDrafts[r._id]
-                        : r.gameRegistrationDetails?.adminNote || ""
-                    }
-                    onChange={(e) =>
-                      setNoteDrafts((prev) => ({ ...prev, [r._id]: e.target.value }))
-                    }
-                    onBlur={() => handleNoteBlur(r)}
-                    disabled={savingNoteId === r._id}
-                    className="min-w-[200px] px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)] disabled:opacity-50"
-                  />
-                </td>
+                  {isOpen &&
+                    entries.map((entry) => {
+                      const noteValue =
+                        noteDrafts[entry._id] !== undefined ? noteDrafts[entry._id] : entry.adminNote || "";
 
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.games?.length > 0
-                    ? r.gameRegistrationDetails.games
-                        .map((regGame) => {
-                          const game = r.tournament?.games?.find(
-                            (g) =>
-                              g._id === regGame._id || g.game === regGame._id
-                          );
-                          if (!game) return null;
-
-                          if (game.teamBased) {
-                            return game.tournamentTeamType
-                              ? game.tournamentTeamType.replace("_", " ")
-                              : "Team Based";
-                          } else {
-                            return "Single Player";
-                          }
-                        })
-                        .filter(Boolean)
-                        .join(" - ")
-                    : "-"}
-                </td>
-
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paid ? (
-                    <span className="text-[var(--success-color)]">Yes</span>
-                  ) : (
-                    <span className="text-[var(--error-color)]">No</span>
-                  )}
-                </td>
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paymentMethod}
-                </td>
-
-                <td className="py-2 px-4 whitespace-nowrap">
-                  {r.createdAt ? new Date(r.createdAt).toLocaleString() : "-"}
-                </td>
-
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paymentDetails?.bankId
-                    ?.bankName || "-"}
-                </td>
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paymentDetails?.accountName ||
-                    "-"}
-                </td>
-                <td className="py-2 px-4">
-                  <span
-                    className={
-                      r.gameRegistrationDetails?.paymentDetails
-                        ?.isDuplicateTransactionId
-                        ? "rounded px-1.5 py-0.5 bg-[var(--error-color)] text-white"
-                        : ""
-                    }
-                    title={
-                      r.gameRegistrationDetails?.paymentDetails
-                        ?.isDuplicateTransactionId
-                        ? "This transaction ID is used by more than one registration"
-                        : undefined
-                    }
-                  >
-                    {r.gameRegistrationDetails?.paymentDetails
-                      ?.transactionId || "-"}
-                    {r.gameRegistrationDetails?.paymentDetails
-                      ?.isDuplicateTransactionId && " ⚠ Duplicate"}
-                  </span>
-                </td>
-                <td className="py-2 px-4">
-                  {r.gameRegistrationDetails?.paymentDetails?.receiptUrl ? (
-                    <a
-                      href={r.gameRegistrationDetails.paymentDetails.receiptUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <img
-                        src={r.gameRegistrationDetails.paymentDetails.receiptUrl}
-                        alt="Payment receipt"
-                        className="h-12 w-12 object-cover rounded border border-[var(--border-color)]"
-                      />
-                    </a>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td className="py-2 px-4 min-w-[200px]">
-                  {r.gameRegistrationDetails?.paymentDetails?.note || "-"}
-                </td>
-              </tr>
-            ))}
+                      return (
+                        <tr
+                          key={entry._id}
+                          className="border-b border-[var(--border-color)] bg-[var(--secondary-color)]/20"
+                        >
+                          <td className="sticky left-0 z-10 bg-[var(--card-background)]"></td>
+                          <td className="sticky left-10 z-10 bg-[var(--card-background)]"></td>
+                          <td className="sticky left-24 z-10 bg-[var(--card-background)]"></td>
+                          <td colSpan={3} className="p-0">
+                            <table className="w-full">
+                              <tbody>
+                                <tr>
+                                  <td className="py-2 px-4 w-10">
+                                    <input
+                                      type="checkbox"
+                                      checked={bulkSelection.isSelected({ registrationId: r._id, entryId: entry._id })}
+                                      onChange={() =>
+                                        bulkSelection.toggle({ registrationId: r._id, entryId: entry._id })
+                                      }
+                                      className="h-4 w-4 accent-[var(--accent-color)]"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-4">{gameLabelFor(r, entry)}</td>
+                                  <td className="py-2 px-4">
+                                    {r.tournament?.games?.find(
+                                      (g) => String(g._id) === String(entry.gameConfigId)
+                                    )?.entryFee ?? 0}
+                                  </td>
+                                  <td
+                                    className={`text-center capitalize px-4 ${
+                                      entry.status === "approved"
+                                        ? "text-[var(--success-color)]"
+                                        : entry.status === "rejected"
+                                        ? "text-[var(--warning-color)]"
+                                        : "text-white"
+                                    }`}
+                                  >
+                                    {entry.status}
+                                  </td>
+                                  <td className="py-2 px-4">
+                                    <select
+                                      value={entry.status}
+                                      onChange={(e) => handleStatusUpdate(r._id, entry._id, e.target.value)}
+                                      className="px-2 py-1 rounded-lg border border-gray-300 bg-[var(--card-background)] text-[var(--foreground)]"
+                                    >
+                                      <option value="pending">Pending</option>
+                                      <option value="approved">Approved</option>
+                                      <option value="rejected">Rejected</option>
+                                    </select>
+                                  </td>
+                                  <td className="py-2 px-4">
+                                    <input
+                                      type="text"
+                                      placeholder="Add a reminder note..."
+                                      value={noteValue}
+                                      onChange={(e) =>
+                                        setNoteDrafts((prev) => ({ ...prev, [entry._id]: e.target.value }))
+                                      }
+                                      onBlur={() => handleNoteBlur(r, entry)}
+                                      disabled={savingNoteId === entry._id}
+                                      className="min-w-[200px] px-2 py-1 rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] text-[var(--foreground)] disabled:opacity-50"
+                                    />
+                                  </td>
+                                  <td className="py-2 px-4">{teamTypeLabelFor(r, entry)}</td>
+                                  <td className="py-2 px-4">
+                                    {entry.paid ? (
+                                      <span className="text-[var(--success-color)]">Yes</span>
+                                    ) : (
+                                      <span className="text-[var(--error-color)]">No</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-4">{entry.paymentMethod}</td>
+                                  <td className="py-2 px-4 whitespace-nowrap">
+                                    {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}
+                                  </td>
+                                  <td className="py-2 px-4">{entry.paymentDetails?.bankId?.bankName || "-"}</td>
+                                  <td className="py-2 px-4">{entry.paymentDetails?.accountName || "-"}</td>
+                                  <td className="py-2 px-4">
+                                    <span
+                                      className={
+                                        entry.paymentDetails?.isDuplicateTransactionId
+                                          ? "rounded px-1.5 py-0.5 bg-[var(--error-color)] text-white"
+                                          : ""
+                                      }
+                                      title={
+                                        entry.paymentDetails?.isDuplicateTransactionId
+                                          ? "This transaction ID is used by more than one game entry"
+                                          : undefined
+                                      }
+                                    >
+                                      {entry.paymentDetails?.transactionId || "-"}
+                                      {entry.paymentDetails?.isDuplicateTransactionId && " ⚠ Duplicate"}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-4">
+                                    {entry.paymentDetails?.receiptUrl ? (
+                                      <a href={entry.paymentDetails.receiptUrl} target="_blank" rel="noopener noreferrer">
+                                        <img
+                                          src={entry.paymentDetails.receiptUrl}
+                                          alt="Payment receipt"
+                                          className="h-12 w-12 object-cover rounded border border-[var(--border-color)]"
+                                        />
+                                      </a>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-4 min-w-[200px]">{entry.paymentDetails?.note || "-"}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

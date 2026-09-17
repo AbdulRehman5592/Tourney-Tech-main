@@ -13,46 +13,48 @@ import mongoose from "mongoose";
 
 const MOVE_STAFF_ROLES = ["owner", "organizer", "manager"];
 
-// Admin/organizer-initiated correction: move a registered player from one
-// scheduled game instance to another within the same tournament. This only
-// ever runs pre-match-start for that player -- see the two safety checks
-// below -- since Team is deliberately immutable on {tournament,
-// gameConfigId} (reassigning it in place would desync bracket data, see
-// PATCH /api/team/[id]), so a "move" is really: detach from the old team,
-// re-point the registration at the new game, and (for single-player games
-// only) auto-create a fresh solo team there. A doubles destination is left
+// Admin/organizer-initiated correction: move ONE game entry from one
+// scheduled game instance to another within the same tournament. Every
+// other game entry on the registration is untouched. This only ever runs
+// pre-match-start for that entry's team -- see the two safety checks below
+// -- since Team is deliberately immutable on {tournament, gameConfigId}
+// (reassigning it in place would desync bracket data, see PATCH
+// /api/team/[id]), so a "move" is really: detach from the old team,
+// re-point this entry at the new game, and (for single-player games only)
+// auto-create a fresh solo team there. A doubles destination is left
 // teamless, same as any brand-new doubles registrant -- the admin pairs
 // them up via the existing "Form a team" tool.
 export const PATCH = asyncHandler(async (req, context) => {
   await connectDB();
   const user = await requireAuth();
 
-  const { id } = await context.params;
+  const { id, entryId } = await context.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(400, "Invalid registration ID");
   }
 
-  const { fromGameConfigId, toGameConfigId, reason } = await req.json();
-  if (!fromGameConfigId || !toGameConfigId) {
-    throw new ApiError(400, "fromGameConfigId and toGameConfigId are required");
+  const { toGameConfigId, reason } = await req.json();
+  if (!toGameConfigId) {
+    throw new ApiError(400, "toGameConfigId is required");
   }
 
   const registration = await Registration.findById(id);
   if (!registration) throw new ApiError(404, "Registration not found");
-  if (registration.cancelled) {
-    throw new ApiError(400, "This registration has been cancelled");
+
+  const entry = registration.gameEntries.id(entryId);
+  if (!entry) throw new ApiError(404, "Game entry not found");
+  if (entry.removed || entry.cancelled) {
+    throw new ApiError(400, "This game entry has been dropped and can't be moved");
   }
 
-  // Loads the tournament and confirms the caller is platform admin or one
-  // of this tournament's owner/organizer/manager staff -- same gate used by
-  // the next-round/finalize-round1 bracket-progression routes.
   const tournament = await requireTournamentStaff(
     registration.tournament,
     user,
     MOVE_STAFF_ROLES
   );
 
-  if (fromGameConfigId === toGameConfigId) {
+  const fromGameConfigId = entry.gameConfigId;
+  if (String(fromGameConfigId) === String(toGameConfigId)) {
     throw new ApiError(400, "That's already the player's current game");
   }
 
@@ -62,11 +64,14 @@ export const PATCH = asyncHandler(async (req, context) => {
     throw new ApiError(404, "Game not found in this tournament");
   }
 
-  const gameConfigIds = (registration.gameRegistrationDetails?.gameConfigIds || []).map(String);
-  if (!gameConfigIds.includes(String(fromGameConfigId))) {
-    throw new ApiError(400, "This player isn't registered for the source game");
-  }
-  if (gameConfigIds.includes(String(toGameConfigId))) {
+  const alreadyOnDestination = registration.gameEntries.some(
+    (e) =>
+      !e.removed &&
+      !e.cancelled &&
+      e._id.toString() !== entryId &&
+      String(e.gameConfigId) === String(toGameConfigId)
+  );
+  if (alreadyOnDestination) {
     throw new ApiError(400, "This player is already registered for the destination game");
   }
 
@@ -117,12 +122,9 @@ export const PATCH = asyncHandler(async (req, context) => {
     await removeFromTeams(tournament._id, userId, [fromGameConfigId]);
   }
 
-  const idx = registration.gameRegistrationDetails.gameConfigIds.findIndex(
-    (gid) => String(gid) === String(fromGameConfigId)
-  );
-  registration.gameRegistrationDetails.games[idx] = toGameConfig.game;
-  registration.gameRegistrationDetails.gameConfigIds[idx] = toGameConfigId;
-  registration.gameRegistrationDetails.team = null;
+  entry.game = toGameConfig.game;
+  entry.gameConfigId = toGameConfigId;
+  entry.team = null;
 
   const amount = (toGameConfig.entryFee || 0) - (fromGameConfig.entryFee || 0);
   registration.financialAdjustments.push({
@@ -138,10 +140,9 @@ export const PATCH = asyncHandler(async (req, context) => {
 
   await registration.save();
 
-  // Auto-create the new solo team only after the registration's
-  // gameConfigIds already reflects the move -- createSoloTeam looks the
-  // registration up by gameConfigIds internally, and sets
-  // gameRegistrationDetails.team itself.
+  // Auto-create the new solo team only after the entry's gameConfigId
+  // already reflects the move -- createSoloTeam looks the registration up
+  // by gameConfigId internally, and sets the matching entry's team itself.
   if (toGameConfig.tournamentTeamType === "single_player") {
     await createSoloTeam({ tournament, gameConfigId: toGameConfigId, userId });
   }
@@ -149,9 +150,9 @@ export const PATCH = asyncHandler(async (req, context) => {
   const updated = await Registration.findById(id)
     .populate("tournament")
     .populate("user", "username email")
-    .populate("gameRegistrationDetails.games")
-    .populate("gameRegistrationDetails.team")
-    .populate("gameRegistrationDetails.paymentDetails.bankId");
+    .populate("gameEntries.game")
+    .populate("gameEntries.team")
+    .populate("gameEntries.paymentDetails.bankId");
 
   return Response.json(
     new ApiResponse(

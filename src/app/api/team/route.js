@@ -121,9 +121,10 @@ export const POST = asyncHandler(async (req) => {
     {
       tournament,
       user: { $in: memberIds },
-      "gameRegistrationDetails.gameConfigIds": gameConfigId,
+      "gameEntries.gameConfigId": gameConfigId,
     },
-    { $set: { "gameRegistrationDetails.team": team._id } }
+    { $set: { "gameEntries.$[entry].team": team._id } },
+    { arrayFilters: [{ "entry.gameConfigId": gameConfigId }] }
   );
 
   return Response.json(new ApiResponse(201, team, "Team created successfully"));

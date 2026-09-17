@@ -80,14 +80,14 @@ export default function GamePlay() {
         // Game fields, since the same catalog game can be scheduled more
         // than once as fully independent competitions.
         if (Array.isArray(myRegistrations) && myRegistrations.length > 0) {
-          myGames = myRegistrations.flatMap((reg) => {
-            const regGames = reg.gameRegistrationDetails?.games || [];
-            const gameConfigIds = reg.gameRegistrationDetails?.gameConfigIds || [];
-            return regGames.map((g, i) => ({
-              ...g,
-              gameConfigId: gameConfigIds[i]?.toString(),
-            }));
-          });
+          myGames = myRegistrations.flatMap((reg) =>
+            (reg.gameEntries || [])
+              .filter((e) => !e.removed && !e.cancelled)
+              .map((e) => ({
+                ...e.game,
+                gameConfigId: e.gameConfigId?.toString(),
+              }))
+          );
         } else {
           myGames = (registrations?.games || []).map((entry) => ({
             ...(entry?.game || {}),

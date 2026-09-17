@@ -11,11 +11,8 @@ function findGameConfig(tournament, gameConfigId) {
   return tournament?.games?.find((g) => String(g._id) === String(gameConfigId));
 }
 
-function sumEntryFees(tournament, gameConfigIds) {
-  return (gameConfigIds || []).reduce((sum, gid) => {
-    const slot = findGameConfig(tournament, gid);
-    return sum + (slot?.entryFee || 0);
-  }, 0);
+function entryFee(tournament, gameConfigId) {
+  return findGameConfig(tournament, gameConfigId)?.entryFee || 0;
 }
 
 function gameLabel(tournament, gameConfigId) {
@@ -65,40 +62,44 @@ export const GET = asyncHandler(async (req) => {
       reg.user?.email ||
       "Unknown player";
 
-    const gameConfigIds = reg.gameRegistrationDetails?.gameConfigIds || [];
-    const gamesLabel = gameConfigIds.map((gid) => gameLabel(tournament, gid)).join(", ");
+    // One row per game entry -- each game a player registered for is its
+    // own payment/pending/refund line, since approval and payment are now
+    // tracked independently per game rather than bundled across all of a
+    // player's games in this tournament.
+    for (const entry of reg.gameEntries || []) {
+      const fee = entryFee(tournament, entry.gameConfigId);
+      const label = gameLabel(tournament, entry.gameConfigId);
 
-    if (reg.cancelled) {
-      rows.push({
-        id: `${reg._id}-refund`,
-        type: "refund",
-        registrationId: reg._id,
-        tournamentId: tournament._id,
-        tournament: tournament.name,
-        player: playerName,
-        game: gamesLabel,
-        amount: -sumEntryFees(tournament, gameConfigIds),
-        method: reg.gameRegistrationDetails?.paymentMethod || null,
-        status: reg.refundStatus,
-        date: reg.cancelledAt,
-      });
-    } else if (reg.gameRegistrationDetails?.status !== "rejected") {
-      const paid = reg.gameRegistrationDetails?.paid === true;
-      rows.push({
-        id: `${reg._id}-${paid ? "payment" : "pending"}`,
-        type: paid ? "payment" : "pending",
-        registrationId: reg._id,
-        tournamentId: tournament._id,
-        tournament: tournament.name,
-        player: playerName,
-        game: gamesLabel,
-        amount: sumEntryFees(tournament, gameConfigIds),
-        method: reg.gameRegistrationDetails?.paymentMethod || null,
-        status: paid ? "paid" : "pending",
-        date: paid
-          ? reg.gameRegistrationDetails?.verifiedAt || reg.updatedAt
-          : reg.createdAt,
-      });
+      if (entry.removed || entry.cancelled) {
+        rows.push({
+          id: `${reg._id}-${entry._id}-refund`,
+          type: "refund",
+          registrationId: reg._id,
+          tournamentId: tournament._id,
+          tournament: tournament.name,
+          player: playerName,
+          game: label,
+          amount: -fee,
+          method: entry.paymentMethod || null,
+          status: entry.refundStatus,
+          date: entry.cancelledAt || entry.removedAt,
+        });
+      } else if (entry.status !== "rejected") {
+        const paid = entry.paid === true;
+        rows.push({
+          id: `${reg._id}-${entry._id}-${paid ? "payment" : "pending"}`,
+          type: paid ? "payment" : "pending",
+          registrationId: reg._id,
+          tournamentId: tournament._id,
+          tournament: tournament.name,
+          player: playerName,
+          game: label,
+          amount: fee,
+          method: entry.paymentMethod || null,
+          status: paid ? "paid" : "pending",
+          date: paid ? entry.verifiedAt || entry.updatedAt : entry.createdAt,
+        });
+      }
     }
 
     for (const adj of reg.financialAdjustments || []) {

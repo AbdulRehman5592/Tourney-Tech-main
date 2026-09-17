@@ -75,8 +75,9 @@ export const GET = asyncHandler(async (req, context) => {
 
     const registrations = await Registration.find({
       tournament: tournamentId,
-      "gameRegistrationDetails.status": "approved",
-      "gameRegistrationDetails.gameConfigIds": gameConfigId,
+      gameEntries: {
+        $elemMatch: { gameConfigId, status: "approved", removed: { $ne: true } },
+      },
     }).populate("user", "firstname lastname username email");
 
     pendingTeamFormation = registrations

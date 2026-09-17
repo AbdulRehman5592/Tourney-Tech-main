@@ -12,8 +12,9 @@ export async function hasRejectedRegistration({ tournamentId, gameConfigId, user
   const rejected = await Registration.findOne({
     tournament: tournamentId,
     user: { $in: userIds },
-    "gameRegistrationDetails.gameConfigIds": gameConfigId,
-    "gameRegistrationDetails.status": "rejected",
+    gameEntries: {
+      $elemMatch: { gameConfigId, status: "rejected", removed: { $ne: true } },
+    },
   }).select("_id");
   return !!rejected;
 }

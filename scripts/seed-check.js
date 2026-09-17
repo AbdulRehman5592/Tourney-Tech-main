@@ -29,11 +29,11 @@ import { Registration } from "../src/models/Registration.js";
       console.log("firstReg", {
         user: firstReg.user?.toString() || null,
         tournament: firstReg.tournament?.toString() || null,
-        games: (firstReg.gameRegistrationDetails?.games || []).map((g) =>
-          g?.toString ? g.toString() : String(g)
+        games: (firstReg.gameEntries || []).map((e) =>
+          e.game?.toString ? e.game.toString() : String(e.game)
         ),
-        team: firstReg.gameRegistrationDetails?.team?.toString() || null,
-        status: firstReg.gameRegistrationDetails?.status || null,
+        team: firstReg.gameEntries?.[0]?.team?.toString() || null,
+        status: firstReg.gameEntries?.[0]?.status || null,
       });
     }
     const dummyUsers = await User.find({ email: /dummy/i }).lean();

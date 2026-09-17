@@ -35,15 +35,29 @@ export default function AllRegisteredPlayers() {
     fetchRegistrations();
   }, []);
 
+  // One row per game entry -- a player registered for 3 games now produces
+  // 3 rows, each with its own status/game, instead of one row bundling all
+  // of them together.
+  const rows = useMemo(
+    () =>
+      registrations.flatMap((reg) =>
+        (reg.gameEntries || [])
+          .filter((e) => !e.removed && !e.cancelled)
+          .map((entry) => ({ registration: reg, entry }))
+      ),
+    [registrations]
+  );
+
   const columns = useMemo(
     () => [
       { header: "Sr No.", cell: ({ row }) => row.index + 1, enableSorting: false, enableColumnFilter: false },
       {
         header: "User",
         id: "user",
-        accessorFn: (row) => `${row.user?.firstname || ""} ${row.user?.lastname || ""}`.trim(),
+        accessorFn: (row) =>
+          `${row.registration.user?.firstname || ""} ${row.registration.user?.lastname || ""}`.trim(),
         cell: ({ getValue, row }) => {
-          const status = row.original.gameRegistrationDetails?.status;
+          const status = row.original.entry.status;
           const color =
             status === "approved"
               ? "var(--success-color)"
@@ -60,45 +74,35 @@ export default function AllRegisteredPlayers() {
       {
         header: "Email",
         id: "email",
-        accessorFn: (row) => row.user?.email || "",
+        accessorFn: (row) => row.registration.user?.email || "",
       },
       {
         header: "Tournament",
         id: "tournament",
-        accessorFn: (row) => row.tournament?.name || "",
+        accessorFn: (row) => row.registration.tournament?.name || "",
       },
       {
-        header: "Games",
-        id: "games",
-        accessorFn: (row) =>
-          row.gameRegistrationDetails?.games
-            ?.map((g) => {
-              const match = row.tournament?.games?.find(
-                (tg) => tg._id === g._id || tg.game === g._id
-              );
-              return match?.eventTitle || g.name;
-            })
-            .join(", ") || "",
+        header: "Game",
+        id: "game",
+        accessorFn: (row) => {
+          const match = row.registration.tournament?.games?.find(
+            (tg) => String(tg._id) === String(row.entry.gameConfigId)
+          );
+          return match?.eventTitle || row.entry.game?.name || "";
+        },
         cell: ({ getValue }) =>
           getValue() ? (
-            getValue()
-              .split(", ")
-              .map((name, i) => (
-                <span
-                  key={i}
-                  className="mr-1 mb-1 inline-block px-2 py-1 rounded-lg bg-[var(--secondary-hover)] text-sm"
-                >
-                  {name}
-                </span>
-              ))
+            <span className="mr-1 mb-1 inline-block px-2 py-1 rounded-lg bg-[var(--secondary-hover)] text-sm">
+              {getValue()}
+            </span>
           ) : (
-            <span className="text-sm opacity-70">No games</span>
+            <span className="text-sm opacity-70">No game</span>
           ),
       },
       {
         header: "Registered At",
         id: "registeredAt",
-        accessorFn: (row) => row.createdAt,
+        accessorFn: (row) => row.entry.createdAt || row.registration.createdAt,
         cell: ({ getValue }) => (getValue() ? new Date(getValue()).toLocaleString() : "-"),
       },
     ],
@@ -106,7 +110,7 @@ export default function AllRegisteredPlayers() {
   );
 
   const table = useReactTable({
-    data: registrations,
+    data: rows,
     columns,
     state: { globalFilter, columnFilters },
     onGlobalFilterChange: setGlobalFilter,
@@ -120,31 +124,27 @@ export default function AllRegisteredPlayers() {
 
   const handlePageSizeChange = (e) => {
     const value = e.target.value;
-    table.setPageSize(value === "all" ? registrations.length || 30 : Number(value));
+    table.setPageSize(value === "all" ? rows.length || 30 : Number(value));
   };
 
   const handleExport = () => {
-    const rows = table.getFilteredRowModel().rows.map((row) => {
-      const r = row.original;
+    const exportRows = table.getFilteredRowModel().rows.map((row) => {
+      const { registration: r, entry } = row.original;
+      const match = r.tournament?.games?.find(
+        (tg) => String(tg._id) === String(entry.gameConfigId)
+      );
       return {
         "Sr No.": row.index + 1,
         User: `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim(),
         Email: r.user?.email || "",
         Tournament: r.tournament?.name || "",
-        Games:
-          r.gameRegistrationDetails?.games
-            ?.map((g) => {
-              const match = r.tournament?.games?.find(
-                (tg) => tg._id === g._id || tg.game === g._id
-              );
-              return match?.eventTitle || g.name;
-            })
-            .join(", ") || "No games",
-        "Registered At": r.createdAt ? new Date(r.createdAt).toLocaleString() : "-",
+        Game: match?.eventTitle || entry.game?.name || "No game",
+        Status: entry.status,
+        "Registered At": entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-",
       };
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Registered Users");
     XLSX.writeFile(workbook, `registered-users-${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -153,7 +153,7 @@ export default function AllRegisteredPlayers() {
   if (loading)
     return <p className="text-center mt-10 text-white">Loading registrations...</p>;
 
-  if (!registrations.length)
+  if (!rows.length)
     return <p className="opacity-70 text-center mt-10 text-sm">No registrations found</p>;
 
   return (
@@ -186,7 +186,7 @@ export default function AllRegisteredPlayers() {
           <select
             id="rowsPerPage"
             value={
-              table.getState().pagination.pageSize >= registrations.length
+              table.getState().pagination.pageSize >= rows.length
                 ? "all"
                 : table.getState().pagination.pageSize
             }

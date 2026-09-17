@@ -59,9 +59,14 @@ export default function TournamentTeamsTab() {
   const formGameConfig = games.find((g) => g._id === gameConfigId);
   const expectedTeamSize = formGameConfig?.tournamentTeamType === "single_player" ? 1 : 2;
 
+  const activeGameConfigIdsOf = (registration) =>
+    (registration.gameEntries || [])
+      .filter((e) => !e.removed && !e.cancelled)
+      .map((e) => String(e.gameConfigId));
+
   const isEligible = (registration) => {
     if (!gameConfigId) return false;
-    const gameConfigIds = (registration.gameRegistrationDetails?.gameConfigIds || []).map(String);
+    const gameConfigIds = activeGameConfigIdsOf(registration);
     if (!gameConfigIds.includes(gameConfigId)) return false;
     const alreadyTeamed = teams.some(
       (t) =>
@@ -72,7 +77,7 @@ export default function TournamentTeamsTab() {
   };
 
   const registeredGameLabels = (registration) => {
-    const gameConfigIds = (registration.gameRegistrationDetails?.gameConfigIds || []).map(String);
+    const gameConfigIds = activeGameConfigIdsOf(registration);
     return gameConfigIds
       .map((id) => games.find((g) => g._id === id))
       .filter(Boolean)

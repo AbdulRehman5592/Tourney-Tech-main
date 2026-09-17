@@ -10,7 +10,9 @@
     "lint": "next lint",
     "seed:dummy-tournament": "node scripts/seed-dummy-tournament.js",
     "cleanup:orphan-registrations": "node scripts/cleanup-orphan-registrations.js",
-    "backfill:nationally-ranked": "node scripts/backfill-nationally-ranked.js"
+    "backfill:nationally-ranked": "node scripts/backfill-nationally-ranked.js",
+    "backup:registrations": "node scripts/backup-registrations.js",
+    "migrate:game-entries": "node scripts/migrate-game-registration-entries.js"
   },
   "dependencies": {
     "@g-loot/react-tournament-brackets": "^1.0.31-rc",

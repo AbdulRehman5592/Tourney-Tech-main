@@ -102,14 +102,16 @@ async function main() {
       await Registration.create({
         tournament: tournament._id,
         user: memberId,
-        gameRegistrationDetails: {
-          games: [game._id],
-          gameConfigIds: [gameConfigId],
-          team: team._id,
-          status: "approved",
-          paid: true,
-          paymentMethod: "cash",
-        },
+        gameEntries: [
+          {
+            game: game._id,
+            gameConfigId,
+            team: team._id,
+            status: "approved",
+            paid: true,
+            paymentMethod: "cash",
+          },
+        ],
       });
     }
   }

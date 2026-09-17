@@ -49,8 +49,11 @@ export default function GameRegistrationPage() {
         // for -- keyed by gameConfigId (Tournament.games[]._id), not the
         // catalog game id, since the same game can be scheduled more than
         // once as fully independent competitions.
-        const myRegisteredGameConfigIds =
-          myRegistration?.data?.data?.gameRegistrationDetails?.gameConfigIds || [];
+        const myRegisteredGameConfigIds = (
+          myRegistration?.data?.data?.gameEntries || []
+        )
+          .filter((e) => !e.removed && !e.cancelled)
+          .map((e) => e.gameConfigId);
         setRegisteredGameIds(
           myRegisteredGameConfigIds.map((id) => id.toString())
         );

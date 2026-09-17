@@ -100,19 +100,24 @@ async function seedDummyTournament() {
     teams.push(team);
   }
 
+  const gameConfigId = tournament.games[0]._id;
+
   const registrations = [];
   for (const team of teams) {
     for (const memberId of team.members) {
       const registration = await Registration.create({
         tournament: tournament._id,
         user: memberId,
-        gameRegistrationDetails: {
-          games: [game._id],
-          team: team._id,
-          status: "approved",
-          paid: true,
-          paymentMethod: "cash",
-        },
+        gameEntries: [
+          {
+            game: game._id,
+            gameConfigId,
+            team: team._id,
+            status: "approved",
+            paid: true,
+            paymentMethod: "cash",
+          },
+        ],
       });
       registrations.push(registration);
     }

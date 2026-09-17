@@ -110,15 +110,16 @@ export const POST = asyncHandler(async (req) => {
         const registration = await Registration.findOne({
           _id: registrationId,
           tournament: tournamentId,
-          "gameRegistrationDetails.gameConfigIds": gameConfigId,
+          "gameEntries.gameConfigId": gameConfigId,
         });
         if (!registration) {
           record(registrationId, "failed", "Registration not found for this tournament/game");
           continue;
         }
-        if (
-          registration.gameRegistrationDetails?.status === "rejected"
-        ) {
+        const entry = registration.gameEntries.find(
+          (e) => String(e.gameConfigId) === String(gameConfigId)
+        );
+        if (entry?.status === "rejected") {
           record(registrationId, "failed", "This registration was rejected");
           continue;
         }

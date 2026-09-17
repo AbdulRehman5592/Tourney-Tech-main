@@ -101,12 +101,12 @@ export async function createTeamForAcceptedTeamUp({ tournament, gameId, fromUser
     Registration.findOne({
       tournament: tournament._id,
       user: fromUser._id,
-      "gameRegistrationDetails.gameConfigIds": gameId,
+      "gameEntries.gameConfigId": gameId,
     }),
     Registration.findOne({
       tournament: tournament._id,
       user: toUser._id,
-      "gameRegistrationDetails.gameConfigIds": gameId,
+      "gameEntries.gameConfigId": gameId,
     }),
   ]);
 

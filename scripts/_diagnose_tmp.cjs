@@ -21,7 +21,7 @@ async function main() {
       _id: r._id,
       tournament: r.tournament,
       user: r.user,
-      gameRegistrationDetails: r.gameRegistrationDetails,
+      gameEntries: r.gameEntries,
     }, null, 2));
   }
 

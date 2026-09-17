@@ -106,7 +106,21 @@ export async function createOrUpdateRegistration({
   });
 
   const validGameConfigIds = resolvedSlots.map((s) => s._id);
-  const validCatalogGameIds = resolvedSlots.map((s) => s.game);
+
+  const resolvedPaymentDetails = buildPaymentDetails(
+    paymentMethod,
+    paymentDetails,
+    requireReceipt
+  );
+
+  const makeEntry = (slot) => ({
+    game: slot.game,
+    gameConfigId: slot._id,
+    status: "pending",
+    paid: false,
+    paymentMethod: paymentMethod || "cash",
+    paymentDetails: resolvedPaymentDetails,
+  });
 
   const existingRegistration = await Registration.findOne({
     tournament: tournamentId,
@@ -115,38 +129,21 @@ export async function createOrUpdateRegistration({
 
   if (existingRegistration?.cancelled) {
     // A previously-cancelled registration is a clean slate, not something to
-    // merge game lists into -- re-registering starts fresh with just the
-    // newly-requested games, and clears the old cancellation/refund state.
-    const registration = await Registration.findByIdAndUpdate(
-      existingRegistration._id,
-      {
-        gameRegistrationDetails: {
-          games: validCatalogGameIds,
-          gameConfigIds: validGameConfigIds,
-          status: "pending",
-          paid: false,
-          paymentMethod: paymentMethod || "cash",
-          paymentDetails: buildPaymentDetails(
-            paymentMethod,
-            paymentDetails,
-            requireReceipt
-          ),
-        },
-        cancelled: false,
-        cancelledAt: null,
-        refundStatus: "not_applicable",
-        refundNote: null,
-      },
-      { new: true }
-    );
+    // merge game entries into -- re-registering starts fresh with just the
+    // newly-requested games, and clears the old cancellation state.
+    existingRegistration.gameEntries = resolvedSlots.map(makeEntry);
+    existingRegistration.cancelled = false;
+    existingRegistration.cancelledAt = null;
+    await existingRegistration.save();
 
-    return { registration, created: false };
+    return { registration: existingRegistration, created: false };
   }
 
   if (existingRegistration) {
-    const existingConfigIds = (
-      existingRegistration.gameRegistrationDetails?.gameConfigIds || []
-    ).map((id) => id.toString());
+    const activeEntries = existingRegistration.gameEntries.filter(
+      (e) => !e.removed && !e.cancelled
+    );
+    const existingConfigIds = activeEntries.map((e) => e.gameConfigId.toString());
     const requestedConfigIds = validGameConfigIds.map((id) => id.toString());
     const allRequestedAlreadyRegistered = requestedConfigIds.every((id) =>
       existingConfigIds.includes(id)
@@ -159,59 +156,48 @@ export async function createOrUpdateRegistration({
       );
     }
 
-    // Merge with previously registered games instead of overwriting them,
-    // so registering for game 2 doesn't drop the earlier game 1 record.
-    const newConfigIds = validGameConfigIds.filter(
-      (id) => !existingConfigIds.includes(id.toString())
-    );
-    const mergedConfigIds = [
-      ...existingRegistration.gameRegistrationDetails.gameConfigIds,
-      ...newConfigIds,
-    ];
-    const mergedCatalogIds = mergedConfigIds
-      .map((configId) => tournament.games.id(configId)?.game)
-      .filter(Boolean);
+    // Add only the genuinely new games as fresh pending entries -- every
+    // existing entry's status/paid/team is left completely untouched, so
+    // registering for game 2 never disturbs an already-approved game 1.
+    // A game the player previously dropped (removed/cancelled entry) is
+    // reactivated in place rather than duplicated.
+    for (const slot of resolvedSlots) {
+      const configIdStr = slot._id.toString();
+      if (existingConfigIds.includes(configIdStr)) continue;
 
-    const registration = await Registration.findByIdAndUpdate(
-      existingRegistration._id,
-      {
-        gameRegistrationDetails: {
-          games: mergedCatalogIds,
-          gameConfigIds: mergedConfigIds,
-          status: "pending",
-          paid: false,
-          paymentMethod: paymentMethod || "cash",
-          paymentDetails: buildPaymentDetails(
-            paymentMethod,
-            paymentDetails,
-            requireReceipt
-          ),
-        },
-      },
-      { new: true }
-    );
+      const droppedEntry = existingRegistration.gameEntries.find(
+        (e) =>
+          e.gameConfigId.toString() === configIdStr && (e.removed || e.cancelled)
+      );
 
-    return { registration, created: false };
+      if (droppedEntry) {
+        droppedEntry.status = "pending";
+        droppedEntry.paid = false;
+        droppedEntry.paymentMethod = paymentMethod || "cash";
+        droppedEntry.paymentDetails = resolvedPaymentDetails;
+        droppedEntry.removed = false;
+        droppedEntry.removedAt = null;
+        droppedEntry.removedReason = "";
+        droppedEntry.cancelled = false;
+        droppedEntry.cancelledAt = null;
+        droppedEntry.refundStatus = "not_applicable";
+        droppedEntry.team = null;
+      } else {
+        existingRegistration.gameEntries.push(makeEntry(slot));
+      }
+    }
+
+    existingRegistration.cancelled = false;
+    existingRegistration.cancelledAt = null;
+    await existingRegistration.save();
+
+    return { registration: existingRegistration, created: false };
   }
-
-  const gameRegistrationDetails = {
-    games: validCatalogGameIds,
-    gameConfigIds: validGameConfigIds,
-    status: "pending",
-    paid: false,
-    paymentMethod: paymentMethod || "cash",
-  };
-
-  gameRegistrationDetails.paymentDetails = buildPaymentDetails(
-    paymentMethod,
-    paymentDetails,
-    requireReceipt
-  );
 
   const registration = new Registration({
     tournament: new mongoose.Types.ObjectId(tournamentId),
     user: new mongoose.Types.ObjectId(userId),
-    gameRegistrationDetails,
+    gameEntries: resolvedSlots.map(makeEntry),
   });
 
   try {

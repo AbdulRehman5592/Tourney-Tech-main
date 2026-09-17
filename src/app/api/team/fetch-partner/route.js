@@ -35,8 +35,13 @@ export const GET = asyncHandler(async (req) => {
     user: user._id,
   })
     .populate("tournament")
-    .populate("gameRegistrationDetails.games")
+    .populate("gameEntries.game")
     .lean();
+
+  const registeredGamesOf = (registration) =>
+    (registration?.gameEntries || [])
+      .filter((e) => !e.removed && !e.cancelled)
+      .map((e) => e.game);
 
   // Format partner teams
   const partnerTournaments = teams.map((team) => {
@@ -52,7 +57,7 @@ export const GET = asyncHandler(async (req) => {
       location: team.tournament?.location,
       status: team.tournament?.status,
       partner: team.partner,
-      registeredGames: registration?.gameRegistrationDetails?.games || [],
+      registeredGames: registeredGamesOf(registration),
       tournament: team.tournament,
       accessType: "partner",
     };
@@ -78,7 +83,7 @@ export const GET = asyncHandler(async (req) => {
       location: tournament.location,
       status: tournament.status,
       partner: partnerTeam?.partner || null,
-      registeredGames: registration?.gameRegistrationDetails?.games || [],
+      registeredGames: registeredGamesOf(registration),
       tournament: tournament,
       accessType: "organizer",
     };
