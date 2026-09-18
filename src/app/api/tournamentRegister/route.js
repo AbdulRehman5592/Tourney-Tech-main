@@ -112,7 +112,7 @@ export const GET = asyncHandler(async (req) => {
   // still needed a decision.
   const registrations = await Registration.find({ cancelled: { $ne: true } })
     .populate("tournament")
-    .populate("user", "username email")
+    .populate("user", "username email region")
     .populate({
       path: "gameEntries.game",
       model: "Game",

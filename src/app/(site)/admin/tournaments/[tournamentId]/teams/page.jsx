@@ -7,6 +7,7 @@ import api from "@/utils/axios";
 import { Download, Pencil, Trash2 } from "lucide-react";
 import EditTeamForm from "@/components/ui/admin/team/EditTeamForm";
 import { formatGameConfigLabel } from "@/utils/gameConfigLabel";
+import { regionName } from "@/constants/regions";
 import { useWorkspaceTournament } from "../layout";
 
 export default function TournamentTeamsTab() {
@@ -263,7 +264,7 @@ export default function TournamentTeamsTab() {
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Select</th>
                 <th className="px-4 py-2 text-left font-medium">Player</th>
-                <th className="px-4 py-2 text-left font-medium">Email</th>
+                <th className="px-4 py-2 text-left font-medium">Region</th>
                 <th className="px-4 py-2 text-left font-medium">Status</th>
               </tr>
             </thead>
@@ -294,7 +295,7 @@ export default function TournamentTeamsTab() {
                         `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||
                         "-"}
                     </td>
-                    <td className="px-4 py-2">{registration.user?.email || "-"}</td>
+                    <td className="px-4 py-2">{regionName(registration.user?.region) || "-"}</td>
                     <td className="px-4 py-2 text-xs">
                       {existingTeam ? (
                         <span className="text-muted-foreground">
