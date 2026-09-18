@@ -85,6 +85,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
           lateFee: g.lateFee || "",
+          status: g.status || "upcoming",
           earlyRegistrationCutoff: toDateTimeLocalInput(g.earlyRegistrationCutoff),
           scheduledAt: toDateTimeLocalInput(g.scheduledAt),
           eventTitle: g.eventTitle || "",
@@ -169,6 +170,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         game: "",
         entryFee: "",
         lateFee: "",
+        status: "upcoming",
         earlyRegistrationCutoff: "",
         scheduledAt: "",
         eventTitle: "",
@@ -352,6 +354,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
             game: g.game,
             entryFee: Number(g.entryFee),
             lateFee: Number(g.lateFee) || 0,
+            status: g.status || "upcoming",
             earlyRegistrationCutoff: earlyRegistrationCutoffPayload(g.earlyRegistrationCutoff),
             scheduledAt: scheduledAtPayload(g.scheduledAt),
             eventTitle: g.eventTitle?.trim(),
@@ -735,6 +738,27 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
                   }
                   className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
                 />
+              </div>
+
+              {/* Game Status -- purely informational for the floor/players
+                  (Overview tab shows this, read-only); independent of
+                  bracket-generation progress. */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Status
+                </label>
+                <select
+                  value={field.status || "upcoming"}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "status", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                >
+                  <option value="upcoming">Upcoming</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
               </div>
 
               {/* Early Registration Cutoff -- once this passes, new

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "react-hot-toast";
 import {
   Award,
   CircleDollarSign,
@@ -10,7 +8,6 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import api from "@/utils/axios";
 import GameScheduleBadge from "@/components/ui/tournaments/GameScheduleBadge";
 import { compareByScheduledAt } from "@/utils/gameSchedule";
 import { useWorkspaceTournament } from "./layout";
@@ -75,22 +72,8 @@ function DetailRow({ icon: Icon, label, value, color = "var(--info-color)", wide
 }
 
 export default function TournamentOverviewTab() {
-  const { tournament, refetch } = useWorkspaceTournament();
+  const { tournament } = useWorkspaceTournament();
   const games = tournament.games || [];
-  const [savingId, setSavingId] = useState(null);
-
-  const handleStatusChange = async (game, status) => {
-    setSavingId(game._id);
-    try {
-      await api.patch(`/api/tournaments/${tournament._id}/games/${game._id}`, { status });
-      toast.success("Game status updated");
-      await refetch();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update game status");
-    } finally {
-      setSavingId(null);
-    }
-  };
 
   return (
     <div>
@@ -123,7 +106,8 @@ export default function TournamentOverviewTab() {
                 />
 
                 <div className="relative flex flex-col gap-4 p-5">
-                  {/* Header: title + editable status */}
+                  {/* Header: title + status (read-only here -- set from the
+                      Create/Edit Tournament form, the actual source of truth) */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -133,19 +117,12 @@ export default function TournamentOverviewTab() {
                         {game.eventTitle || game.game?.name || "Unnamed Game"}
                       </p>
                     </div>
-                    <select
-                      value={game.status || "upcoming"}
-                      disabled={savingId === game._id}
-                      onChange={(e) => handleStatusChange(game, e.target.value)}
-                      className="shrink-0 cursor-pointer rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50"
-                      style={{ background: statusStyle.bg, color: statusStyle.color, border: "none" }}
+                    <span
+                      className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{ background: statusStyle.bg, color: statusStyle.color }}
                     >
-                      {Object.entries(STATUS_STYLE).map(([value, s]) => (
-                        <option key={value} value={value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
+                      {statusStyle.label}
+                    </span>
                   </div>
 
                   {/* Fee, prominent */}
