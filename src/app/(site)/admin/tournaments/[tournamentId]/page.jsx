@@ -30,14 +30,15 @@ const FORMAT_LABEL = {
   double_elimination: "Double Elimination",
 };
 
-// A distinct hue per format so the cards read as visually varied at a
-// glance, not just five identical boxes with different text.
-const FORMAT_HUE = {
-  round_robin: 210, // blue
-  mesh: 265, // violet
-  standard: 172, // teal
-  single_elimination: 28, // orange
-  double_elimination: 330, // pink
+// A distinct theme color per format (one of the app's 5 named accents) so
+// the cards read as visually varied at a glance without introducing colors
+// that clash with the rest of the dark UI.
+const FORMAT_COLOR = {
+  round_robin: "var(--info-color)",
+  mesh: "var(--warning-color)",
+  standard: "var(--success-color)",
+  single_elimination: "var(--accent-color)",
+  double_elimination: "var(--error-color)",
 };
 
 function roundsLabel(game) {
@@ -53,14 +54,17 @@ function roundsLabel(game) {
   return null;
 }
 
-function DetailRow({ icon: Icon, label, value, hue = 210, wide = false }) {
+function DetailRow({ icon: Icon, label, value, color = "var(--info-color)", wide = false }) {
   return (
     <div className={`flex items-start gap-2.5 ${wide ? "col-span-2" : ""}`}>
       <span
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-        style={{ background: `hsl(${hue} 70% 50% / 0.16)` }}
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border"
+        style={{
+          background: `color-mix(in srgb, ${color} 22%, var(--card-background))`,
+          borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
+        }}
       >
-        <Icon size={13} style={{ color: `hsl(${hue} 70% 60%)` }} />
+        <Icon size={14} strokeWidth={2.25} style={{ color }} />
       </span>
       <div className="min-w-0">
         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -104,18 +108,18 @@ export default function TournamentOverviewTab() {
             const statusStyle = STATUS_STYLE[game.status] || STATUS_STYLE.upcoming;
             const rounds = roundsLabel(game);
             const isDoubles = game.doublesEnabled || game.mixedDoublesEnabled;
-            const hue = FORMAT_HUE[game.format] ?? 210;
+            const formatColor = FORMAT_COLOR[game.format] || "var(--info-color)";
 
             return (
               <div
                 key={game._id || index}
                 className="group relative flex flex-col overflow-hidden rounded-3xl border border-[var(--border-color)] bg-[var(--card-background)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
-                style={{ borderTopColor: `hsl(${hue} 70% 50%)`, borderTopWidth: 3 }}
+                style={{ borderTopColor: formatColor, borderTopWidth: 3 }}
               >
                 {/* Ambient tint so each format-colored card reads distinctly */}
                 <div
-                  className="pointer-events-none absolute inset-x-0 top-0 h-24 opacity-[0.08]"
-                  style={{ background: `linear-gradient(180deg, hsl(${hue} 80% 55%), transparent)` }}
+                  className="pointer-events-none absolute inset-x-0 top-0 h-24 opacity-[0.12]"
+                  style={{ background: `linear-gradient(180deg, ${formatColor}, transparent)` }}
                 />
 
                 <div className="relative flex flex-col gap-4 p-5">
@@ -160,16 +164,16 @@ export default function TournamentOverviewTab() {
 
                   {/* Detail grid */}
                   <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                    <DetailRow icon={Users} label="Players" hue={hue}
+                    <DetailRow icon={Users} label="Players" color={formatColor}
                       value={game.tournamentTeamType === "double_player" ? "Double player" : "Single player"} />
-                    <DetailRow icon={Repeat} label="Format" hue={hue}
+                    <DetailRow icon={Repeat} label="Format" color={formatColor}
                       value={FORMAT_LABEL[game.format] || game.format} />
-                    {rounds && <DetailRow icon={Repeat} label="Rounds" hue={hue} value={rounds} />}
+                    {rounds && <DetailRow icon={Repeat} label="Rounds" color={formatColor} value={rounds} />}
                     {game.playoffEnabled && (
                       <DetailRow
                         icon={Trophy}
                         label="Playoff"
-                        hue={hue}
+                        color={formatColor}
                         wide
                         value={`Top ${game.playoffQualifiersCount ?? "TBD"} → ${FORMAT_LABEL[game.playoffFormat] || game.playoffFormat}`}
                       />
@@ -178,7 +182,7 @@ export default function TournamentOverviewTab() {
                       <DetailRow
                         icon={Award}
                         label={game.doublesEnabled && game.mixedDoublesEnabled ? "Side-pots" : game.doublesEnabled ? "Doubles" : "Mixed Doubles"}
-                        hue={hue}
+                        color={formatColor}
                         value={
                           game.doublesEnabled && game.mixedDoublesEnabled
                             ? `$${game.doublesCost ?? 0} / $${game.mixedDoublesCost ?? 0}`
@@ -187,7 +191,7 @@ export default function TournamentOverviewTab() {
                       />
                     )}
                     {game.locations?.length > 0 && (
-                      <DetailRow icon={MapPin} label="Location" hue={hue} value={game.locations.join(", ")} />
+                      <DetailRow icon={MapPin} label="Location" color={formatColor} value={game.locations.join(", ")} />
                     )}
                   </div>
 

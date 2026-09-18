@@ -10,6 +10,10 @@ import { Tournament } from "@/models/Tournament";
 import { Team } from "@/models/Team";
 import { Registration } from "@/models/Registration";
 import { TeamUp } from "@/models/TeamUp";
+// Registered for its side effect only -- GET's .populate("games.game")
+// below needs the Game schema registered with Mongoose before it runs, and
+// nothing else in this route imports it.
+import "@/models/Game";
 
 export const PATCH = asyncHandler(async (req, context) => {
   await requireAdmin(); // Only global admin can update tournaments
