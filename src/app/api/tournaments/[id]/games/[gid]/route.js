@@ -39,6 +39,7 @@ export const PATCH = asyncHandler(async (req, context) => {
     "game",
     "entryFee",
     "lateFee",
+    "status",
     "eventTitle",
     "format",
     "meshRounds",
@@ -83,6 +84,11 @@ export const PATCH = asyncHandler(async (req, context) => {
   }
 
   // Validate enums manually if needed
+  const validStatuses = ["upcoming", "ongoing", "completed", "cancelled"];
+  if (body.status && !validStatuses.includes(body.status)) {
+    throw new ApiError(400, "Invalid status");
+  }
+
   const validFormats = [
     "round_robin",
     "mesh",

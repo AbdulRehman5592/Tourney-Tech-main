@@ -71,6 +71,16 @@ const TournamentGameSchema = new Schema({
     enum: ["single_elimination", "double_elimination"],
     default: "single_elimination",
   },
+  // Admin-set display status for this specific game, shown on the Overview
+  // tab's game cards -- distinct from round1Status below, which tracks
+  // bracket-generation progress and is driven by actual bracket actions, not
+  // manually set. This field is purely informational (e.g. "mark this game
+  // ongoing/completed for the floor") and never gates any bracket logic.
+  status: {
+    type: String,
+    enum: ["upcoming", "ongoing", "completed", "cancelled"],
+    default: "upcoming",
+  },
   round1Status: {
     type: String,
     enum: [
