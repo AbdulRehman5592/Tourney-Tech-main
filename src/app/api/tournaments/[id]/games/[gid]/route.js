@@ -38,6 +38,8 @@ export const PATCH = asyncHandler(async (req, context) => {
   const allowedFields = [
     "game",
     "entryFee",
+    "lateFee",
+    "status",
     "eventTitle",
     "format",
     "meshRounds",
@@ -65,6 +67,9 @@ export const PATCH = asyncHandler(async (req, context) => {
   if ("scheduledAt" in body) {
     game.scheduledAt = parseScheduledAt(body.scheduledAt);
   }
+  if ("earlyRegistrationCutoff" in body) {
+    game.earlyRegistrationCutoff = parseScheduledAt(body.earlyRegistrationCutoff);
+  }
 
   if ("eventTitle" in body && (!body.eventTitle || !body.eventTitle.toString().trim())) {
     throw new ApiError(400, "Event title is required");
@@ -79,6 +84,11 @@ export const PATCH = asyncHandler(async (req, context) => {
   }
 
   // Validate enums manually if needed
+  const validStatuses = ["upcoming", "ongoing", "completed", "cancelled"];
+  if (body.status && !validStatuses.includes(body.status)) {
+    throw new ApiError(400, "Invalid status");
+  }
+
   const validFormats = [
     "round_robin",
     "mesh",

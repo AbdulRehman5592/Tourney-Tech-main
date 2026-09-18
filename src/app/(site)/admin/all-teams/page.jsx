@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import api from "@/utils/axios"; // Axios instance
 import { toast } from "react-hot-toast";
+import * as XLSX from "xlsx";
 import EditTeamForm from "@/components/ui/admin/team/EditTeamForm";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, Download } from "lucide-react";
 
 export default function AdminTeamsTable() {
   const [teams, setTeams] = useState([]);
@@ -92,6 +93,28 @@ export default function AdminTeamsTable() {
     );
   });
 
+  // Export whatever's currently filtered by the search box above -- lets an
+  // organizer narrow to one game/tournament (search matches game/tournament
+  // name too) and export just that roster.
+  const handleExport = () => {
+    const exportRows = filteredTeams.map((team) => ({
+      "Team ID": team.displayId || "—",
+      Name: team.name,
+      Tournament: team.tournament?.name || "N/A",
+      Game: teamGameLabel(team) || "N/A",
+      Members: team.members?.map((m) => m.username).join(", ") || "",
+      "Created By": team.createdBy
+        ? `${team.createdBy.firstname} ${team.createdBy.lastname}`
+        : "N/A",
+      "Created At": team.createdAt ? new Date(team.createdAt).toLocaleString() : "-",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
+    XLSX.writeFile(workbook, `all-teams-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   // ✅ Pagination
   const indexOfLastRow = rowsPerPage === "all" ? filteredTeams.length : currentPage * rowsPerPage;
   const indexOfFirstRow = rowsPerPage === "all" ? 0 : indexOfLastRow - rowsPerPage;
@@ -104,7 +127,18 @@ export default function AdminTeamsTable() {
 
   return (
     <div className="p-4 w-full">
-      <h2 className="text-2xl font-bold mb-4">All Teams</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-2xl font-bold">All Teams</h2>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={filteredTeams.length === 0}
+          className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-color)] px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-40"
+        >
+          <Download className="h-4 w-4" />
+          Export to Excel
+        </button>
+      </div>
 
       {/* Search + Sort Row */}
       <div className="mb-4 flex flex-col sm:flex-row justify-between gap-2">

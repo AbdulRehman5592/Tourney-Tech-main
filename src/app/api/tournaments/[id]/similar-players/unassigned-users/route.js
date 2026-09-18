@@ -27,8 +27,13 @@ export const GET = asyncHandler(async (req, context) => {
   // ✅ Tournament ke sab registrations
   const registrations = await Registration.find({
     tournament: tournamentId,
-    "gameRegistrationDetails.status": "approved",
-    ...(gameConfigId && { "gameRegistrationDetails.gameConfigIds": { $in: [gameConfigId] } }),
+    gameEntries: {
+      $elemMatch: {
+        status: "approved",
+        removed: { $ne: true },
+        ...(gameConfigId && { gameConfigId }),
+      },
+    },
   }).populate({
     path: "user",
     model: "User",

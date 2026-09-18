@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
+import * as XLSX from "xlsx";
 import api from "@/utils/axios";
-import { Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Trash2 } from "lucide-react";
 import EditTeamForm from "@/components/ui/admin/team/EditTeamForm";
 import { formatGameConfigLabel } from "@/utils/gameConfigLabel";
+import { regionName } from "@/constants/regions";
 import { useWorkspaceTournament } from "../layout";
 
 export default function TournamentTeamsTab() {
@@ -20,6 +22,10 @@ export default function TournamentTeamsTab() {
   const [gameConfigId, setGameConfigId] = useState("");
   const [selected, setSelected] = useState(new Set());
   const [creating, setCreating] = useState(false);
+
+  // Separate filter for the Teams list below -- lets an organizer (and the
+  // Excel export) narrow down to just one game's roster.
+  const [teamsGameFilter, setTeamsGameFilter] = useState("all");
 
   const fetchTeams = async () => {
     try {
@@ -59,9 +65,14 @@ export default function TournamentTeamsTab() {
   const formGameConfig = games.find((g) => g._id === gameConfigId);
   const expectedTeamSize = formGameConfig?.tournamentTeamType === "single_player" ? 1 : 2;
 
+  const activeGameConfigIdsOf = (registration) =>
+    (registration.gameEntries || [])
+      .filter((e) => !e.removed && !e.cancelled)
+      .map((e) => String(e.gameConfigId));
+
   const isEligible = (registration) => {
     if (!gameConfigId) return false;
-    const gameConfigIds = (registration.gameRegistrationDetails?.gameConfigIds || []).map(String);
+    const gameConfigIds = activeGameConfigIdsOf(registration);
     if (!gameConfigIds.includes(gameConfigId)) return false;
     const alreadyTeamed = teams.some(
       (t) =>
@@ -71,12 +82,50 @@ export default function TournamentTeamsTab() {
     return !alreadyTeamed;
   };
 
-  const registeredGameLabels = (registration) => {
-    const gameConfigIds = (registration.gameRegistrationDetails?.gameConfigIds || []).map(String);
-    return gameConfigIds
-      .map((id) => games.find((g) => g._id === id))
-      .filter(Boolean)
-      .map((g) => formatGameConfigLabel(g));
+  // Only players registered for the currently-selected game belong in the
+  // "form a team" list at all -- everyone else is irrelevant to this action
+  // and was just cluttering the table.
+  const formableRegistrations = gameConfigId
+    ? registrations.filter((r) => activeGameConfigIdsOf(r).includes(gameConfigId))
+    : [];
+
+  const teamForRegistrationInSelectedGame = (registration) =>
+    teams.find(
+      (t) =>
+        String(t.gameConfigId) === gameConfigId &&
+        (t.members || []).some((m) => m._id === registration.user?._id)
+    );
+
+  const teamsForExport = useMemo(
+    () => (teamsGameFilter === "all" ? teams : teams.filter((t) => t.gameConfigId === teamsGameFilter)),
+    [teams, teamsGameFilter]
+  );
+
+  const handleExportTeams = () => {
+    const exportRows = teamsForExport.map((team) => ({
+      Game: games.find((g) => g._id === team.gameConfigId)?.eventTitle || team.game?.name || "N/A",
+      "Team Name": team.name,
+      "Serial No.": team.serialNo,
+      Members: team.members?.length
+        ? team.members
+            .map((m) => m.username || `${m.firstname || ""} ${m.lastname || ""}`.trim())
+            .join(", ")
+        : "No members",
+      "Checked In": team.checkedIn ? "Yes" : "No",
+      "Created By":
+        team.createdBy?.username ||
+        `${team.createdBy?.firstname || ""} ${team.createdBy?.lastname || ""}`.trim() ||
+        "N/A",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
+    const gameSuffix =
+      teamsGameFilter === "all"
+        ? "all-games"
+        : (games.find((g) => g._id === teamsGameFilter)?.eventTitle || "game").replace(/\s+/g, "-");
+    XLSX.writeFile(workbook, `teams-${gameSuffix}-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const toggleSelect = (registrationId) => {
@@ -215,13 +264,21 @@ export default function TournamentTeamsTab() {
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Select</th>
                 <th className="px-4 py-2 text-left font-medium">Player</th>
-                <th className="px-4 py-2 text-left font-medium">Email</th>
-                <th className="px-4 py-2 text-left font-medium">Games</th>
+                <th className="px-4 py-2 text-left font-medium">Region</th>
+                <th className="px-4 py-2 text-left font-medium">Status</th>
               </tr>
             </thead>
             <tbody className="bg-[var(--background)] text-[var(--foreground)]">
-              {registrations.map((registration) => {
+              {formableRegistrations.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-xs text-muted-foreground">
+                    No players registered for this game yet.
+                  </td>
+                </tr>
+              ) : (
+                formableRegistrations.map((registration) => {
                 const eligible = isEligible(registration);
+                const existingTeam = teamForRegistrationInSelectedGame(registration);
                 return (
                   <tr key={registration._id} className="border-t border-[var(--border-color)]">
                     <td className="px-4 py-2">
@@ -238,25 +295,65 @@ export default function TournamentTeamsTab() {
                         `${registration.user?.firstname || ""} ${registration.user?.lastname || ""}`.trim() ||
                         "-"}
                     </td>
-                    <td className="px-4 py-2">{registration.user?.email || "-"}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">
-                      {registeredGameLabels(registration).join(", ") || "-"}
+                    <td className="px-4 py-2">{regionName(registration.user?.region) || "-"}</td>
+                    <td className="px-4 py-2 text-xs">
+                      {existingTeam ? (
+                        <span className="text-muted-foreground">
+                          Already teamed up — {existingTeam.name}
+                        </span>
+                      ) : (
+                        <span
+                          className="rounded-full px-2 py-0.5 font-semibold"
+                          style={{
+                            background: "color-mix(in srgb, var(--success-color) 14%, transparent)",
+                            color: "var(--success-color)",
+                          }}
+                        >
+                          Available
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      <h2 className="mb-3 text-sm font-medium text-foreground">
-        Teams <span className="text-muted-foreground">({teams.length})</span>
-      </h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-foreground">
+          Teams <span className="text-muted-foreground">({teamsForExport.length})</span>
+        </h2>
+        <div className="flex items-center gap-2">
+          <select
+            value={teamsGameFilter}
+            onChange={(e) => setTeamsGameFilter(e.target.value)}
+            className="rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] px-3 py-1.5 text-sm text-[var(--foreground)]"
+          >
+            <option value="all">All games</option>
+            {games.map((g) => (
+              <option key={g._id} value={g._id}>
+                {formatGameConfigLabel(g)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleExportTeams}
+            disabled={teamsForExport.length === 0}
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-color)] px-3 py-1.5 text-sm font-semibold text-black disabled:opacity-40"
+          >
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </button>
+        </div>
+      </div>
 
-      {teams.length === 0 ? (
+      {teamsForExport.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--background)] p-4 text-sm text-muted-foreground">
-          No teams registered for this tournament yet.
+          {teams.length === 0 ? "No teams registered for this tournament yet." : "No teams for this game."}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-3xl border border-[var(--border-color)]">
@@ -272,7 +369,7 @@ export default function TournamentTeamsTab() {
               </tr>
             </thead>
             <tbody className="bg-[var(--background)] text-[var(--foreground)]">
-              {teams.map((team) => (
+              {teamsForExport.map((team) => (
                 <tr key={team._id} className="border-t border-[var(--border-color)]">
                   <td className="px-4 py-2 font-medium">
                     {team.name}

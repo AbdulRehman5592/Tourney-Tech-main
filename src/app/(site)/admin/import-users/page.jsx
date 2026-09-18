@@ -73,7 +73,7 @@ export default function ImportUsersPage() {
     notesSheet["!cols"] = [{ wch: 16 }, { wch: 24 }, { wch: 70 }];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, "Users");
+    XLSX.utils.book_append_sheet(workbook, sheet, "Players");
     XLSX.utils.book_append_sheet(workbook, notesSheet, "Instructions");
     XLSX.writeFile(workbook, "user-import-template.xlsx");
   };
@@ -222,7 +222,7 @@ export default function ImportUsersPage() {
   return (
     <div className="min-h-screen p-2 sm:p-6 bg-[var(--background)] text-[var(--foreground)]">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-2">
-        <h1 className="text-2xl font-bold">Import Users from Excel</h1>
+        <h1 className="text-2xl font-bold">Import Players from Excel</h1>
         <button
           onClick={handleDownloadTemplate}
           className="px-4 py-2 rounded-lg font-semibold transition hover:scale-[1.02]"
@@ -329,7 +329,7 @@ export default function ImportUsersPage() {
                 className="px-4 py-2 rounded-lg font-semibold transition hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                 style={{ backgroundColor: "var(--success-color)", color: "white" }}
               >
-                {importing ? "Importing…" : `Import ${validCount} User${validCount === 1 ? "" : "s"}`}
+                {importing ? "Importing…" : `Import ${validCount} Player${validCount === 1 ? "" : "s"}`}
               </button>
             </div>
           </div>

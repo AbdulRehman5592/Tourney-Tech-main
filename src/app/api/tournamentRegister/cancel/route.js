@@ -65,49 +65,44 @@ export const POST = asyncHandler(async (req) => {
     throw new ApiError(400, "This registration has already been cancelled");
   }
 
-  const allGameConfigIds = registration.gameRegistrationDetails?.gameConfigIds || [];
-  const allGames = registration.gameRegistrationDetails?.games || [];
+  const activeEntries = registration.gameEntries.filter(
+    (e) => !e.removed && !e.cancelled
+  );
 
   // Which game(s) are actually being dropped, and what (if anything) is
   // left registered afterward -- dropping the last remaining game is just a
   // full cancellation.
-  let droppedGameConfigIds;
-  let remainingGameConfigIds;
-  let remainingGames;
-
+  let droppedEntries;
   if (gameConfigIdsInput && gameConfigIdsInput.length > 0) {
     const targets = gameConfigIdsInput.map((id) => id.toString());
-    droppedGameConfigIds = allGameConfigIds.filter((id) => targets.includes(id.toString()));
-    if (droppedGameConfigIds.length === 0) {
+    droppedEntries = activeEntries.filter((e) =>
+      targets.includes(e.gameConfigId.toString())
+    );
+    if (droppedEntries.length === 0) {
       throw new ApiError(404, "You are not registered for the selected game(s) in this tournament.");
     }
-    remainingGameConfigIds = allGameConfigIds.filter((id) => !targets.includes(id.toString()));
-    remainingGames = allGames.filter((_, i) => !targets.includes(allGameConfigIds[i].toString()));
   } else {
-    droppedGameConfigIds = allGameConfigIds;
-    remainingGameConfigIds = [];
-    remainingGames = [];
+    droppedEntries = activeEntries;
   }
 
+  const droppedGameConfigIds = droppedEntries.map((e) => e.gameConfigId);
   await removeFromTeams(tournamentId, userId, droppedGameConfigIds);
 
-  const wasPaid = registration.gameRegistrationDetails?.paid === true;
-  const fullyCancelled = remainingGameConfigIds.length === 0;
+  const now = new Date();
+  for (const entry of droppedEntries) {
+    entry.cancelled = true;
+    entry.cancelledAt = now;
+    entry.refundStatus = entry.paid ? "requested" : "not_applicable";
+    entry.team = null;
+  }
+
+  const wasPaid = droppedEntries.some((e) => e.paid);
+  const remainingActive = activeEntries.length - droppedEntries.length;
+  const fullyCancelled = remainingActive === 0;
 
   if (fullyCancelled) {
     registration.cancelled = true;
-    registration.cancelledAt = new Date();
-    registration.refundStatus = wasPaid ? "requested" : "not_applicable";
-  } else {
-    // Some games are still registered -- leave the registration (and its
-    // existing approval/payment status) in place for those, just drop the
-    // cancelled one from it. Approval/payment is tracked per registration,
-    // not per game, so a partial refund on an already-paid registration
-    // can't be automated here -- the alert email below flags it for the
-    // admin to sort out by hand instead of silently marking the whole
-    // registration for refund while other paid games are still active.
-    registration.gameRegistrationDetails.games = remainingGames;
-    registration.gameRegistrationDetails.gameConfigIds = remainingGameConfigIds;
+    registration.cancelledAt = now;
   }
   await registration.save();
 
@@ -117,8 +112,9 @@ export const POST = asyncHandler(async (req) => {
     cancellingUser.user?.username ||
     "A player";
 
-  const droppedGameFee = droppedGameConfigIds.reduce((sum, id) => {
-    const slot = tournament.games.id(id);
+  const droppedGameFee = droppedEntries.reduce((sum, entry) => {
+    if (entry.feeCharged != null) return sum + entry.feeCharged;
+    const slot = tournament.games.id(entry.gameConfigId);
     return sum + (slot?.entryFee || 0);
   }, 0);
 

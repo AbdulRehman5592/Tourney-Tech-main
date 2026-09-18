@@ -31,27 +31,24 @@ export default function MySoloTeamsPage() {
         for (const reg of myRegistrations) {
           const tournament = reg.tournament;
           if (!tournament) continue;
-          const games = reg.gameRegistrationDetails?.games || [];
-          const gameConfigIds = reg.gameRegistrationDetails?.gameConfigIds || [];
-          // Each `games[i]` pairs with `gameConfigIds[i]` -- the specific
-          // scheduled instance (Tournament.games[]._id), not the catalog
-          // game id, since the same catalog game can be scheduled more than
-          // once as fully independent competitions.
-          games.forEach((game, i) => {
-            const gameConfigId = gameConfigIds[i]?.toString();
+          const activeEntries = (reg.gameEntries || []).filter(
+            (e) => !e.removed && !e.cancelled
+          );
+          for (const entry of activeEntries) {
+            const gameConfigId = entry.gameConfigId?.toString();
             const gameConfig = (tournament.games || []).find(
               (g) => g._id === gameConfigId
             );
-            if (gameConfig?.tournamentTeamType !== "single_player") return;
+            if (gameConfig?.tournamentTeamType !== "single_player") continue;
             rows.push({
               key: `${tournament._id}-${gameConfigId}`,
               tournamentId: tournament._id,
               tournamentName: tournament.name,
               gameId: gameConfigId,
-              gameName: gameConfig?.eventTitle || game.name,
-              hasTeam: !!reg.gameRegistrationDetails?.team,
+              gameName: gameConfig?.eventTitle || entry.game?.name,
+              hasTeam: !!entry.team,
             });
-          });
+          }
         }
         setEntries(rows);
       } catch (err) {

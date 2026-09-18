@@ -12,7 +12,7 @@ export const GET = asyncHandler(async () => {
   // ✅ Current user ki registrations laao
   const currentUserRegistrations = await Registration.find({
     user: user?._id,
-    "gameRegistrationDetails.status": "approved",
+    gameEntries: { $elemMatch: { status: "approved", removed: { $ne: true } } },
   })
     .populate({
       path: "tournament",
@@ -20,7 +20,7 @@ export const GET = asyncHandler(async () => {
       select: "games", // only games needed
     })
     .populate({
-      path: "gameRegistrationDetails.games",
+      path: "gameEntries.game",
       model: "Game",
     });
 
@@ -45,18 +45,15 @@ export const GET = asyncHandler(async () => {
 
     const tournamentId = reg.tournament._id;
 
-    const gameDetailsArray = Array.isArray(reg.gameRegistrationDetails)
-      ? reg.gameRegistrationDetails
-      : [reg.gameRegistrationDetails].filter(Boolean);
-
-    const gameIds = gameDetailsArray.flatMap((d) =>
-      (Array.isArray(d.games) ? d.games : [d.games]).map((g) => g._id || g)
-    );
+    const gameIds = (reg.gameEntries || [])
+      .filter((e) => e.status === "approved" && !e.removed)
+      .map((e) => e.game?._id || e.game);
 
     const matchingRegistrations = await Registration.find({
       tournament: tournamentId,
-      "gameRegistrationDetails.games": { $in: gameIds },
-      "gameRegistrationDetails.status": "approved",
+      gameEntries: {
+        $elemMatch: { game: { $in: gameIds }, status: "approved", removed: { $ne: true } },
+      },
       user: { $ne: user._id },
     })
       .populate({
@@ -65,7 +62,7 @@ export const GET = asyncHandler(async () => {
         select: "-password -refreshToken -accessToken -__v",
       })
       .populate({
-        path: "gameRegistrationDetails.games",
+        path: "gameEntries.game",
         model: "Game",
       });
 

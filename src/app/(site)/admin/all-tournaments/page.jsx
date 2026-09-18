@@ -414,9 +414,9 @@ export default function AdminAllTournamentsPage() {
             // specific scheduled instance, and not already on a team for it.
             const isEligibleForTeamForming = (registration) => {
               if (!formState.gameConfigId) return false;
-              const gameConfigIds = (
-                registration.gameRegistrationDetails?.gameConfigIds || []
-              ).map(String);
+              const gameConfigIds = (registration.gameEntries || [])
+                .filter((e) => !e.removed && !e.cancelled)
+                .map((e) => String(e.gameConfigId));
               if (!gameConfigIds.includes(formState.gameConfigId)) return false;
               const alreadyTeamed = tournamentTeams.some(
                 (t) =>
@@ -595,11 +595,16 @@ export default function AdminAllTournamentsPage() {
                           </thead>
                           <tbody className="bg-[var(--background)] text-[var(--foreground)]">
                             {tournamentRegistrations.map((registration) => {
+                              const activeEntries = (registration.gameEntries || []).filter(
+                                (e) => !e.removed && !e.cancelled
+                              );
+                              const selectedEntry = activeEntries.find(
+                                (e) => String(e.gameConfigId) === String(formState.gameConfigId)
+                              );
                               const team = tournamentTeams.find(
                                 (t) =>
                                   t._id ===
-                                  (registration.gameRegistrationDetails?.team?._id ||
-                                    registration.gameRegistrationDetails?.team)
+                                  (selectedEntry?.team?._id || selectedEntry?.team)
                               );
                               const eligible = isEligibleForTeamForming(registration);
 
@@ -629,11 +634,8 @@ export default function AdminAllTournamentsPage() {
                                   </td>
                                   <td className="px-4 py-2">{registration.user?.email || "-"}</td>
                                   <td className="px-4 py-2">
-                                    {(registration.gameRegistrationDetails?.gameConfigIds || [])
-                                      .map(String)
-                                      .map((configId) =>
-                                        tournamentGames.find((g) => g._id === configId)
-                                      )
+                                    {activeEntries
+                                      .map((e) => tournamentGames.find((g) => String(g._id) === String(e.gameConfigId)))
                                       .filter(Boolean)
                                       .map(formatGameConfigLabel)
                                       .join(", ") || "-"}
@@ -642,7 +644,7 @@ export default function AdminAllTournamentsPage() {
                                     {team ? team.name : "Not teamed up yet"}
                                   </td>
                                   <td className="px-4 py-2 capitalize">
-                                    {registration.gameRegistrationDetails?.status || "pending"}
+                                    {selectedEntry?.status || activeEntries[0]?.status || "pending"}
                                   </td>
                                 </tr>
                               );

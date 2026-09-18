@@ -133,14 +133,19 @@ export const POST = asyncHandler(async (req) => {
     Registration.findOne({
       tournament: tournamentId,
       user: user._id,
-      "gameRegistrationDetails.gameConfigIds": gameConfigId,
-    }).populate("gameRegistrationDetails.games"),
+      "gameEntries.gameConfigId": gameConfigId,
+    }).populate("gameEntries.game"),
     Registration.findOne({
       tournament: tournamentId,
       user: partnerId,
-      "gameRegistrationDetails.gameConfigIds": gameConfigId,
-    }).populate("gameRegistrationDetails.games"),
+      "gameEntries.gameConfigId": gameConfigId,
+    }).populate("gameEntries.game"),
   ]);
+
+  const registeredGamesOf = (registration) =>
+    (registration?.gameEntries || [])
+      .filter((e) => !e.removed && !e.cancelled)
+      .map((e) => e.game);
 
   if (!ownerReg || !partnerReg) {
     throw new ApiResponse(
@@ -185,9 +190,8 @@ export const POST = asyncHandler(async (req) => {
       {
         team: populatedTeam,
         tournament: populatedTeam?.tournament || null,
-        ownerRegisteredGames: ownerReg?.gameRegistrationDetails?.games || [],
-        partnerRegisteredGames:
-          partnerReg?.gameRegistrationDetails?.games || [],
+        ownerRegisteredGames: registeredGamesOf(ownerReg),
+        partnerRegisteredGames: registeredGamesOf(partnerReg),
       },
       "Team created successfully"
     )

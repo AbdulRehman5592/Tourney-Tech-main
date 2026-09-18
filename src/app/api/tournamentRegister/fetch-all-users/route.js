@@ -12,7 +12,7 @@ export const GET = asyncHandler(async () => {
   const fetchAllRegisterdUsersInTournament = await Registration.find()
     .populate("user")
     .populate({
-      path: "gameRegistrationDetails.games",
+      path: "gameEntries.game",
       model: "Game",
     })
     .populate("tournament")

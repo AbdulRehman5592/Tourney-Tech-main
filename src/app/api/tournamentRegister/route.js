@@ -96,7 +96,7 @@ export const GET = asyncHandler(async (req) => {
       cancelled: { $ne: true },
     })
       .populate({
-        path: "gameRegistrationDetails.games",
+        path: "gameEntries.game",
         model: "Game",
       })
       .lean();
@@ -112,39 +112,43 @@ export const GET = asyncHandler(async (req) => {
   // still needed a decision.
   const registrations = await Registration.find({ cancelled: { $ne: true } })
     .populate("tournament")
-    .populate("user", "username email")
+    .populate("user", "username email region")
     .populate({
-      path: "gameRegistrationDetails.games",
+      path: "gameEntries.game",
       model: "Game",
     })
     .populate({
-      path: "gameRegistrationDetails.team",
+      path: "gameEntries.team",
       model: "Team",
       strictPopulate: false,
     })
     .populate({
-      path: "gameRegistrationDetails.paymentDetails.bankId",
+      path: "gameEntries.paymentDetails.bankId",
       model: "BankDetails",
       strictPopulate: false,
     })
     .sort({ createdAt: -1 })
     .lean();
 
-  // Flag transaction IDs reused across more than one registration -- a real
+  // Flag transaction IDs reused across more than one game entry -- a real
   // one should never appear twice, so a repeat is a strong signal someone
-  // copy-pasted a screenshot/ID from another registration.
+  // copy-pasted a screenshot/ID from another entry.
   const transactionIdCounts = {};
   for (const r of registrations) {
-    const txnId = r.gameRegistrationDetails?.paymentDetails?.transactionId;
-    if (txnId) {
-      transactionIdCounts[txnId] = (transactionIdCounts[txnId] || 0) + 1;
+    for (const entry of r.gameEntries || []) {
+      const txnId = entry.paymentDetails?.transactionId;
+      if (txnId) {
+        transactionIdCounts[txnId] = (transactionIdCounts[txnId] || 0) + 1;
+      }
     }
   }
   for (const r of registrations) {
-    const txnId = r.gameRegistrationDetails?.paymentDetails?.transactionId;
-    if (r.gameRegistrationDetails?.paymentDetails) {
-      r.gameRegistrationDetails.paymentDetails.isDuplicateTransactionId =
-        !!txnId && transactionIdCounts[txnId] > 1;
+    for (const entry of r.gameEntries || []) {
+      const txnId = entry.paymentDetails?.transactionId;
+      if (entry.paymentDetails) {
+        entry.paymentDetails.isDuplicateTransactionId =
+          !!txnId && transactionIdCounts[txnId] > 1;
+      }
     }
   }
 

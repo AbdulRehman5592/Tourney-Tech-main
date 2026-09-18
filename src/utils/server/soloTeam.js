@@ -25,11 +25,14 @@ export async function createSoloTeam({ tournament, gameConfigId, userId }) {
   const registration = await Registration.findOne({
     tournament: tournament._id,
     user: userId,
-    "gameRegistrationDetails.gameConfigIds": gameConfigId,
+    "gameEntries.gameConfigId": gameConfigId,
   });
   if (!registration) {
     throw new ApiError(400, "This player is not registered for this game in this tournament");
   }
+  const entry = registration.gameEntries.find(
+    (e) => String(e.gameConfigId) === String(gameConfigId)
+  );
 
   const existingTeam = await Team.findOne({
     tournament: tournament._id,
@@ -55,7 +58,7 @@ export async function createSoloTeam({ tournament, gameConfigId, userId }) {
     ...numbering,
   });
 
-  registration.gameRegistrationDetails.team = team._id;
+  entry.team = team._id;
   await registration.save();
 
   return team;

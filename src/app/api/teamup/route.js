@@ -135,8 +135,11 @@ export const GET = asyncHandler(async () => {
     tournament: { $in: tournamentIds },
   })
     .populate("tournament")
-    .populate("gameRegistrationDetails.games")
+    .populate("gameEntries.game")
     .lean();
+
+  const activeEntriesOf = (registration) =>
+    (registration?.gameEntries || []).filter((e) => !e.removed && !e.cancelled);
 
   // Merge games into requests only if BOTH from & to are registered in same tournament
   const requestsWithGames = requestsWithGame.map((req) => {
@@ -156,18 +159,14 @@ export const GET = asyncHandler(async () => {
     if (fromReg && toReg) {
       return {
         ...req,
-        fromGames: fromReg?.gameRegistrationDetails?.games || [],
-        toGames: toReg?.gameRegistrationDetails?.games || [],
+        fromGames: activeEntriesOf(fromReg).map((e) => e.game),
+        toGames: activeEntriesOf(toReg).map((e) => e.game),
         // The specific scheduled instance(s) each side registered for
         // (Tournament.games[]._id) -- what actually determines "do they
         // share a registration for this game", since the catalog game id
         // alone can't tell two independent instances apart.
-        fromGameConfigIds: (fromReg?.gameRegistrationDetails?.gameConfigIds || []).map((id) =>
-          id.toString()
-        ),
-        toGameConfigIds: (toReg?.gameRegistrationDetails?.gameConfigIds || []).map((id) =>
-          id.toString()
-        ),
+        fromGameConfigIds: activeEntriesOf(fromReg).map((e) => e.gameConfigId.toString()),
+        toGameConfigIds: activeEntriesOf(toReg).map((e) => e.gameConfigId.toString()),
       };
     }
 

@@ -9,7 +9,12 @@ export default function TeamForm() {
   const [openSelect, setOpenSelect] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [games, setGames] = useState([]);
-  const [users, setUsers] = useState([]);
+  // Registrations + teams for the currently-selected tournament -- used to
+  // work out, per game, which registered players are still available to
+  // team up vs. already on a team, instead of listing every player in the
+  // system with no indication either way.
+  const [registrations, setRegistrations] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [form, setForm] = useState({
     tournament: null,
     game: null,
@@ -48,7 +53,7 @@ export default function TeamForm() {
     fetchTournaments();
   }, []);
 
-  // ✅ When tournament changes → set games
+  // ✅ When tournament changes → set games, and load who's registered/teamed
   useEffect(() => {
     if (form.tournament) {
       const selectedTournament = tournaments.find(
@@ -57,8 +62,28 @@ export default function TeamForm() {
       if (selectedTournament) {
         setGames(selectedTournament.games || []);
       }
+
+      const tournamentId = form.tournament.value;
+      Promise.all([
+        api.get("/api/tournamentRegister"),
+        api.get(`/api/team?tournament=${tournamentId}`),
+      ])
+        .then(([regRes, teamRes]) => {
+          setRegistrations(
+            (regRes.data?.data || []).filter(
+              (r) => (r.tournament?._id || r.tournament) === tournamentId
+            )
+          );
+          setTeams(teamRes.data?.data || []);
+        })
+        .catch((err) => {
+          console.error("Failed to load registrations/teams:", err);
+          toast.error("Failed to load registered players");
+        });
     } else {
       setGames([]);
+      setRegistrations([]);
+      setTeams([]);
     }
 
     setForm((prev) => ({
@@ -68,25 +93,6 @@ export default function TeamForm() {
       tournamentTeamType: null,
     }));
   }, [form.tournament, tournaments]);
-
-  // ✅ Fetch members once
-  useEffect(() => {
-    async function fetchMembers() {
-      try {
-        const res = await api.get("/api/users");
-        setUsers(
-          (res.data?.data || []).map((u) => ({
-            value: u._id,
-            label: `${u.firstname || ""} ${u.lastname || ""} (${u.username || "unknown"})`,
-          }))
-        );
-      } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to load members");
-        setUsers([]);
-      }
-    }
-    fetchMembers();
-  }, []);
 
   // ✅ When game changes → auto set team type
   useEffect(() => {
@@ -106,6 +112,56 @@ export default function TeamForm() {
       }
     }
   }, [form.game, games]);
+
+  const activeGameConfigIdsOf = (registration) =>
+    (registration.gameEntries || [])
+      .filter((e) => !e.removed && !e.cancelled)
+      .map((e) => String(e.gameConfigId));
+
+  // Registered-for-this-game players, split into who's still available to
+  // team up vs. who's already on a team for this specific game.
+  const gameConfigId = form.game?.value;
+  const registeredForGame = gameConfigId
+    ? registrations.filter((r) => activeGameConfigIdsOf(r).includes(gameConfigId))
+    : [];
+  const teamedUserIds = new Set(
+    teams
+      .filter((t) => String(t.gameConfigId) === gameConfigId)
+      .flatMap((t) => (t.members || []).map((m) => m._id))
+  );
+  const teamNameForUser = (userId) =>
+    teams.find(
+      (t) =>
+        String(t.gameConfigId) === gameConfigId &&
+        (t.members || []).some((m) => m._id === userId)
+    )?.name;
+
+  // Member dropdown options -- every player registered for the selected
+  // game, each tagged with a colored badge showing availability right in
+  // the list (instead of a separate hard-to-scan block below). Already-
+  // teamed players stay visible for context but aren't selectable.
+  const memberOptions = registeredForGame.map((r) => {
+    const teamed = teamedUserIds.has(r.user?._id);
+    return {
+      value: r.user?._id,
+      label:
+        r.user?.username ||
+        `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim() ||
+        "Unknown player",
+      disabled: teamed,
+      badge: teamed
+        ? {
+            text: teamNameForUser(r.user?._id) || "Teamed up",
+            bg: "color-mix(in srgb, var(--muted-foreground) 22%, transparent)",
+            color: "var(--muted-foreground)",
+          }
+        : {
+            text: "Available",
+            bg: "color-mix(in srgb, var(--success-color) 22%, transparent)",
+            color: "var(--success-color)",
+          },
+    };
+  });
 
   // ✅ Submit
 const handleSubmit = async (e) => {
@@ -156,14 +212,19 @@ const handleSubmit = async (e) => {
 
     toast.success("Team created successfully");
 
-    // ✅ only reset form, NOT users
+    // ✅ Reset the form, then reload this tournament's registrations/teams so
+    // the just-teamed players immediately drop out of the available list.
+    const tournamentId = form.tournament.value;
     setForm({
-      tournament: null,
+      tournament: form.tournament,
       game: null,
       members: [],
       tournamentTeamType: null,
     });
-    setGames([]); // optional: clear games when tournament resets
+    api
+      .get(`/api/team?tournament=${tournamentId}`)
+      .then((res) => setTeams(res.data?.data || []))
+      .catch(() => {});
   } catch (err) {
     toast.error(err.response?.data?.message || "Failed to create team");
   }
@@ -201,39 +262,49 @@ const handleSubmit = async (e) => {
         />
       )}
 
-      <SearchableSelect
-        label="Member 1 (Team Leader)"
-        options={users.filter((u) => u.value !== form.members[1])}
-        value={users.find((u) => u.value === form.members[0]) || null}
-        onChange={(val) =>
-          setForm({
-            ...form,
-            members: [val?.value || null, form.members[1] || null],
-          })
-        }
-        placeholder="Select first member..."
-        isOpen={openSelect === "member1"}
-        onOpen={() => setOpenSelect("member1")}
-        onClose={() => setOpenSelect(null)}
-      />
+      {form.game && (
+        <>
+          <SearchableSelect
+            label="Member 1 (Team Leader)"
+            options={memberOptions.filter((u) => u.value !== form.members[1])}
+            value={memberOptions.find((u) => u.value === form.members[0]) || null}
+            onChange={(val) =>
+              setForm({
+                ...form,
+                members: [val?.value || null, form.members[1] || null],
+              })
+            }
+            placeholder="Select first member..."
+            isOpen={openSelect === "member1"}
+            onOpen={() => setOpenSelect("member1")}
+            onClose={() => setOpenSelect(null)}
+          />
 
-      {form.tournamentTeamType?.value === "double_player" && (
-        <SearchableSelect
-          label="Member 2"
-          // Can't be the same player already picked as Member 1.
-          options={users.filter((u) => u.value !== form.members[0])}
-          value={users.find((u) => u.value === form.members[1]) || null}
-          onChange={(val) =>
-            setForm({
-              ...form,
-              members: [form.members[0] || null, val?.value || null],
-            })
-          }
-          placeholder="Select second member..."
-          isOpen={openSelect === "member2"}
-          onOpen={() => setOpenSelect("member2")}
-          onClose={() => setOpenSelect(null)}
-        />
+          {form.tournamentTeamType?.value === "double_player" && (
+            <SearchableSelect
+              label="Member 2"
+              // Can't be the same player already picked as Member 1.
+              options={memberOptions.filter((u) => u.value !== form.members[0])}
+              value={memberOptions.find((u) => u.value === form.members[1]) || null}
+              onChange={(val) =>
+                setForm({
+                  ...form,
+                  members: [form.members[0] || null, val?.value || null],
+                })
+              }
+              placeholder="Select second member..."
+              isOpen={openSelect === "member2"}
+              onOpen={() => setOpenSelect("member2")}
+              onClose={() => setOpenSelect(null)}
+            />
+          )}
+
+          {registeredForGame.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No players are registered for this game yet.
+            </p>
+          )}
+        </>
       )}
 
       <button

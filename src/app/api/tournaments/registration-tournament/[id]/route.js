@@ -29,8 +29,8 @@ export const GET = asyncHandler(async (_, context) => {
     tournament: id,
     user: user._id,
   })
-    .populate("gameRegistrationDetails.games")
-    .populate("gameRegistrationDetails.team")
+    .populate("gameEntries.game")
+    .populate("gameEntries.team")
     .lean();
 
   if (Array.isArray(registrations) && registrations.length > 0) {

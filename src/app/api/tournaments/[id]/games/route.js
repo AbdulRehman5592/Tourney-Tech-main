@@ -25,6 +25,8 @@ export const POST = asyncHandler(async (req, context) => {
   const {
     game,
     entryFee = 0,
+    lateFee = 0,
+    earlyRegistrationCutoff,
     scheduledAt,
     eventTitle,
     locations,
@@ -148,6 +150,8 @@ export const POST = asyncHandler(async (req, context) => {
   tournament.games.push({
     game,
     entryFee,
+    lateFee: Number(lateFee) || 0,
+    earlyRegistrationCutoff: parseScheduledAt(earlyRegistrationCutoff),
     scheduledAt: parsedScheduledAt,
     eventTitle: eventTitle.toString().trim(),
     locations: Array.isArray(locations)

@@ -6,14 +6,15 @@ import { asyncHandler } from "@/utils/server/asyncHandler";
 import { requireAdmin } from "@/utils/server/roleGuards";
 import mongoose from "mongoose";
 
-// Admin resolves a pending refund request -- marks it processed (money sent
-// back outside the app, e.g. cash or bank transfer) or denied. Only moves a
-// registration that's actually cancelled and awaiting a decision.
+// Admin resolves a pending refund request for ONE game entry -- marks it
+// processed (money sent back outside the app, e.g. cash or bank transfer)
+// or denied. Only moves an entry that's actually cancelled/removed and
+// awaiting a decision; every other entry on the registration is untouched.
 export const PATCH = asyncHandler(async (req, { params }) => {
   await connectDB();
   await requireAdmin();
 
-  const { id } = await params;
+  const { id, entryId } = await params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(400, "Invalid registration ID");
   }
@@ -25,15 +26,18 @@ export const PATCH = asyncHandler(async (req, { params }) => {
 
   const registration = await Registration.findById(id);
   if (!registration) throw new ApiError(404, "Registration not found");
-  if (!registration.cancelled) {
-    throw new ApiError(400, "This registration hasn't been cancelled");
+
+  const entry = registration.gameEntries.id(entryId);
+  if (!entry) throw new ApiError(404, "Game entry not found");
+  if (!entry.removed && !entry.cancelled) {
+    throw new ApiError(400, "This game entry hasn't been dropped");
   }
-  if (registration.refundStatus !== "requested") {
-    throw new ApiError(400, `This refund is already marked "${registration.refundStatus}"`);
+  if (entry.refundStatus !== "requested") {
+    throw new ApiError(400, `This refund is already marked "${entry.refundStatus}"`);
   }
 
-  registration.refundStatus = refundStatus;
-  if (refundNote !== undefined) registration.refundNote = refundNote?.toString().trim();
+  entry.refundStatus = refundStatus;
+  if (refundNote !== undefined) entry.refundNote = refundNote?.toString().trim();
   await registration.save();
 
   return Response.json(

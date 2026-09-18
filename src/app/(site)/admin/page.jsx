@@ -25,7 +25,7 @@ export default function AdminPage() {
   }, []);
 
   const cardData = [
-    { title: "Total Users", value: stats?.totalUsers ?? "--", icon: Users },
+    { title: "Total Players", value: stats?.totalUsers ?? "--", icon: Users },
     { title: "Ongoing Tournaments", value: stats?.ongoingTournament ?? "--", icon: Activity },
     { title: "Total Tournaments", value: stats?.totalTournaments ?? "--", icon: FileText },
     { title: "New Signups (7 days)", value: stats?.newSignUpUsers ?? "--", icon: UserPlus },

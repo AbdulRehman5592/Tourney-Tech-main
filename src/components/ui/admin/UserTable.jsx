@@ -47,11 +47,11 @@ export default function UserTable({ onEditUser, refreshKey }) {
   }, [refreshKey]); // ✅ refetch whenever refreshKey changes
 
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    if (!confirm("Are you sure you want to delete this player?")) return;
 
     try {
       const res = await api.delete(`/api/user/${id}`);
-      toast.success(res.data.message || "User deleted successfully");
+      toast.success(res.data.message || "Player deleted successfully");
       fetchUsers();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to delete user");

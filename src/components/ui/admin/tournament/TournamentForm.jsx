@@ -84,6 +84,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           gameConfigId: g._id || "",
           game: typeof g.game === "object" ? g.game._id : g.game,
           entryFee: g.entryFee,
+          lateFee: g.lateFee || "",
+          status: g.status || "upcoming",
+          earlyRegistrationCutoff: toDateTimeLocalInput(g.earlyRegistrationCutoff),
           scheduledAt: toDateTimeLocalInput(g.scheduledAt),
           eventTitle: g.eventTitle || "",
           locations: g.locations?.length ? g.locations : [""],
@@ -166,6 +169,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
       {
         game: "",
         entryFee: "",
+        lateFee: "",
+        status: "upcoming",
+        earlyRegistrationCutoff: "",
         scheduledAt: "",
         eventTitle: "",
         locations: [""],
@@ -196,13 +202,17 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   };
+  // Same conversion as scheduledAtPayload -- kept separate since the two
+  // dates are semantically different (game time vs. a pricing deadline) even
+  // though the <input type="datetime-local"> handling is identical.
+  const earlyRegistrationCutoffPayload = scheduledAtPayload;
 
   const handleGameFieldChange = (index, name, value) => {
     const updated = [...gameFields];
     if (["doublesEnabled", "mixedDoublesEnabled", "playoffEnabled"].includes(name)) {
       updated[index][name] = value === true || value === "true";
     } else if (
-      ["entryFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost", "playoffQualifiersCount"].includes(name)
+      ["entryFee", "lateFee", "meshRounds", "standardRounds", "doublesCost", "mixedDoublesCost", "playoffQualifiersCount"].includes(name)
     ) {
       updated[index][name] = value === "" ? "" : Number(value);
     } else {
@@ -320,6 +330,7 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
         .map((g) => ({
           ...g,
           scheduledAt: scheduledAtPayload(g.scheduledAt),
+          earlyRegistrationCutoff: earlyRegistrationCutoffPayload(g.earlyRegistrationCutoff),
           locations: (g.locations || []).map((l) => l.trim()).filter(Boolean),
           playoffQualifiersCount:
             g.playoffEnabled && g.playoffQualifiersCount
@@ -342,6 +353,9 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
           const gameData = {
             game: g.game,
             entryFee: Number(g.entryFee),
+            lateFee: Number(g.lateFee) || 0,
+            status: g.status || "upcoming",
+            earlyRegistrationCutoff: earlyRegistrationCutoffPayload(g.earlyRegistrationCutoff),
             scheduledAt: scheduledAtPayload(g.scheduledAt),
             eventTitle: g.eventTitle?.trim(),
             locations: (g.locations || []).map((l) => l.trim()).filter(Boolean),
@@ -694,15 +708,79 @@ export default function TournamentForm({ initialData, onClose, onSuccess }) {
               </div>
 
               {/* Entry Fee */}
-              <input
-                type="number"
-                placeholder="please input fee in $"
-                value={field.entryFee}
-                onChange={(e) =>
-                  handleGameFieldChange(index, "entryFee", e.target.value)
-                }
-                className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
-              />
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Entry Fee
+                </label>
+                <input
+                  type="number"
+                  placeholder="please input fee in $"
+                  value={field.entryFee}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "entryFee", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                />
+              </div>
+
+              {/* Late Fee -- added on top of Entry Fee for anyone who
+                  registers after the Early Registration Cutoff below. */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Late Fee
+                </label>
+                <input
+                  type="number"
+                  placeholder="extra $ charged after the early cutoff"
+                  value={field.lateFee}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "lateFee", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                />
+              </div>
+
+              {/* Game Status -- purely informational for the floor/players
+                  (Overview tab shows this, read-only); independent of
+                  bracket-generation progress. */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Status
+                </label>
+                <select
+                  value={field.status || "upcoming"}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "status", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none"
+                >
+                  <option value="upcoming">Upcoming</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              {/* Early Registration Cutoff -- once this passes, new
+                  registrations for this game are charged Entry Fee + Late Fee
+                  instead of just Entry Fee. Leave blank for no late fee ever. */}
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <CalendarClock size={15} className="text-[var(--accent-color)]" />
+                  Early Registration Cutoff
+                </label>
+                <input
+                  type="datetime-local"
+                  value={field.earlyRegistrationCutoff || ""}
+                  onChange={(e) =>
+                    handleGameFieldChange(index, "earlyRegistrationCutoff", e.target.value)
+                  }
+                  className="w-full p-2 rounded bg-[var(--background)] text-white focus:outline-none [color-scheme:dark]"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Optional -- leave blank if the Late Fee should never apply.
+                </p>
+              </div>
 
               {/* When this game is played -- optional, shown as "Schedule TBA"
                   everywhere until it's set. */}
