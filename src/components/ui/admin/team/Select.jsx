@@ -61,19 +61,32 @@ export default function SearchableSelect({
         )}
 
         {isOpen && (
-          <ul className="absolute z-10 w-full max-h-40 overflow-y-auto bg-[var(--card-background)] border border-[var(--border-color)] rounded-lg mt-1 shadow-lg scrollbar">
+          <ul className="absolute z-10 max-h-56 w-full overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--card-background)] mt-1 shadow-lg scrollbar">
             {filtered.length > 0 ? (
               filtered.map((opt) => (
                 <li
                   key={opt.value}
                   onClick={() => {
+                    if (opt.disabled) return;
                     onChange(opt);
                     setQuery(opt.label || "");
                     setIsOpen(false);
                   }}
-                  className="px-3 py-2 cursor-pointer hover:bg-[var(--card-hover)]"
+                  className={`flex items-center justify-between gap-2 px-3 py-2 ${
+                    opt.disabled
+                      ? "cursor-not-allowed opacity-50"
+                      : "cursor-pointer hover:bg-[var(--card-hover)]"
+                  }`}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {opt.badge && (
+                    <span
+                      className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: opt.badge.bg, color: opt.badge.color }}
+                    >
+                      {opt.badge.text}
+                    </span>
+                  )}
                 </li>
               ))
             ) : (

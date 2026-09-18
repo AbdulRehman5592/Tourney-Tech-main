@@ -136,23 +136,32 @@ export default function TeamForm() {
         (t.members || []).some((m) => m._id === userId)
     )?.name;
 
-  const availableRegistrations = registeredForGame.filter(
-    (r) => !teamedUserIds.has(r.user?._id)
-  );
-  const alreadyTeamedRegistrations = registeredForGame.filter((r) =>
-    teamedUserIds.has(r.user?._id)
-  );
-
-  // Member dropdown options -- only players registered for the selected
-  // game AND not already teamed up for it, so there's nothing ambiguous to
-  // "remember": if it's in the list, it's available.
-  const memberOptions = availableRegistrations.map((r) => ({
-    value: r.user?._id,
-    label:
-      r.user?.username ||
-      `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim() ||
-      "Unknown player",
-  }));
+  // Member dropdown options -- every player registered for the selected
+  // game, each tagged with a colored badge showing availability right in
+  // the list (instead of a separate hard-to-scan block below). Already-
+  // teamed players stay visible for context but aren't selectable.
+  const memberOptions = registeredForGame.map((r) => {
+    const teamed = teamedUserIds.has(r.user?._id);
+    return {
+      value: r.user?._id,
+      label:
+        r.user?.username ||
+        `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim() ||
+        "Unknown player",
+      disabled: teamed,
+      badge: teamed
+        ? {
+            text: teamNameForUser(r.user?._id) || "Teamed up",
+            bg: "color-mix(in srgb, var(--muted-foreground) 22%, transparent)",
+            color: "var(--muted-foreground)",
+          }
+        : {
+            text: "Available",
+            bg: "color-mix(in srgb, var(--success-color) 22%, transparent)",
+            color: "var(--success-color)",
+          },
+    };
+  });
 
   // ✅ Submit
 const handleSubmit = async (e) => {
@@ -290,29 +299,10 @@ const handleSubmit = async (e) => {
             />
           )}
 
-          {memberOptions.length === 0 && (
+          {registeredForGame.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              No registered players are available to team up for this game --
-              everyone registered already has a team, or no one has
-              registered yet.
+              No players are registered for this game yet.
             </p>
-          )}
-
-          {alreadyTeamedRegistrations.length > 0 && (
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--background)] p-3">
-              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-                Already teamed up for this game (not selectable):
-              </p>
-              <ul className="space-y-0.5 text-xs text-muted-foreground">
-                {alreadyTeamedRegistrations.map((r) => (
-                  <li key={r._id}>
-                    {r.user?.username || `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim()}
-                    {" — "}
-                    {teamNameForUser(r.user?._id) || "Unknown team"}
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
         </>
       )}
