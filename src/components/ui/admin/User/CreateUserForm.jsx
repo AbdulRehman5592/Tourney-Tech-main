@@ -92,7 +92,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
             headers: { "Content-Type": "application/json" },
           });
 
-      toast.success(res.data.message || (isEdit ? "User updated!" : "User created!"));
+      toast.success(res.data.message || (isEdit ? "Player updated!" : "Player created!"));
       onSuccess?.(res.data.data?.user);
       onClose?.(); // close modal after success
     } catch (error) {
@@ -121,7 +121,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
         </button>
 
         <h2 className="text-2xl font-bold text-foreground mb-6">
-          {isEdit ? "Edit User" : "Create New User"}
+          {isEdit ? "Edit Player" : "Create New Player"}
         </h2>
 
         <form
@@ -284,7 +284,7 @@ export default function UserFormModal({ user = null, onSuccess, onClose }) {
               disabled={loading}
               className="w-full py-3 rounded-lg font-semibold bg-[var(--primary-color)] hover:bg-[var(--primary-hover)] text-white transition-all duration-200 disabled:opacity-60"
             >
-              {loading ? (isEdit ? "Updating..." : "Creating...") : isEdit ? "Update User" : "Create User"}
+              {loading ? (isEdit ? "Updating..." : "Creating...") : isEdit ? "Update Player" : "Create Player"}
             </button>
           </div>
         </form>

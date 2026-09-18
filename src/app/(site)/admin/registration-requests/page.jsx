@@ -362,8 +362,8 @@ export default function AdminRegistrationsTable() {
             <tr>
               <th className="py-2 px-4 text-left sticky left-0 z-20 bg-[var(--secondary-color)] w-10"></th>
               <th className="py-2 px-4 text-left sticky left-10 z-20 bg-[var(--secondary-color)] w-14">Sr No.</th>
-              <th className="py-2 px-4 text-left sticky left-24 z-20 bg-[var(--secondary-color)]">User</th>
-              <th className="py-2 px-4 text-left">User Email</th>
+              <th className="py-2 px-4 text-left sticky left-24 z-20 bg-[var(--secondary-color)]">Player</th>
+              <th className="py-2 px-4 text-left">Player Email</th>
               <th className="py-2 px-4 text-left">Tournament</th>
               <th className="py-2 px-4 text-left">Select</th>
               <th className="py-2 px-4 text-left">Game</th>
@@ -440,9 +440,11 @@ export default function AdminRegistrationsTable() {
                           </td>
                           <td className="py-2 px-4 whitespace-nowrap">{gameLabelFor(r, entry)}</td>
                           <td className="py-2 px-4">
-                            {r.tournament?.games?.find(
-                              (g) => String(g._id) === String(entry.gameConfigId)
-                            )?.entryFee ?? 0}
+                            {entry.feeCharged ??
+                              r.tournament?.games?.find(
+                                (g) => String(g._id) === String(entry.gameConfigId)
+                              )?.entryFee ??
+                              0}
                           </td>
                           <td
                             className={`text-center capitalize px-4 ${

@@ -75,6 +75,8 @@ export default function GameRegistrationPage() {
           registeredGames.map((g) => ({
             _id: g._id,
             entryFee: g.entryFee,
+            lateFee: g.lateFee,
+            earlyRegistrationCutoff: g.earlyRegistrationCutoff,
             scheduledAt: g.scheduledAt,
             format: g.format,
             teamBased: g.teamBased, // keep original boolean if needed
@@ -103,10 +105,14 @@ export default function GameRegistrationPage() {
   const selectedGameDetails = formData.game
     .map((gameId) => tournamentGames.find((g) => g._id === gameId))
     .filter(Boolean);
-  const totalFee = selectedGameDetails.reduce(
-    (sum, g) => sum + (Number(g.entryFee) || 0),
-    0
-  );
+  // Mirrors the server's feeChargedFor() in tournamentRegistration.js --
+  // shown here so the player sees the real total (including any late fee)
+  // before submitting, not just the base entry fee.
+  const isGameLate = (g) =>
+    g.earlyRegistrationCutoff && new Date() > new Date(g.earlyRegistrationCutoff);
+  const gameFee = (g) => (Number(g.entryFee) || 0) + (isGameLate(g) ? Number(g.lateFee) || 0 : 0);
+  const totalFee = selectedGameDetails.reduce((sum, g) => sum + gameFee(g), 0);
+  const anySelectedGameLate = selectedGameDetails.some(isGameLate);
 
   const openConfirm = (e) => {
     e.preventDefault();
@@ -338,6 +344,12 @@ export default function GameRegistrationPage() {
               </span>
               <span>${totalFee}</span>
             </div>
+          )}
+          {anySelectedGameLate && (
+            <p className="mt-1 text-xs" style={{ color: "var(--warning-color, #f59e0b)" }}>
+              A late fee applies to one or more of these games since the early
+              registration cutoff has passed -- included in the total above.
+            </p>
           )}
         </div>
 

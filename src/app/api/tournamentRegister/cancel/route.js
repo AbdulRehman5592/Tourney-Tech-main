@@ -112,8 +112,9 @@ export const POST = asyncHandler(async (req) => {
     cancellingUser.user?.username ||
     "A player";
 
-  const droppedGameFee = droppedGameConfigIds.reduce((sum, id) => {
-    const slot = tournament.games.id(id);
+  const droppedGameFee = droppedEntries.reduce((sum, entry) => {
+    if (entry.feeCharged != null) return sum + entry.feeCharged;
+    const slot = tournament.games.id(entry.gameConfigId);
     return sum + (slot?.entryFee || 0);
   }, 0);
 

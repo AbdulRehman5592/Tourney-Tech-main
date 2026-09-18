@@ -24,14 +24,14 @@ export default function ManageUsers() {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">All Users</h1>
+        <h1 className="text-2xl font-bold text-foreground">All Players</h1>
         <Button
           onClick={() => {
             setEditingUser(null);
             setShowForm((prev) => !prev);
           }}
         >
-          {showForm ? "Close Form" : "Create User"}
+          {showForm ? "Close Form" : "Create Player"}
         </Button>
       </div>
 

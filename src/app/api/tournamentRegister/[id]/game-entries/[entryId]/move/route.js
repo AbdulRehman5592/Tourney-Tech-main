@@ -125,6 +125,10 @@ export const PATCH = asyncHandler(async (req, context) => {
   entry.game = toGameConfig.game;
   entry.gameConfigId = toGameConfigId;
   entry.team = null;
+  // A move is a fresh admin decision, not a late registration -- charge the
+  // destination game's base fee, dropping any late fee that applied to the
+  // game being left.
+  entry.feeCharged = toGameConfig.entryFee || 0;
 
   const amount = (toGameConfig.entryFee || 0) - (fromGameConfig.entryFee || 0);
   registration.financialAdjustments.push({

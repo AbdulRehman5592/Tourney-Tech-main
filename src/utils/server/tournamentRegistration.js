@@ -113,6 +113,15 @@ export async function createOrUpdateRegistration({
     requireReceipt
   );
 
+  // Locks in the effective fee (base + late fee, if registering after this
+  // game's early-registration cutoff) at the moment of registration -- see
+  // GameEntrySchema.feeCharged.
+  const feeChargedFor = (slot) => {
+    const isLate =
+      slot.earlyRegistrationCutoff && new Date() > new Date(slot.earlyRegistrationCutoff);
+    return (slot.entryFee || 0) + (isLate ? slot.lateFee || 0 : 0);
+  };
+
   const makeEntry = (slot) => ({
     game: slot.game,
     gameConfigId: slot._id,
@@ -120,6 +129,7 @@ export async function createOrUpdateRegistration({
     paid: false,
     paymentMethod: paymentMethod || "cash",
     paymentDetails: resolvedPaymentDetails,
+    feeCharged: feeChargedFor(slot),
   });
 
   const existingRegistration = await Registration.findOne({
@@ -182,6 +192,7 @@ export async function createOrUpdateRegistration({
         droppedEntry.cancelledAt = null;
         droppedEntry.refundStatus = "not_applicable";
         droppedEntry.team = null;
+        droppedEntry.feeCharged = feeChargedFor(slot);
       } else {
         existingRegistration.gameEntries.push(makeEntry(slot));
       }

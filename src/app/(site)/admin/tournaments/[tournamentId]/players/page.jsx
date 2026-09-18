@@ -344,7 +344,7 @@ export default function TournamentPlayersTab() {
                                   color: entry.paid ? "var(--success-color)" : "var(--error-color)",
                                 }}
                               >
-                                {entry.paid ? "Paid" : "Unpaid"} ${gameConfig?.entryFee ?? 0}
+                                {entry.paid ? "Paid" : "Unpaid"} ${entry.feeCharged ?? gameConfig?.entryFee ?? 0}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {entry.team ? entry.team.name : "Not teamed up yet"}

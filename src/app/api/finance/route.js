@@ -67,7 +67,10 @@ export const GET = asyncHandler(async (req) => {
     // tracked independently per game rather than bundled across all of a
     // player's games in this tournament.
     for (const entry of reg.gameEntries || []) {
-      const fee = entryFee(tournament, entry.gameConfigId);
+      // Locked-in fee from registration time, when available -- only falls
+      // back to a live lookup for entries created before this field existed,
+      // so an organizer editing the price later never rewrites history.
+      const fee = entry.feeCharged ?? entryFee(tournament, entry.gameConfigId);
       const label = gameLabel(tournament, entry.gameConfigId);
 
       if (entry.removed || entry.cancelled) {
@@ -75,6 +78,8 @@ export const GET = asyncHandler(async (req) => {
           id: `${reg._id}-${entry._id}-refund`,
           type: "refund",
           registrationId: reg._id,
+          entryId: entry._id,
+          gameConfigId: entry.gameConfigId,
           tournamentId: tournament._id,
           tournament: tournament.name,
           player: playerName,
@@ -90,6 +95,8 @@ export const GET = asyncHandler(async (req) => {
           id: `${reg._id}-${entry._id}-${paid ? "payment" : "pending"}`,
           type: paid ? "payment" : "pending",
           registrationId: reg._id,
+          entryId: entry._id,
+          gameConfigId: entry.gameConfigId,
           tournamentId: tournament._id,
           tournament: tournament.name,
           player: playerName,
@@ -106,11 +113,18 @@ export const GET = asyncHandler(async (req) => {
       rows.push({
         id: `${reg._id}-adj-${adj._id}`,
         type: "adjustment",
+        adjustmentType: adj.type,
         registrationId: reg._id,
+        adjustmentId: adj._id,
         tournamentId: tournament._id,
         tournament: tournament.name,
         player: playerName,
-        game: `${gameLabel(tournament, adj.fromGameConfigId)} → ${gameLabel(tournament, adj.toGameConfigId)}`,
+        game:
+          adj.type === "manual"
+            ? adj.gameConfigId
+              ? gameLabel(tournament, adj.gameConfigId)
+              : "—"
+            : `${gameLabel(tournament, adj.fromGameConfigId)} → ${gameLabel(tournament, adj.toGameConfigId)}`,
         amount: adj.amount,
         method: null,
         status: "recorded",

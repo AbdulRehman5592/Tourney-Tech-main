@@ -5,6 +5,15 @@ const { Schema, model, models } = mongoose;
 const TournamentGameSchema = new Schema({
   game: { type: Schema.Types.ObjectId, ref: "Game", required: true },
   entryFee: { type: Number, default: 0 },
+  // Extra amount added on top of entryFee for anyone registering after
+  // earlyRegistrationCutoff. 0/unset means no late fee. The effective total
+  // is snapshotted onto each Registration.gameEntries[].feeCharged at
+  // registration time, so editing this later never retroactively changes
+  // what an already-registered player owes.
+  lateFee: { type: Number, default: 0 },
+  // Deadline for the base entryFee -- registering after this moment adds
+  // lateFee. null/unset means early pricing never expires (no late fee).
+  earlyRegistrationCutoff: { type: Date },
   // When this specific game is played (date + time). Optional so tournaments
   // created before scheduling existed -- and drafts still being planned -- stay
   // valid; the UI shows "Schedule TBA" when it's unset.

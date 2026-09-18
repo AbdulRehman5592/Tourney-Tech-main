@@ -52,7 +52,7 @@ export default function AllRegisteredPlayers() {
     () => [
       { header: "Sr No.", cell: ({ row }) => row.index + 1, enableSorting: false, enableColumnFilter: false },
       {
-        header: "User",
+        header: "Player",
         id: "user",
         accessorFn: (row) =>
           `${row.registration.user?.firstname || ""} ${row.registration.user?.lastname || ""}`.trim(),
@@ -135,7 +135,7 @@ export default function AllRegisteredPlayers() {
       );
       return {
         "Sr No.": row.index + 1,
-        User: `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim(),
+        Player: `${r.user?.firstname || ""} ${r.user?.lastname || ""}`.trim(),
         Email: r.user?.email || "",
         Tournament: r.tournament?.name || "",
         Game: match?.eventTitle || entry.game?.name || "No game",
@@ -146,8 +146,8 @@ export default function AllRegisteredPlayers() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Registered Users");
-    XLSX.writeFile(workbook, `registered-users-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registered Players");
+    XLSX.writeFile(workbook, `registered-players-${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   if (loading)
@@ -159,7 +159,7 @@ export default function AllRegisteredPlayers() {
   return (
     <div className="min-h-screen p-6 bg-[var(--background)] text-[var(--foreground)]">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Registered Users</h1>
+        <h1 className="text-2xl font-bold">Registered Players</h1>
         <button
           onClick={handleExport}
           className="px-4 py-2 rounded-lg font-semibold transition hover:scale-[1.02]"

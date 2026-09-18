@@ -16,6 +16,12 @@ const GameEntrySchema = new Schema(
     // in one tournament as fully independent competitions.
     gameConfigId: { type: Schema.Types.ObjectId, required: true },
     team: { type: Schema.Types.ObjectId, ref: "Team" }, // optional for solo
+    // The effective fee (entryFee + lateFee if registered after the game's
+    // earlyRegistrationCutoff) at the moment this entry was created --
+    // snapshotted rather than derived live, so an organizer editing the
+    // price/cutoff later never retroactively changes what this player owes.
+    // Nullable for entries created before this feature existed.
+    feeCharged: { type: Number },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -91,16 +97,22 @@ const GameEntrySchema = new Schema(
 // lightweight log for the Finance page, not a payment ledger -- it never
 // touches a game entry's `paid`, and collecting/refunding the difference is
 // a manual admin step same as cash payments already are.
+//
+// "manual" is a free-form admin correction (e.g. a cash adjustment, a fee
+// waiver) not tied to a game move -- fromGameConfigId/toGameConfigId are
+// only ever set for "game_move"; a manual entry may optionally reference a
+// single `gameConfigId` (which game it relates to) or none at all.
 const FinancialAdjustmentSchema = new Schema(
   {
     type: {
       type: String,
-      enum: ["game_move"],
+      enum: ["game_move", "manual"],
       required: true,
       default: "game_move",
     },
-    fromGameConfigId: { type: Schema.Types.ObjectId, required: true },
-    toGameConfigId: { type: Schema.Types.ObjectId, required: true },
+    fromGameConfigId: { type: Schema.Types.ObjectId },
+    toGameConfigId: { type: Schema.Types.ObjectId },
+    gameConfigId: { type: Schema.Types.ObjectId }, // "manual" only, optional
     amount: { type: Number, required: true },
     reason: { type: String, trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

@@ -30,10 +30,10 @@ import {
 // the admin would appear to "lose" most of their menu.
 export const adminNavItems = [
   { href: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard", label: "Switch To User", icon: ArrowLeftRight },
-  { href: "/admin/users", label: "Manage Users", icon: Users },
+  { href: "/dashboard", label: "Switch To Player", icon: ArrowLeftRight },
+  { href: "/admin/users", label: "Manage Players", icon: Users },
   { href: "/admin/register-player", label: "Register Player", icon: UserPlus2 },
-  { href: "/admin/import-users", label: "Import Users (Excel)", icon: FileUp },
+  { href: "/admin/import-users", label: "Import Players (Excel)", icon: FileUp },
   { href: "/admin/add-games", label: "Add Game", icon: Gamepad2 },
   { href: "/admin/game-types", label: "Game Types", icon: Spade },
   { href: "/admin/signup-options", label: "Signup Options", icon: MapPin },

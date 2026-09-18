@@ -38,6 +38,7 @@ export const PATCH = asyncHandler(async (req, context) => {
   const allowedFields = [
     "game",
     "entryFee",
+    "lateFee",
     "eventTitle",
     "format",
     "meshRounds",
@@ -64,6 +65,9 @@ export const PATCH = asyncHandler(async (req, context) => {
   // Date/time needs parsing (and null must clear it) rather than a raw assign.
   if ("scheduledAt" in body) {
     game.scheduledAt = parseScheduledAt(body.scheduledAt);
+  }
+  if ("earlyRegistrationCutoff" in body) {
+    game.earlyRegistrationCutoff = parseScheduledAt(body.earlyRegistrationCutoff);
   }
 
   if ("eventTitle" in body && (!body.eventTitle || !body.eventTitle.toString().trim())) {

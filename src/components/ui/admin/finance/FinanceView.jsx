@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import api from "@/utils/axios";
-import { Banknote, Search } from "lucide-react";
+import { Banknote, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import AddAdjustmentModal from "./AddAdjustmentModal";
 
 const TYPE_STYLE = {
   payment: { label: "Payment", bg: "color-mix(in srgb, var(--info-color) 14%, transparent)", color: "var(--info-color)" },
@@ -47,6 +48,8 @@ export default function FinanceView({ tournamentId }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [tournamentFilter, setTournamentFilter] = useState("all");
   const [resolvingId, setResolvingId] = useState(null);
+  const [adjustmentModal, setAdjustmentModal] = useState(null); // { editing } | null
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -90,13 +93,32 @@ export default function FinanceView({ tournamentId }) {
     const refundNote = window.prompt(`Note for marking this refund "${refundStatus}"? (optional)`) || "";
     setResolvingId(row.id);
     try {
-      await api.patch(`/api/tournamentRegister/${row.registrationId}/refund`, { refundStatus, refundNote });
+      await api.patch(
+        `/api/tournamentRegister/${row.registrationId}/game-entries/${row.entryId}/refund`,
+        { refundStatus, refundNote }
+      );
       toast.success(`Refund marked as ${refundStatus}`);
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update refund");
     } finally {
       setResolvingId(null);
+    }
+  };
+
+  const handleDeleteAdjustment = async (row) => {
+    if (!window.confirm("Delete this adjustment? This can't be undone.")) return;
+    setDeletingId(row.id);
+    try {
+      await api.delete(
+        `/api/tournamentRegister/${row.registrationId}/financial-adjustments/${row.adjustmentId}`
+      );
+      toast.success("Adjustment deleted");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete adjustment");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -160,6 +182,14 @@ export default function FinanceView({ tournamentId }) {
             ))}
           </select>
         )}
+        <button
+          type="button"
+          onClick={() => setAdjustmentModal({ editing: null })}
+          className="ml-auto flex items-center gap-1.5 rounded-2xl bg-[var(--accent-color)] px-4 py-2.5 text-sm font-semibold text-black"
+        >
+          <Plus className="h-4 w-4" />
+          Add Adjustment
+        </button>
       </div>
 
       {loading ? (
@@ -251,6 +281,27 @@ export default function FinanceView({ tournamentId }) {
                             </button>
                           </div>
                         )}
+                        {row.type === "adjustment" && row.adjustmentType === "manual" && (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setAdjustmentModal({ editing: row })}
+                              className="text-muted-foreground transition hover:text-[var(--accent-color)]"
+                              aria-label="Edit adjustment"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={deletingId === row.id}
+                              onClick={() => handleDeleteAdjustment(row)}
+                              className="text-muted-foreground transition hover:text-red-500 disabled:opacity-40"
+                              aria-label="Delete adjustment"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -259,6 +310,15 @@ export default function FinanceView({ tournamentId }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {adjustmentModal && (
+        <AddAdjustmentModal
+          rows={rows}
+          editing={adjustmentModal.editing}
+          onClose={() => setAdjustmentModal(null)}
+          onDone={fetchData}
+        />
       )}
     </div>
   );
